@@ -13,8 +13,12 @@ from app.db.repositories.auth import AuthRepository
 from app.models.schemas import (
     AccessTokenResponse,
     ApiKeyCreateResponse,
+    ApiKeyResponse,
     AuthenticatedUser,
+    UserCreateRequest,
     UserRecord,
+    UserResponse,
+    UserUpdateRequest,
 )
 
 
@@ -27,6 +31,7 @@ class AuthService:
         if not self._settings.auth_enabled:
             return
 
+        await self._repository.ensure_auth_tables()
         password_hash = self._hash_password(self._settings.auth_bootstrap_admin_password)
         await self._repository.create_bootstrap_admin_if_missing(
             username=self._settings.auth_bootstrap_admin_username,
@@ -118,6 +123,88 @@ class AuthService:
             created_at=record.created_at,
         )
 
+    async def list_api_keys_for_user(self, user_id: UUID) -> list[ApiKeyResponse]:
+        records = await self._repository.list_api_keys_for_user(user_id)
+        return [self._to_api_key_response(record) for record in records]
+
+    async def revoke_api_key(
+        self,
+        api_key_id: UUID,
+        user_id: UUID | None = None,
+    ) -> None:
+        revoked = await self._repository.revoke_api_key(api_key_id, user_id=user_id)
+        if not revoked:
+            raise ValueError("API key not found")
+
+    async def create_user(self, payload: UserCreateRequest) -> UserResponse:
+        existing = await self._repository.get_user_by_username(payload.username)
+        if existing is not None:
+            raise ValueError("Username already exists")
+
+        user = await self._repository.create_user(
+            username=payload.username,
+            password_hash=self._hash_password(payload.password),
+            is_active=payload.is_active,
+            is_admin=payload.is_admin,
+        )
+        return self._to_user_response(user)
+
+    async def list_users(self) -> list[UserResponse]:
+        users = await self._repository.list_users()
+        return [self._to_user_response(user) for user in users]
+
+    async def get_user(self, user_id: UUID) -> UserResponse:
+        user = await self._repository.get_user_by_id(user_id)
+        if user is None:
+            raise ValueError("User not found")
+        return self._to_user_response(user)
+
+    async def update_user(
+        self,
+        user_id: UUID,
+        payload: UserUpdateRequest,
+        current_user: AuthenticatedUser,
+    ) -> UserResponse:
+        existing = await self._repository.get_user_by_id(user_id)
+        if existing is None:
+            raise ValueError("User not found")
+
+        if payload.username and payload.username != existing.username:
+            duplicate = await self._repository.get_user_by_username(payload.username)
+            if duplicate is not None and duplicate.id != user_id:
+                raise ValueError("Username already exists")
+
+        if existing.id == current_user.id and payload.is_admin is False:
+            raise ValueError("You cannot remove your own admin access")
+
+        updates: dict[str, object] = {}
+        if payload.username is not None:
+            updates["username"] = payload.username
+        if payload.password is not None:
+            updates["password_hash"] = self._hash_password(payload.password)
+        if payload.is_active is not None:
+            updates["is_active"] = payload.is_active
+        if payload.is_admin is not None:
+            updates["is_admin"] = payload.is_admin
+
+        updated = await self._repository.update_user(user_id, updates)
+        if updated is None:
+            raise ValueError("User not found")
+
+        return self._to_user_response(updated)
+
+    async def delete_user(
+        self,
+        user_id: UUID,
+        current_user: AuthenticatedUser,
+    ) -> None:
+        if user_id == current_user.id:
+            raise ValueError("You cannot delete your own account")
+
+        deleted = await self._repository.delete_user(user_id)
+        if not deleted:
+            raise ValueError("User not found")
+
     def _build_authenticated_user(
         self,
         user: UserRecord,
@@ -157,3 +244,24 @@ class AuthService:
 
     def _hash_api_key(self, raw_api_key: str) -> str:
         return hashlib.sha256(raw_api_key.encode("utf-8")).hexdigest()
+
+    def _to_user_response(self, user: UserRecord) -> UserResponse:
+        return UserResponse(
+            id=user.id,
+            username=user.username,
+            is_active=user.is_active,
+            is_admin=user.is_admin,
+            created_at=user.created_at,
+            updated_at=user.updated_at,
+        )
+
+    def _to_api_key_response(self, record: object) -> ApiKeyResponse:
+        return ApiKeyResponse(
+            id=record.id,
+            user_id=record.user_id,
+            name=record.name,
+            key_prefix=record.key_prefix,
+            is_active=record.is_active,
+            last_used_at=record.last_used_at,
+            created_at=record.created_at,
+        )

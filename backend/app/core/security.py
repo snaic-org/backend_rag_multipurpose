@@ -1,6 +1,10 @@
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 
 from app.models.schemas import AuthenticatedUser
+
+bearer_scheme = HTTPBearer(auto_error=False)
+api_key_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def _resolve_request_scheme(request: Request) -> str:
@@ -21,8 +25,8 @@ def _enforce_https_if_required(request: Request) -> None:
 
 async def require_authenticated_user(
     request: Request,
-    authorization: str | None = Header(default=None),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    bearer_credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    x_api_key: str | None = Security(api_key_scheme),
 ) -> AuthenticatedUser:
     settings = request.app.state.settings
     if not settings.auth_enabled:
@@ -36,8 +40,21 @@ async def require_authenticated_user(
     _enforce_https_if_required(request)
     auth_service = request.app.state.auth_service
 
-    if authorization and authorization.lower().startswith("bearer "):
-        token = authorization.split(" ", maxsplit=1)[1].strip()
+    if bearer_credentials is not None:
+        if bearer_credentials.scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authorization header must use the Bearer scheme",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        token = _normalize_secret_value(bearer_credentials.credentials)
+        if token is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Bearer token is missing or malformed",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         try:
             return await auth_service.authenticate_bearer_token(token)
         except ValueError as exc:
@@ -47,9 +64,10 @@ async def require_authenticated_user(
                 headers={"WWW-Authenticate": "Bearer"},
             ) from exc
 
-    if x_api_key:
+    api_key = _normalize_secret_value(x_api_key)
+    if api_key is not None:
         try:
-            return await auth_service.authenticate_api_key(x_api_key.strip())
+            return await auth_service.authenticate_api_key(api_key)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,3 +90,17 @@ async def require_admin_user(
             detail="Admin privileges are required",
         )
     return current_user
+
+
+def _normalize_secret_value(raw: str | None) -> str | None:
+    if raw is None:
+        return None
+
+    normalized = raw.strip()
+    if not normalized:
+        return None
+
+    if len(normalized) >= 2 and normalized[0] == normalized[-1] and normalized[0] in {'"', "'"}:
+        normalized = normalized[1:-1].strip()
+
+    return normalized or None

@@ -300,6 +300,71 @@ class ApiKeyCreateResponse(BaseModel):
     created_at: datetime
 
 
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    is_active: bool = True
+    is_admin: bool = False
+
+    @field_validator("username")
+    @classmethod
+    def validate_username_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("username must not be empty")
+        return value.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, value: str) -> str:
+        if len(value) < 12:
+            raise ValueError("password must be at least 12 characters")
+        return value
+
+
+class UserUpdateRequest(BaseModel):
+    username: str | None = None
+    password: str | None = None
+    is_active: bool | None = None
+    is_admin: bool | None = None
+
+    @field_validator("username")
+    @classmethod
+    def validate_optional_username(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not value.strip():
+            raise ValueError("username must not be empty")
+        return value.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_optional_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if len(value) < 12:
+            raise ValueError("password must be at least 12 characters")
+        return value
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    username: str
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ApiKeyResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    name: str
+    key_prefix: str
+    is_active: bool
+    last_used_at: datetime | None = None
+    created_at: datetime
+
+
 class UserRecord(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

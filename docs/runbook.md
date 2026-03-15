@@ -27,16 +27,6 @@ docker compose -f backend/docker-compose.yml -f backend/docker-compose.ollama.ym
 curl http://localhost:9010/health
 ```
 
-If you changed `HOST_APP_PORT`, replace `9010` with that value in every curl command.
-
-Check:
-
-- app container is healthy
-- PostgreSQL `ok`
-- Redis `ok`
-- provider configuration status
-- Ollama `ok` if enabled and running on the host
-
 ## Get a bearer token
 
 Use the bootstrap admin credentials from `backend/.env`:
@@ -54,13 +44,72 @@ curl http://localhost:9010/auth/me ^
   -H "Authorization: Bearer YOUR_JWT"
 ```
 
-## Create an API key
+## Create, list, and revoke API keys
+
+Create:
 
 ```bash
 curl -X POST http://localhost:9010/auth/api-keys ^
   -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
   -d "{\"name\":\"local-client\"}"
+```
+
+List:
+
+```bash
+curl http://localhost:9010/auth/api-keys ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Revoke:
+
+```bash
+curl -X DELETE http://localhost:9010/auth/api-keys/API_KEY_UUID ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+The revoke route returns HTTP `204 No Content`.
+
+## Admin user CRUD
+
+Create a user:
+
+```bash
+curl -X POST http://localhost:9010/admin/users ^
+  -H "Authorization: Bearer YOUR_JWT" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"analyst\",\"password\":\"replace-with-a-strong-password\",\"is_active\":true,\"is_admin\":false}"
+```
+
+List users:
+
+```bash
+curl http://localhost:9010/admin/users ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Get one user:
+
+```bash
+curl http://localhost:9010/admin/users/USER_UUID ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Update a user:
+
+```bash
+curl -X PATCH http://localhost:9010/admin/users/USER_UUID ^
+  -H "Authorization: Bearer YOUR_JWT" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"is_active\":false}"
+```
+
+Delete a user:
+
+```bash
+curl -X DELETE http://localhost:9010/admin/users/USER_UUID ^
+  -H "Authorization: Bearer YOUR_JWT"
 ```
 
 ## Pull Ollama models on the host
@@ -124,20 +173,19 @@ curl -X DELETE http://localhost:9010/admin/reset ^
   -H "Authorization: Bearer YOUR_JWT"
 ```
 
-This endpoint clears only this app's Redis key prefixes. It does not wipe the entire Redis database.
-
 ## Common issues
 
-### Health endpoint shows degraded
+### Startup fails with `relation "app_users" does not exist`
 
-Check:
+Current behavior:
 
-- `POSTGRES_DSN`
-- `REDIS_URL`
-- provider API keys
-- Ollama service availability
-- `docker compose -f backend/docker-compose.yml ps`
-- verify Ollama is listening on `http://localhost:11434`
+- the app now creates `app_users` and `api_keys` automatically on startup
+
+If you still see this error, restart the app container after pulling the latest code:
+
+```bash
+docker compose -f backend/docker-compose.yml up --build -d app
+```
 
 ### Auth returns HTTP 401
 
@@ -147,6 +195,16 @@ Check:
 - `backend/.env` has the expected bootstrap admin credentials
 - the bearer token is valid and not expired
 - the `X-API-Key` value is complete
+- in Swagger UI, use `Authorize` and paste only the raw token without quotes
+
+### Admin user CRUD returns HTTP 400
+
+Check:
+
+- the username is unique
+- passwords are at least 12 characters
+- you are not trying to delete your own account
+- you are not trying to remove your own admin access
 
 ### Auth returns HTTP 403 on deployed HTTPS
 
@@ -155,21 +213,7 @@ Check:
 - `AUTH_REQUIRE_HTTPS=true` only when TLS is terminated upstream
 - the reverse proxy forwards `X-Forwarded-Proto: https`
 
-### Ingest rejects embedding override
-
-Cause:
-
-- embedding overrides must match the canonical configured embedding pair in this MVP
-
 ### Embedding dimension mismatch
-
-Example:
-
-- `expected 1536, got 4096`
-
-Cause:
-
-- the configured canonical embedding dimension does not match the actual embedding model output
 
 Current default local Ollama setup expects:
 
@@ -181,42 +225,12 @@ If you changed the schema or old volumes still contain a `VECTOR(1536)` table de
 
 ### Chat returns fallback unexpectedly
 
-Check:
-
-- documents were ingested successfully
-- canonical embedding configuration matches the indexed corpus
-- `SIMILARITY_THRESHOLD` is not too high
-- the ingested chunk text or titles actually contain the terms you are asking about
-
 Current retrieval order:
 
 - pgvector cosine similarity search
 - lexical fallback against stored titles and chunk content
 - best available semantic matches without applying the threshold
 - safe fallback response only if no chunks exist for the active embedding pair
-
-Current default local Ollama threshold:
-
-- `SIMILARITY_THRESHOLD=0.35`
-
-### Chat returns HTTP 429
-
-Cause:
-
-- Redis rate limit exceeded for the current session or client IP
-
-Adjust:
-
-- `CHAT_RATE_LIMIT_REQUESTS`
-- `CHAT_RATE_LIMIT_WINDOW_SECONDS`
-
-### Streaming route does not emit tokens
-
-Check:
-
-- selected provider credentials are valid
-- upstream provider supports the selected generation model
-- Ollama model is actually pulled on the host machine
 
 ## Stop the system
 

@@ -121,6 +121,12 @@ Schema file:
 
 The Docker Compose setup mounts this file into PostgreSQL init scripts. If your local volume predates schema changes, recreate the volume or run an explicit migration.
 
+Auth table note:
+
+- the application now creates `app_users` and `api_keys` on startup if they are missing
+- this avoids startup failure on older local volumes that were initialized before the auth schema was added
+- document and chunk schema changes still require an explicit migration or volume reset
+
 ## Authentication deployment notes
 
 Implemented auth:

@@ -1,5 +1,85 @@
 [
     {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "uuid4",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "uuid4",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "uuid4",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
         "label": "APIRouter",
         "importPath": "fastapi",
         "description": "fastapi",
@@ -16,7 +96,23 @@
         "documentation": {}
     },
     {
+        "label": "HTTPException",
+        "importPath": "fastapi",
+        "description": "fastapi",
+        "isExtraImport": true,
+        "detail": "fastapi",
+        "documentation": {}
+    },
+    {
         "label": "Request",
+        "importPath": "fastapi",
+        "description": "fastapi",
+        "isExtraImport": true,
+        "detail": "fastapi",
+        "documentation": {}
+    },
+    {
+        "label": "status",
         "importPath": "fastapi",
         "description": "fastapi",
         "isExtraImport": true,
@@ -192,14 +288,6 @@
         "documentation": {}
     },
     {
-        "label": "Header",
-        "importPath": "fastapi",
-        "description": "fastapi",
-        "isExtraImport": true,
-        "detail": "fastapi",
-        "documentation": {}
-    },
-    {
         "label": "HTTPException",
         "importPath": "fastapi",
         "description": "fastapi",
@@ -209,6 +297,14 @@
     },
     {
         "label": "Request",
+        "importPath": "fastapi",
+        "description": "fastapi",
+        "isExtraImport": true,
+        "detail": "fastapi",
+        "documentation": {}
+    },
+    {
+        "label": "Security",
         "importPath": "fastapi",
         "description": "fastapi",
         "isExtraImport": true,
@@ -288,6 +384,30 @@
         "documentation": {}
     },
     {
+        "label": "UserCreateRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserUpdateRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "AccessTokenRequest",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -313,6 +433,14 @@
     },
     {
         "label": "ApiKeyCreateResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ApiKeyResponse",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -648,6 +776,14 @@
         "documentation": {}
     },
     {
+        "label": "ApiKeyResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "AuthenticatedUser",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -656,7 +792,31 @@
         "documentation": {}
     },
     {
+        "label": "UserCreateRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "UserRecord",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserUpdateRequest",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -1172,67 +1332,27 @@
         "documentation": {}
     },
     {
-        "label": "UUID",
-        "importPath": "uuid",
-        "description": "uuid",
+        "label": "APIKeyHeader",
+        "importPath": "fastapi.security",
+        "description": "fastapi.security",
         "isExtraImport": true,
-        "detail": "uuid",
+        "detail": "fastapi.security",
         "documentation": {}
     },
     {
-        "label": "uuid4",
-        "importPath": "uuid",
-        "description": "uuid",
+        "label": "HTTPAuthorizationCredentials",
+        "importPath": "fastapi.security",
+        "description": "fastapi.security",
         "isExtraImport": true,
-        "detail": "uuid",
+        "detail": "fastapi.security",
         "documentation": {}
     },
     {
-        "label": "UUID",
-        "importPath": "uuid",
-        "description": "uuid",
+        "label": "HTTPBearer",
+        "importPath": "fastapi.security",
+        "description": "fastapi.security",
         "isExtraImport": true,
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "uuid4",
-        "importPath": "uuid",
-        "description": "uuid",
-        "isExtraImport": true,
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "UUID",
-        "importPath": "uuid",
-        "description": "uuid",
-        "isExtraImport": true,
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "uuid4",
-        "importPath": "uuid",
-        "description": "uuid",
-        "isExtraImport": true,
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "UUID",
-        "importPath": "uuid",
-        "description": "uuid",
-        "isExtraImport": true,
-        "detail": "uuid",
-        "documentation": {}
-    },
-    {
-        "label": "UUID",
-        "importPath": "uuid",
-        "description": "uuid",
-        "isExtraImport": true,
-        "detail": "uuid",
+        "detail": "fastapi.security",
         "documentation": {}
     },
     {
@@ -2135,7 +2255,7 @@
         "kind": 5,
         "importPath": "backend.app.api.admin",
         "description": "backend.app.api.admin",
-        "peekOfCode": "router = APIRouter()\ndef _build_reset_service(request: Request) -> ResetService:\n    return ResetService(\n        postgres_pool=request.app.state.postgres.pool,\n        redis_manager=request.app.state.redis,\n    )\n@router.delete(\"/reset\", response_model=ResetResponse)\nasync def reset_backend_state(\n    request: Request,\n    _: AuthenticatedUser = Depends(require_admin_user),",
+        "peekOfCode": "router = APIRouter()\ndef _build_reset_service(request: Request) -> ResetService:\n    return ResetService(\n        postgres_pool=request.app.state.postgres.pool,\n        redis_manager=request.app.state.redis,\n    )\ndef _build_auth_service(request: Request):\n    return request.app.state.auth_service\n@router.delete(\"/reset\", response_model=ResetResponse)\nasync def reset_backend_state(",
         "detail": "backend.app.api.admin",
         "documentation": {}
     },
@@ -2239,11 +2359,29 @@
         "documentation": {}
     },
     {
+        "label": "bearer_scheme",
+        "kind": 5,
+        "importPath": "backend.app.core.security",
+        "description": "backend.app.core.security",
+        "peekOfCode": "bearer_scheme = HTTPBearer(auto_error=False)\napi_key_scheme = APIKeyHeader(name=\"X-API-Key\", auto_error=False)\ndef _resolve_request_scheme(request: Request) -> str:\n    forwarded_proto = request.headers.get(\"x-forwarded-proto\")\n    if forwarded_proto:\n        return forwarded_proto.split(\",\")[0].strip().lower()\n    return request.url.scheme.lower()\ndef _enforce_https_if_required(request: Request) -> None:\n    settings = request.app.state.settings\n    if settings.auth_require_https and _resolve_request_scheme(request) != \"https\":",
+        "detail": "backend.app.core.security",
+        "documentation": {}
+    },
+    {
+        "label": "api_key_scheme",
+        "kind": 5,
+        "importPath": "backend.app.core.security",
+        "description": "backend.app.core.security",
+        "peekOfCode": "api_key_scheme = APIKeyHeader(name=\"X-API-Key\", auto_error=False)\ndef _resolve_request_scheme(request: Request) -> str:\n    forwarded_proto = request.headers.get(\"x-forwarded-proto\")\n    if forwarded_proto:\n        return forwarded_proto.split(\",\")[0].strip().lower()\n    return request.url.scheme.lower()\ndef _enforce_https_if_required(request: Request) -> None:\n    settings = request.app.state.settings\n    if settings.auth_require_https and _resolve_request_scheme(request) != \"https\":\n        raise HTTPException(",
+        "detail": "backend.app.core.security",
+        "documentation": {}
+    },
+    {
         "label": "AuthRepository",
         "kind": 6,
         "importPath": "backend.app.db.repositories.auth",
         "description": "backend.app.db.repositories.auth",
-        "peekOfCode": "class AuthRepository:\n    def __init__(self, pool: AsyncConnectionPool) -> None:\n        self._pool = pool\n    async def get_user_by_username(self, username: str) -> UserRecord | None:\n        query = \"\"\"\n            SELECT\n                id,\n                username,\n                password_hash,\n                is_active,",
+        "peekOfCode": "class AuthRepository:\n    def __init__(self, pool: AsyncConnectionPool) -> None:\n        self._pool = pool\n    async def ensure_auth_tables(self) -> None:\n        queries = [\n            \"\"\"\n            CREATE TABLE IF NOT EXISTS app_users (\n                id UUID PRIMARY KEY,\n                username TEXT NOT NULL UNIQUE,\n                password_hash TEXT NOT NULL,",
         "detail": "backend.app.db.repositories.auth",
         "documentation": {}
     },
@@ -2567,7 +2705,43 @@
         "kind": 6,
         "importPath": "backend.app.models.schemas",
         "description": "backend.app.models.schemas",
-        "peekOfCode": "class ApiKeyCreateResponse(BaseModel):\n    api_key: str\n    key_prefix: str\n    name: str\n    created_at: datetime\nclass UserRecord(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n    id: UUID\n    username: str\n    password_hash: str",
+        "peekOfCode": "class ApiKeyCreateResponse(BaseModel):\n    api_key: str\n    key_prefix: str\n    name: str\n    created_at: datetime\nclass UserCreateRequest(BaseModel):\n    username: str\n    password: str\n    is_active: bool = True\n    is_admin: bool = False",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserCreateRequest",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class UserCreateRequest(BaseModel):\n    username: str\n    password: str\n    is_active: bool = True\n    is_admin: bool = False\n    @field_validator(\"username\")\n    @classmethod\n    def validate_username_not_empty(cls, value: str) -> str:\n        if not value.strip():\n            raise ValueError(\"username must not be empty\")",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserUpdateRequest",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class UserUpdateRequest(BaseModel):\n    username: str | None = None\n    password: str | None = None\n    is_active: bool | None = None\n    is_admin: bool | None = None\n    @field_validator(\"username\")\n    @classmethod\n    def validate_optional_username(cls, value: str | None) -> str | None:\n        if value is None:\n            return None",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "UserResponse",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class UserResponse(BaseModel):\n    id: UUID\n    username: str\n    is_active: bool\n    is_admin: bool\n    created_at: datetime\n    updated_at: datetime\nclass ApiKeyResponse(BaseModel):\n    id: UUID\n    user_id: UUID",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ApiKeyResponse",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ApiKeyResponse(BaseModel):\n    id: UUID\n    user_id: UUID\n    name: str\n    key_prefix: str\n    is_active: bool\n    last_used_at: datetime | None = None\n    created_at: datetime\nclass UserRecord(BaseModel):\n    model_config = ConfigDict(from_attributes=True)",
         "detail": "backend.app.models.schemas",
         "documentation": {}
     },
@@ -2729,7 +2903,7 @@
         "kind": 6,
         "importPath": "backend.app.services.auth_service",
         "description": "backend.app.services.auth_service",
-        "peekOfCode": "class AuthService:\n    def __init__(self, settings: Settings, postgres_pool: AsyncConnectionPool) -> None:\n        self._settings = settings\n        self._repository = AuthRepository(postgres_pool)\n    async def ensure_bootstrap_admin(self) -> None:\n        if not self._settings.auth_enabled:\n            return\n        password_hash = self._hash_password(self._settings.auth_bootstrap_admin_password)\n        await self._repository.create_bootstrap_admin_if_missing(\n            username=self._settings.auth_bootstrap_admin_username,",
+        "peekOfCode": "class AuthService:\n    def __init__(self, settings: Settings, postgres_pool: AsyncConnectionPool) -> None:\n        self._settings = settings\n        self._repository = AuthRepository(postgres_pool)\n    async def ensure_bootstrap_admin(self) -> None:\n        if not self._settings.auth_enabled:\n            return\n        await self._repository.ensure_auth_tables()\n        password_hash = self._hash_password(self._settings.auth_bootstrap_admin_password)\n        await self._repository.create_bootstrap_admin_if_missing(",
         "detail": "backend.app.services.auth_service",
         "documentation": {}
     },
