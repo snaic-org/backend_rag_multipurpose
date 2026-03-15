@@ -5,15 +5,20 @@ Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL plus pgvector, Redis
 ## What is implemented
 
 - `GET /health`
+- `POST /auth/token`
+- `GET /auth/me`
+- `POST /auth/api-keys`
 - `POST /ingest/text`
 - `POST /ingest/files`
 - `POST /chat`
 - `POST /chat/stream`
-- PostgreSQL storage for documents and chunk embeddings
+- `DELETE /admin/reset`
+- PostgreSQL storage for users, API keys, documents, and chunk embeddings
 - pgvector similarity search
 - Redis rate limiting, retrieval caching, embedding caching, and optional session storage
 - Request-level generation provider/model selection
 - Multipart ingestion for `txt`, `md`, `docx`, `csv`, and `xlsx`
+- JWT bearer authentication and hashed API keys
 
 ## Important MVP constraint
 
@@ -49,6 +54,15 @@ docker compose -f backend/docker-compose.yml up --build -d
 ```
 
 If you need to override defaults for local non-Docker runs, copy `backend/.env.example` to `backend/.env`.
+
+Authentication defaults in `backend/.env.example`:
+
+- `AUTH_ENABLED=true`
+- `AUTH_BOOTSTRAP_ADMIN_USERNAME=admin`
+- `AUTH_BOOTSTRAP_ADMIN_PASSWORD=change-me-immediately`
+- `AUTH_JWT_SECRET=change-me-immediately`
+
+Change the bootstrap password and JWT secret before exposing the API outside local development.
 
 Default Docker-exposed API port:
 

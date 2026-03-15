@@ -42,27 +42,112 @@ curl http://localhost:9010/health
     "detail": "connected"
   },
   "providers": {
-    "openai": {
+    "ollama": {
       "ok": true,
-      "detail": "configuration_present",
+      "detail": "reachable",
       "enabled": true,
-      "provider": "openai",
+      "provider": "ollama",
       "capabilities": ["chat", "embeddings"],
       "configuration_present": true
     }
   },
   "assumptions": {
-    "default_generation_provider": "openai",
-    "default_generation_model": "gpt-4.1-mini",
-    "default_embedding_provider": "openai",
-    "default_embedding_model": "text-embedding-3-small"
+    "default_generation_provider": "ollama",
+    "default_generation_model": "llama3.2",
+    "default_embedding_provider": "ollama",
+    "default_embedding_model": "qwen3-embedding"
   }
+}
+```
+
+## POST /auth/token
+
+Exchanges username/password credentials for a bearer token.
+
+### Request
+
+```json
+{
+  "username": "admin",
+  "password": "change-me-immediately"
+}
+```
+
+### Example
+
+```bash
+curl -X POST http://localhost:9010/auth/token ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"admin\",\"password\":\"change-me-immediately\"}"
+```
+
+### Response shape
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "token_type": "bearer",
+  "expires_in_seconds": 3600,
+  "user": {
+    "id": "...",
+    "username": "admin",
+    "is_admin": true,
+    "auth_type": "bearer"
+  }
+}
+```
+
+## GET /auth/me
+
+Returns the authenticated principal.
+
+### Example
+
+```bash
+curl http://localhost:9010/auth/me ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+## POST /auth/api-keys
+
+Creates a hashed API key for the authenticated user. The plaintext key is returned once.
+
+### Request
+
+```json
+{
+  "name": "backend-client"
+}
+```
+
+### Example
+
+```bash
+curl -X POST http://localhost:9010/auth/api-keys ^
+  -H "Authorization: Bearer YOUR_JWT" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"backend-client\"}"
+```
+
+### Response shape
+
+```json
+{
+  "api_key": "rag_ab12cd34_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "key_prefix": "ab12cd34",
+  "name": "backend-client",
+  "created_at": "2026-03-15T12:00:00Z"
 }
 ```
 
 ## POST /ingest/text
 
 Accepts one or more raw text items in JSON.
+
+Authentication:
+
+- `Authorization: Bearer YOUR_JWT`
+- or `X-API-Key: YOUR_API_KEY`
 
 ### Request
 
@@ -79,8 +164,8 @@ Accepts one or more raw text items in JSON.
       }
     }
   ],
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small"
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding"
 }
 ```
 
@@ -88,6 +173,7 @@ Accepts one or more raw text items in JSON.
 
 ```bash
 curl -X POST http://localhost:9010/ingest/text ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
   -d "{\"items\":[{\"title\":\"Company Overview\",\"content\":\"# Services\nWe offer AI chatbot implementation.\",\"source_type\":\"markdown\"}]}"
 ```
@@ -98,8 +184,8 @@ curl -X POST http://localhost:9010/ingest/text ^
 {
   "documents_inserted": 1,
   "chunks_inserted": 1,
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small",
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding",
   "results": [
     {
       "filename": "Company Overview",
@@ -116,6 +202,11 @@ curl -X POST http://localhost:9010/ingest/text ^
 ## POST /ingest/files
 
 Accepts multipart form uploads.
+
+Authentication:
+
+- `Authorization: Bearer YOUR_JWT`
+- or `X-API-Key: YOUR_API_KEY`
 
 ### Multipart fields
 
@@ -135,6 +226,7 @@ Notes for Swagger UI:
 
 ```bash
 curl -X POST http://localhost:9010/ingest/files ^
+  -H "X-API-Key: YOUR_API_KEY" ^
   -F "files=@C:\path\to\overview.md" ^
   -F "files=@C:\path\to\services.csv" ^
   -F "tags=[\"portfolio\",\"demo\"]" ^
@@ -145,6 +237,7 @@ Also valid:
 
 ```bash
 curl -X POST http://localhost:9010/ingest/files ^
+  -H "X-API-Key: YOUR_API_KEY" ^
   -F "files=@C:\path\to\overview.md" ^
   -F "tags=portfolio,demo"
 ```
@@ -153,6 +246,7 @@ Also valid:
 
 ```bash
 curl -X POST http://localhost:9010/ingest/files ^
+  -H "X-API-Key: YOUR_API_KEY" ^
   -F "files=@C:\path\to\overview.md" ^
   -F "metadata=uploaded-from-swagger"
 ```
@@ -165,8 +259,8 @@ curl -X POST http://localhost:9010/ingest/files ^
   "succeeded": 2,
   "failed": 0,
   "total_chunks_inserted": 5,
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small",
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding",
   "results": [
     {
       "filename": "overview.md",
@@ -184,6 +278,11 @@ curl -X POST http://localhost:9010/ingest/files ^
 
 Returns a full JSON response.
 
+Authentication:
+
+- `Authorization: Bearer YOUR_JWT`
+- or `X-API-Key: YOUR_API_KEY`
+
 ### Request
 
 ```json
@@ -192,10 +291,10 @@ Returns a full JSON response.
   "session_id": "demo-session",
   "chat_history": [],
   "top_k": 5,
-  "provider": "openai",
-  "model": "gpt-4.1-mini",
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small"
+  "provider": "ollama",
+  "model": "llama3.2",
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding"
 }
 ```
 
@@ -203,8 +302,9 @@ Returns a full JSON response.
 
 ```bash
 curl -X POST http://localhost:9010/chat ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"What services do we offer?\",\"provider\":\"openai\",\"model\":\"gpt-4.1-mini\"}"
+  -d "{\"message\":\"What services do we offer?\",\"provider\":\"ollama\",\"model\":\"llama3.2\"}"
 ```
 
 ### Response shape
@@ -225,10 +325,10 @@ curl -X POST http://localhost:9010/chat ^
       }
     }
   ],
-  "provider": "openai",
-  "model": "gpt-4.1-mini",
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small",
+  "provider": "ollama",
+  "model": "llama3.2",
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding",
   "used_fallback": false
 }
 ```
@@ -237,12 +337,18 @@ curl -X POST http://localhost:9010/chat ^
 
 Returns Server-Sent Events.
 
+Authentication:
+
+- `Authorization: Bearer YOUR_JWT`
+- or `X-API-Key: YOUR_API_KEY`
+
 ### Example
 
 ```bash
 curl -N -X POST http://localhost:9010/chat/stream ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"Summarize our offerings.\",\"provider\":\"ollama\",\"model\":\"llama3.1\"}"
+  -d "{\"message\":\"Summarize our offerings.\",\"provider\":\"ollama\",\"model\":\"llama3.2\"}"
 ```
 
 ### Event sequence
@@ -257,9 +363,9 @@ curl -N -X POST http://localhost:9010/chat/stream ^
 ```json
 {
   "provider": "ollama",
-  "model": "llama3.1",
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small",
+  "model": "llama3.2",
+  "embedding_provider": "ollama",
+  "embedding_model": "qwen3-embedding",
   "used_fallback": false
 }
 ```
@@ -282,8 +388,46 @@ curl -N -X POST http://localhost:9010/chat/stream ^
 }
 ```
 
+## DELETE /admin/reset
+
+Deletes all indexed documents and chunk embeddings from PostgreSQL, then clears this app's Redis keys for:
+
+- retrieval cache
+- embedding cache
+- session storage
+- rate limiting
+
+This is a backend reset endpoint for local development and demos. It does not call Redis `FLUSHDB`.
+
+Authentication:
+
+- `Authorization: Bearer YOUR_JWT`
+
+### Example
+
+```bash
+curl -X DELETE http://localhost:9010/admin/reset ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+### Response shape
+
+```json
+{
+  "status": "ok",
+  "documents_deleted": 3,
+  "chunks_deleted": 14,
+  "redis_keys_deleted": 9
+}
+```
+
 ## Error behavior
 
+- Missing authentication returns HTTP `401`
+- Invalid or expired bearer tokens return HTTP `401`
+- Invalid API keys return HTTP `401`
+- Non-admin requests to admin-only routes return HTTP `403`
+- `AUTH_REQUIRE_HTTPS=true` rejects authenticated non-HTTPS requests with HTTP `403`
 - Invalid provider values return HTTP `400`
 - Missing provider credentials return HTTP `400`
 - Provider reachability failures return HTTP `503`

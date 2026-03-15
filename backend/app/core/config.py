@@ -56,6 +56,13 @@ class Settings(BaseSettings):
     embedding_cache_ttl_seconds: int = Field(default=3600)
     session_ttl_seconds: int = Field(default=1800)
     session_storage_enabled: bool = Field(default=False)
+    auth_enabled: bool = Field(default=True)
+    auth_jwt_secret: str = Field(default="change-me-immediately")
+    auth_jwt_algorithm: str = Field(default="HS256")
+    auth_access_token_ttl_seconds: int = Field(default=3600)
+    auth_bootstrap_admin_username: str = Field(default="admin")
+    auth_bootstrap_admin_password: str = Field(default="change-me-immediately")
+    auth_require_https: bool = Field(default=False)
 
     def phase_one_assumptions(self) -> dict[str, str | bool]:
         return {
@@ -71,6 +78,7 @@ class Settings(BaseSettings):
             "canonical_embedding_dimension": self.canonical_embedding_dimension,
             "similarity_threshold": self.similarity_threshold,
             "redis_session_storage_enabled_by_default": self.session_storage_enabled,
+            "authentication_enabled_by_default": self.auth_enabled,
         }
 
 

@@ -254,3 +254,72 @@ class ChatStreamState(BaseModel):
     fallback_text: str = ""
     session_id: str | None = None
     user_message: str = ""
+
+
+class ResetResponse(BaseModel):
+    status: str
+    documents_deleted: int
+    chunks_deleted: int
+    redis_keys_deleted: int
+
+
+class AccessTokenRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthenticatedUser(BaseModel):
+    id: UUID
+    username: str
+    is_admin: bool
+    auth_type: Literal["bearer", "api_key"]
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in_seconds: int
+    user: AuthenticatedUser
+
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("name must not be empty")
+        return value.strip()
+
+
+class ApiKeyCreateResponse(BaseModel):
+    api_key: str
+    key_prefix: str
+    name: str
+    created_at: datetime
+
+
+class UserRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    username: str
+    password_hash: str
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ApiKeyRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: UUID
+    name: str
+    key_prefix: str
+    key_hash: str
+    is_active: bool
+    last_used_at: datetime | None = None
+    created_at: datetime

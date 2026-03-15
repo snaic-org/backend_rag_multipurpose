@@ -8,6 +8,7 @@ from app.core.logging import configure_logging, get_logger
 from app.db.postgres import PostgresManager
 from app.db.redis import RedisManager
 from app.providers.registry import ProviderRegistry
+from app.services.auth_service import AuthService
 
 
 @asynccontextmanager
@@ -19,14 +20,17 @@ async def lifespan(app: FastAPI):
     postgres = PostgresManager(settings)
     redis = RedisManager(settings)
     providers = ProviderRegistry.from_settings(settings)
+    auth_service = AuthService(settings, postgres.pool)
 
     app.state.settings = settings
     app.state.postgres = postgres
     app.state.redis = redis
     app.state.providers = providers
+    app.state.auth_service = auth_service
 
     await postgres.connect()
     await redis.connect()
+    await auth_service.ensure_bootstrap_admin()
 
     logger.info("application_startup_complete")
 

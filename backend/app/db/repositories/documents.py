@@ -132,3 +132,22 @@ class DocumentRepository:
                 rows = await cursor.fetchall()
 
         return [DocumentRecord.model_validate(row) for row in rows]
+
+    async def delete_all(self) -> dict[str, int]:
+        chunk_count_query = "SELECT COUNT(*) AS count FROM document_chunks"
+        document_count_query = "SELECT COUNT(*) AS count FROM documents"
+        delete_query = "DELETE FROM documents"
+
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(chunk_count_query)
+                chunk_row = await cursor.fetchone()
+                await cursor.execute(document_count_query)
+                document_row = await cursor.fetchone()
+                await cursor.execute(delete_query)
+            await connection.commit()
+
+        return {
+            "documents_deleted": int(document_row["count"]) if document_row is not None else 0,
+            "chunks_deleted": int(chunk_row["count"]) if chunk_row is not None else 0,
+        }

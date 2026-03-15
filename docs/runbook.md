@@ -37,10 +37,30 @@ Check:
 - provider configuration status
 - Ollama `ok` if enabled and running on the host
 
-## Inspect running containers
+## Get a bearer token
+
+Use the bootstrap admin credentials from `backend/.env`:
 
 ```bash
-docker compose -f backend/docker-compose.yml ps
+curl -X POST http://localhost:9010/auth/token ^
+  -H "Content-Type: application/json" ^
+  -d "{\"username\":\"admin\",\"password\":\"change-me-immediately\"}"
+```
+
+Use the returned token for protected routes:
+
+```bash
+curl http://localhost:9010/auth/me ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+## Create an API key
+
+```bash
+curl -X POST http://localhost:9010/auth/api-keys ^
+  -H "Authorization: Bearer YOUR_JWT" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"name\":\"local-client\"}"
 ```
 
 ## Pull Ollama models on the host
@@ -63,6 +83,7 @@ docker exec -it rag_ollama ollama pull qwen3-embedding
 
 ```bash
 curl -X POST http://localhost:9010/ingest/text ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
   -d "{\"items\":[{\"title\":\"Overview\",\"content\":\"We offer AI chatbot implementation.\",\"source_type\":\"text\"}]}"
 ```
@@ -71,14 +92,16 @@ curl -X POST http://localhost:9010/ingest/text ^
 
 ```bash
 curl -X POST http://localhost:9010/chat ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
-  -d "{\"message\":\"What do we offer?\",\"provider\":\"openai\",\"model\":\"gpt-4.1-mini\"}"
+  -d "{\"message\":\"What do we offer?\",\"provider\":\"ollama\",\"model\":\"llama3.2\"}"
 ```
 
 ## Run a streaming chat request
 
 ```bash
 curl -N -X POST http://localhost:9010/chat/stream ^
+  -H "Authorization: Bearer YOUR_JWT" ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"What do we offer?\",\"provider\":\"ollama\",\"model\":\"llama3.2\"}"
 ```
@@ -92,6 +115,17 @@ $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
 python -m pytest backend/tests
 ```
 
+## Reset the backend state
+
+To delete all indexed documents and chunk embeddings from PostgreSQL and clear this app's Redis cache/session/rate-limit keys:
+
+```bash
+curl -X DELETE http://localhost:9010/admin/reset ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+This endpoint clears only this app's Redis key prefixes. It does not wipe the entire Redis database.
+
 ## Common issues
 
 ### Health endpoint shows degraded
@@ -104,6 +138,22 @@ Check:
 - Ollama service availability
 - `docker compose -f backend/docker-compose.yml ps`
 - verify Ollama is listening on `http://localhost:11434`
+
+### Auth returns HTTP 401
+
+Check:
+
+- `AUTH_ENABLED=true`
+- `backend/.env` has the expected bootstrap admin credentials
+- the bearer token is valid and not expired
+- the `X-API-Key` value is complete
+
+### Auth returns HTTP 403 on deployed HTTPS
+
+Check:
+
+- `AUTH_REQUIRE_HTTPS=true` only when TLS is terminated upstream
+- the reverse proxy forwards `X-Forwarded-Proto: https`
 
 ### Ingest rejects embedding override
 
