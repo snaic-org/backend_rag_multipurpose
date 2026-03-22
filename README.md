@@ -2,6 +2,10 @@
 
 Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and multi-provider generation support across OpenAI, Gemini, and Ollama.
 
+Ownership: Copyright (c) 2026 Isfaque Tuhin. Licensed under the Isfaque Tuhin Attribution License.
+Built by Isfaque Tuhin for portfolio use.
+Attribution links: https://www.linkedin.com/in/iatuhin/ | https://github.com/iahin | shioktech@gmail.com
+
 ## What is implemented
 
 - `GET /health`

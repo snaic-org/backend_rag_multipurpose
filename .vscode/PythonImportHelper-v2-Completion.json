@@ -3562,7 +3562,7 @@
         "kind": 2,
         "importPath": "backend.app.main",
         "description": "backend.app.main",
-        "peekOfCode": "def create_app() -> FastAPI:\n    settings = get_settings()\n    app = FastAPI(\n        title=settings.app_name,\n        version=\"0.1.0\",\n        lifespan=lifespan,\n    )\n    app.include_router(api_router)\n    return app\napp = create_app()",
+        "peekOfCode": "def create_app() -> FastAPI:\n    settings = get_settings()\n    app = FastAPI(\n        title=settings.app_name,\n        version=\"0.1.0\",\n        description=(\n            \"Backend RAG API built by Isfaque Tuhin. \"\n            \"Portfolio: https://www.linkedin.com/in/iatuhin/ | \"\n            \"GitHub: https://github.com/iahin | \"\n            \"Contact: shioktech@gmail.com\"",
         "detail": "backend.app.main",
         "documentation": {}
     },
