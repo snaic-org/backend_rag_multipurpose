@@ -1,5 +1,6 @@
 import json
 from typing import AsyncIterator
+from urllib.parse import urlparse
 
 import httpx
 
@@ -8,19 +9,16 @@ from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
 
 
-OPENAI_API_BASE_URL = "https://api.openai.com/v1"
-
-
-class OpenAIProvider(ProviderAdapter):
-    provider_name = "openai"
+class NimProvider(ProviderAdapter):
+    provider_name = "nim"
     capabilities = ["chat", "embeddings"]
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
     async def healthcheck(self) -> ProviderHealth:
-        enabled = self._settings.openai_enabled
-        configured = bool(self._settings.openai_api_key)
+        enabled = self._settings.nim_enabled
+        configured = bool(self._settings.nim_base_url.strip())
 
         if not enabled:
             return ProviderHealth(
@@ -35,7 +33,7 @@ class OpenAIProvider(ProviderAdapter):
         if not configured:
             return ProviderHealth(
                 ok=False,
-                detail="missing OPENAI_API_KEY",
+                detail="missing NIM_BASE_URL",
                 enabled=True,
                 provider=self.provider_name,
                 capabilities=self.capabilities,
@@ -56,18 +54,23 @@ class OpenAIProvider(ProviderAdapter):
         messages: list[ChatMessage],
         model: str,
     ) -> ChatCompletionResult:
-        if not self._settings.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required for OpenAI chat")
+        if not self._settings.nim_base_url.strip():
+            raise ValueError("NIM_BASE_URL is required for NIM chat")
+        if self._requires_api_key() and not self._settings.nim_api_key:
+            raise ValueError("NIM_API_KEY is required for NIM chat")
 
         headers = {"Content-Type": "application/json"}
-        if self._settings.openai_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
+        if self._settings.nim_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
         payload = {
             "model": model,
             "messages": [message.model_dump() for message in messages],
         }
 
-        async with httpx.AsyncClient(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._settings.nim_base_url,
+            timeout=60.0,
+        ) as client:
             response = await client.post(
                 "/chat/completions",
                 headers=headers,
@@ -84,19 +87,24 @@ class OpenAIProvider(ProviderAdapter):
         messages: list[ChatMessage],
         model: str,
     ) -> AsyncIterator[str]:
-        if not self._settings.openai_api_key:
-            raise ValueError("OPENAI_API_KEY is required for OpenAI chat")
+        if not self._settings.nim_base_url.strip():
+            raise ValueError("NIM_BASE_URL is required for NIM chat")
+        if self._requires_api_key() and not self._settings.nim_api_key:
+            raise ValueError("NIM_API_KEY is required for NIM chat")
 
         headers = {"Content-Type": "application/json"}
-        if self._settings.openai_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
+        if self._settings.nim_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
         payload = {
             "model": model,
             "messages": [message.model_dump() for message in messages],
             "stream": True,
         }
 
-        async with httpx.AsyncClient(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
+        async with httpx.AsyncClient(
+            base_url=self._settings.nim_base_url,
+            timeout=60.0,
+        ) as client:
             async with client.stream(
                 "POST",
                 "/chat/completions",
@@ -117,3 +125,7 @@ class OpenAIProvider(ProviderAdapter):
                     delta = parsed["choices"][0]["delta"].get("content", "")
                     if delta:
                         yield delta
+
+    def _requires_api_key(self) -> bool:
+        host = urlparse(self._settings.nim_base_url).netloc.lower()
+        return "api.openai.com" in host

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-ProviderName = Literal["openai", "gemini", "ollama"]
+ProviderName = Literal["openai", "gemini", "ollama", "nim"]
 SupportedTextSourceType = Literal["text", "markdown", "unstructured"]
 SupportedFileSourceType = Literal["txt", "md", "docx", "csv", "xlsx"]
 

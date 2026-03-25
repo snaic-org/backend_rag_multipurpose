@@ -7,6 +7,7 @@ Implemented generation providers:
 - OpenAI
 - Gemini
 - Ollama
+- NVIDIA NIM via the `nim` provider alias
 
 These are switchable per request on:
 
@@ -25,6 +26,7 @@ Implemented embedding providers:
 - OpenAI
 - Gemini
 - Ollama
+- NVIDIA NIM via the `nim` provider alias
 
 Relevant request fields:
 
@@ -43,8 +45,14 @@ Embedding providers are implemented through named profiles. That means:
 ## Provider config env vars
 
 - `OPENAI_API_KEY`
+- `NIM_ENABLED`
+- `NIM_API_KEY`
+- `NIM_BASE_URL`
 - `GEMINI_API_KEY`
 - `OLLAMA_BASE_URL`
+- `RERANK_ENABLED`
+- `RERANK_INVOKE_URL`
+- `RERANK_MODEL`
 - `OPENAI_ENABLED`
 - `GEMINI_ENABLED`
 - `OLLAMA_ENABLED`
@@ -63,6 +71,7 @@ Current repository defaults:
 - `DEFAULT_EMBEDDING_PROFILE=ollama_1536`
 - `EMBEDDING_PROFILES={"ollama_1536":{"provider":"ollama","model":"rjmalagon/gte-qwen2-1.5b-instruct-embed-f16","dimension":1536},"openai_small_1536":{"provider":"openai","model":"text-embedding-3-small","dimension":1536}}`
 - `SIMILARITY_THRESHOLD=0.35`
+- `RERANK_ENABLED=false`
 
 Embedding profile registry:
 
@@ -80,6 +89,22 @@ Embedding route implementation:
 - `POST https://api.openai.com/v1/embeddings`
 
 OpenAI is implemented and can be selected with a profile, but it is not the default path in the current `.env.example`.
+
+OpenAI uses the fixed public API endpoint internally, so there is no `OPENAI_BASE_URL` setting to manage.
+
+NIM is implemented as a dedicated alias so the config stays explicit:
+
+- generation uses `DEFAULT_LLM_PROVIDER=nim`
+- generation and embeddings use `NIM_BASE_URL`
+- embeddings use a profile with `provider="nim"`
+
+Relevant NIM model IDs:
+
+- `nvidia/llama-3.3-nemotron-super-49b-v1.5`
+- `nvidia/llama-nemotron-embed-1b-v2`
+- `nvidia/llama-nemotron-rerank-1b-v2`
+
+The embed model uses a `2048`-dimensional vector space, so its Qdrant profile should declare `dimension=2048`.
 
 ## Gemini
 
@@ -129,11 +154,27 @@ Current default Ollama embedding dimension:
 
 - `1536`
 
+## Reranking
+
+Reranking is optional and disabled by default.
+
+When enabled, retrieval will over-fetch candidates and send them through the configured reranker before the prompt is built.
+
+Implementation route:
+
+- `POST /v1/ranking`
+
+Default NVIDIA rerank model:
+
+- `nvidia/llama-nemotron-rerank-1b-v2`
+
 ## Error conditions
 
 Examples:
 
 - missing `OPENAI_API_KEY` returns a clear error
 - missing `GEMINI_API_KEY` returns a clear error
+- missing `NIM_BASE_URL` returns a clear error when `nim` is selected
 - unreachable Ollama returns a clear error
+- missing `NIM_API_KEY` returns a clear error when the configured rerank endpoint requires one
 - unsupported provider names return HTTP `400`

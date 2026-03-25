@@ -216,6 +216,7 @@ class IngestService:
                 texts=[chunk["content"] for chunk in chunks],
                 provider=embedding_provider,
                 model=embedding_model,
+                input_type="passage",
             )
             chunk_upserts = self._chunking_service.build_chunk_upserts(document, embeddings)
             inserted_chunks = await self._chunk_repository.bulk_create(

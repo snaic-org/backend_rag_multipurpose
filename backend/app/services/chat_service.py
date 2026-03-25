@@ -156,6 +156,7 @@ class ChatService:
             profile_name=payload.embedding_profile,
             provider=payload.embedding_provider,
             model=payload.embedding_model,
+            input_type="query",
         )
         query_embedding = query_embeddings[0]
 

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from urllib.parse import urlparse
 
 import httpx
 
@@ -14,7 +15,12 @@ class EmbeddingProvider(ABC):
     provider_name: str
 
     @abstractmethod
-    async def embed(self, texts: list[str], model: str) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        input_type: str | None = None,
+    ) -> list[list[float]]:
         raise NotImplementedError
 
 
@@ -24,19 +30,30 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def embed(self, texts: list[str], model: str) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        input_type: str | None = None,
+    ) -> list[list[float]]:
         if not self._settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required for OpenAI embeddings")
 
-        headers = {
-            "Authorization": f"Bearer {self._settings.openai_api_key}",
-            "Content-Type": "application/json",
-        }
         payload = {"input": texts, "model": model}
+        if input_type and self._supports_nim_input_type(model):
+            payload["input_type"] = input_type
+            payload["truncate"] = "NONE"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        headers = {"Content-Type": "application/json"}
+        if self._settings.openai_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
+
+        async with httpx.AsyncClient(
+            base_url=OPENAI_API_BASE_URL,
+            timeout=30.0,
+        ) as client:
             response = await client.post(
-                "https://api.openai.com/v1/embeddings",
+                "/embeddings",
                 headers=headers,
                 json=payload,
             )
@@ -45,6 +62,57 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
         return [item["embedding"] for item in data["data"]]
 
+    def _supports_nim_input_type(self, model: str) -> bool:
+        return model.startswith("nvidia/")
+
+
+class NimEmbeddingProvider(EmbeddingProvider):
+    provider_name = "nim"
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        input_type: str | None = None,
+    ) -> list[list[float]]:
+        if not self._settings.nim_base_url.strip():
+            raise ValueError("NIM_BASE_URL is required for NIM embeddings")
+        if self._requires_api_key() and not self._settings.nim_api_key:
+            raise ValueError("NIM_API_KEY is required for NIM embeddings")
+
+        payload = {"input": texts, "model": model}
+        if input_type and self._supports_nim_input_type(model):
+            payload["input_type"] = input_type
+            payload["truncate"] = "NONE"
+
+        headers = {"Content-Type": "application/json"}
+        if self._settings.nim_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
+
+        async with httpx.AsyncClient(
+            base_url=self._settings.nim_base_url,
+            timeout=30.0,
+        ) as client:
+            response = await client.post(
+                "/embeddings",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return [item["embedding"] for item in data["data"]]
+
+    def _requires_api_key(self) -> bool:
+        host = urlparse(self._settings.nim_base_url).netloc.lower()
+        return "api.openai.com" in host
+
+    def _supports_nim_input_type(self, model: str) -> bool:
+        return model.startswith("nvidia/")
+
 
 class GeminiEmbeddingProvider(EmbeddingProvider):
     provider_name = "gemini"
@@ -52,7 +120,12 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def embed(self, texts: list[str], model: str) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        input_type: str | None = None,
+    ) -> list[list[float]]:
         if not self._settings.gemini_api_key:
             raise ValueError("GEMINI_API_KEY is required for Gemini embeddings")
 
@@ -76,7 +149,12 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    async def embed(self, texts: list[str], model: str) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        model: str,
+        input_type: str | None = None,
+    ) -> list[list[float]]:
         embeddings: list[list[float]] = []
         async with httpx.AsyncClient(
             base_url=self._settings.ollama_base_url,
@@ -101,6 +179,7 @@ class EmbeddingService:
             "openai": OpenAIEmbeddingProvider(settings),
             "gemini": GeminiEmbeddingProvider(settings),
             "ollama": OllamaEmbeddingProvider(settings),
+            "nim": NimEmbeddingProvider(settings),
         }
         if self._settings.default_embedding_profile not in self._settings.embedding_profiles:
             raise ValueError(
@@ -151,6 +230,7 @@ class EmbeddingService:
         profile_name: str | None = None,
         provider: str | None = None,
         model: str | None = None,
+        input_type: str | None = None,
     ) -> tuple[EmbeddingSelection, list[list[float]]]:
         selection = self.resolve_selection(profile_name, provider, model)
         if not texts:
@@ -163,6 +243,7 @@ class EmbeddingService:
                 {
                     "provider": selection.provider,
                     "model": selection.model,
+                    "input_type": input_type,
                     "texts": texts,
                 },
             )
@@ -170,7 +251,11 @@ class EmbeddingService:
             if isinstance(cached, list):
                 return selection, cached
 
-        embeddings = await self._providers[selection.provider].embed(texts, selection.model)
+        embeddings = await self._providers[selection.provider].embed(
+            texts,
+            selection.model,
+            input_type=input_type,
+        )
 
         for embedding in embeddings:
             if len(embedding) != selection.dimension:

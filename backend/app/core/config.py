@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ProviderName = Literal["openai", "gemini", "ollama"]
+ProviderName = Literal["openai", "gemini", "ollama", "nim"]
 
 
 class EmbeddingProfileSpec(BaseModel):
@@ -43,6 +43,9 @@ class Settings(BaseSettings):
 
     openai_enabled: bool = Field(default=False)
     openai_api_key: str | None = Field(default=None)
+    nim_enabled: bool = Field(default=False)
+    nim_api_key: str | None = Field(default=None)
+    nim_base_url: str = Field(default="")
 
     gemini_enabled: bool = Field(default=False)
     gemini_api_key: str | None = Field(default=None)
@@ -50,6 +53,12 @@ class Settings(BaseSettings):
     ollama_enabled: bool = Field(default=True)
     ollama_base_url: str = Field(default="http://localhost:11434")
     ollama_health_timeout_seconds: float = Field(default=3.0)
+
+    rerank_enabled: bool = Field(default=False)
+    rerank_invoke_url: str = Field(default="")
+    rerank_model: str = Field(default="nvidia/llama-nemotron-rerank-1b-v2")
+    rerank_max_candidates: int = Field(default=12)
+    rerank_min_candidates: int = Field(default=2)
 
     default_llm_provider: ProviderName = Field(default="ollama")
     default_llm_model: str = Field(default="llama3.2")
@@ -133,6 +142,13 @@ class Settings(BaseSettings):
         return {
             "default_generation_provider": self.default_llm_provider,
             "default_generation_model": self.default_llm_model,
+            "nim_enabled": self.nim_enabled,
+            "nim_base_url": self.nim_base_url,
+            "rerank_enabled": self.rerank_enabled,
+            "rerank_invoke_url": self.rerank_invoke_url,
+            "rerank_model": self.rerank_model,
+            "rerank_max_candidates": self.rerank_max_candidates,
+            "rerank_min_candidates": self.rerank_min_candidates,
             "default_embedding_profile": self.default_embedding_profile,
             "default_embedding_provider": self.default_embedding_provider,
             "default_embedding_model": self.default_embedding_model,

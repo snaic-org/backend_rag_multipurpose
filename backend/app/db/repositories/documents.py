@@ -53,7 +53,7 @@ class DocumentRepository:
                 %(embedding_provider)s,
                 %(embedding_model)s
             )
-            ON CONFLICT (content_hash, embedding_provider, embedding_model) DO NOTHING
+            ON CONFLICT DO NOTHING
             RETURNING
                 id,
                 content_hash,

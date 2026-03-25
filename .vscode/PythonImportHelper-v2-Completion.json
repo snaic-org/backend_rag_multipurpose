@@ -816,6 +816,30 @@
         "documentation": {}
     },
     {
+        "label": "ChatCompletionResult",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatMessage",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ProviderHealth",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "ProviderHealth",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -1048,6 +1072,14 @@
         "documentation": {}
     },
     {
+        "label": "RetrievedChunk",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "ResetResponse",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -1258,6 +1290,14 @@
     },
     {
         "label": "Literal",
+        "importPath": "typing",
+        "description": "typing",
+        "isExtraImport": true,
+        "detail": "typing",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncIterator",
         "importPath": "typing",
         "description": "typing",
         "isExtraImport": true,
@@ -1718,6 +1758,14 @@
         "documentation": {}
     },
     {
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
+        "documentation": {}
+    },
+    {
         "label": "datetime",
         "importPath": "datetime",
         "description": "datetime",
@@ -1875,6 +1923,22 @@
         "description": "psycopg",
         "isExtraImport": true,
         "detail": "psycopg",
+        "documentation": {}
+    },
+    {
+        "label": "Settings",
+        "importPath": "app.core.config",
+        "description": "app.core.config",
+        "isExtraImport": true,
+        "detail": "app.core.config",
+        "documentation": {}
+    },
+    {
+        "label": "Settings",
+        "importPath": "app.core.config",
+        "description": "app.core.config",
+        "isExtraImport": true,
+        "detail": "app.core.config",
         "documentation": {}
     },
     {
@@ -2272,11 +2336,51 @@
         "documentation": {}
     },
     {
+        "label": "ProviderAdapter",
+        "importPath": "app.providers.base",
+        "description": "app.providers.base",
+        "isExtraImport": true,
+        "detail": "app.providers.base",
+        "documentation": {}
+    },
+    {
+        "label": "urlparse",
+        "importPath": "urllib.parse",
+        "description": "urllib.parse",
+        "isExtraImport": true,
+        "detail": "urllib.parse",
+        "documentation": {}
+    },
+    {
+        "label": "urlparse",
+        "importPath": "urllib.parse",
+        "description": "urllib.parse",
+        "isExtraImport": true,
+        "detail": "urllib.parse",
+        "documentation": {}
+    },
+    {
+        "label": "urlparse",
+        "importPath": "urllib.parse",
+        "description": "urllib.parse",
+        "isExtraImport": true,
+        "detail": "urllib.parse",
+        "documentation": {}
+    },
+    {
         "label": "GeminiProvider",
         "importPath": "app.providers.gemini_provider",
         "description": "app.providers.gemini_provider",
         "isExtraImport": true,
         "detail": "app.providers.gemini_provider",
+        "documentation": {}
+    },
+    {
+        "label": "NimProvider",
+        "importPath": "app.providers.nim_provider",
+        "description": "app.providers.nim_provider",
+        "isExtraImport": true,
+        "detail": "app.providers.nim_provider",
         "documentation": {}
     },
     {
@@ -2630,6 +2734,14 @@
         "documentation": {}
     },
     {
+        "label": "RerankService",
+        "importPath": "app.services.rerank",
+        "description": "app.services.rerank",
+        "isExtraImport": true,
+        "detail": "app.services.rerank",
+        "documentation": {}
+    },
+    {
         "label": "asyncio",
         "kind": 6,
         "isExtraImport": true,
@@ -2806,7 +2918,7 @@
         "kind": 5,
         "importPath": "backend.app.core.config",
         "description": "backend.app.core.config",
-        "peekOfCode": "ProviderName = Literal[\"openai\", \"gemini\", \"ollama\"]\nclass EmbeddingProfileSpec(BaseModel):\n    provider: ProviderName\n    model: str\n    dimension: int\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(\n        env_file=\".env\",\n        env_file_encoding=\"utf-8\",\n        case_sensitive=False,",
+        "peekOfCode": "ProviderName = Literal[\"openai\", \"gemini\", \"ollama\", \"nim\"]\nclass EmbeddingProfileSpec(BaseModel):\n    provider: ProviderName\n    model: str\n    dimension: int\nclass Settings(BaseSettings):\n    model_config = SettingsConfigDict(\n        env_file=\".env\",\n        env_file_encoding=\"utf-8\",\n        case_sensitive=False,",
         "detail": "backend.app.core.config",
         "documentation": {}
     },
@@ -3256,7 +3368,7 @@
         "kind": 5,
         "importPath": "backend.app.models.schemas",
         "description": "backend.app.models.schemas",
-        "peekOfCode": "ProviderName = Literal[\"openai\", \"gemini\", \"ollama\"]\nSupportedTextSourceType = Literal[\"text\", \"markdown\", \"unstructured\"]\nSupportedFileSourceType = Literal[\"txt\", \"md\", \"docx\", \"csv\", \"xlsx\"]\nclass DependencyHealth(BaseModel):\n    ok: bool\n    detail: str\nclass ProviderHealth(DependencyHealth):\n    enabled: bool = True\n    provider: str\n    capabilities: list[str] = Field(default_factory=list)",
+        "peekOfCode": "ProviderName = Literal[\"openai\", \"gemini\", \"ollama\", \"nim\"]\nSupportedTextSourceType = Literal[\"text\", \"markdown\", \"unstructured\"]\nSupportedFileSourceType = Literal[\"txt\", \"md\", \"docx\", \"csv\", \"xlsx\"]\nclass DependencyHealth(BaseModel):\n    ok: bool\n    detail: str\nclass ProviderHealth(DependencyHealth):\n    enabled: bool = True\n    provider: str\n    capabilities: list[str] = Field(default_factory=list)",
         "detail": "backend.app.models.schemas",
         "documentation": {}
     },
@@ -3360,6 +3472,15 @@
         "documentation": {}
     },
     {
+        "label": "NimProvider",
+        "kind": 6,
+        "importPath": "backend.app.providers.nim_provider",
+        "description": "backend.app.providers.nim_provider",
+        "peekOfCode": "class NimProvider(ProviderAdapter):\n    provider_name = \"nim\"\n    capabilities = [\"chat\", \"embeddings\"]\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def healthcheck(self) -> ProviderHealth:\n        enabled = self._settings.nim_enabled\n        configured = bool(self._settings.nim_base_url.strip())\n        if not enabled:\n            return ProviderHealth(",
+        "detail": "backend.app.providers.nim_provider",
+        "documentation": {}
+    },
+    {
         "label": "OllamaProvider",
         "kind": 6,
         "importPath": "backend.app.providers.ollama_provider",
@@ -3378,11 +3499,20 @@
         "documentation": {}
     },
     {
+        "label": "OPENAI_API_BASE_URL",
+        "kind": 5,
+        "importPath": "backend.app.providers.openai_provider",
+        "description": "backend.app.providers.openai_provider",
+        "peekOfCode": "OPENAI_API_BASE_URL = \"https://api.openai.com/v1\"\nclass OpenAIProvider(ProviderAdapter):\n    provider_name = \"openai\"\n    capabilities = [\"chat\", \"embeddings\"]\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def healthcheck(self) -> ProviderHealth:\n        enabled = self._settings.openai_enabled\n        configured = bool(self._settings.openai_api_key)\n        if not enabled:",
+        "detail": "backend.app.providers.openai_provider",
+        "documentation": {}
+    },
+    {
         "label": "ProviderRegistry",
         "kind": 6,
         "importPath": "backend.app.providers.registry",
         "description": "backend.app.providers.registry",
-        "peekOfCode": "class ProviderRegistry:\n    def __init__(self, providers: dict[str, ProviderAdapter]) -> None:\n        self._providers = providers\n    @classmethod\n    def from_settings(cls, settings: Settings) -> \"ProviderRegistry\":\n        providers: dict[str, ProviderAdapter] = {\n            \"openai\": OpenAIProvider(settings),\n            \"gemini\": GeminiProvider(settings),\n            \"ollama\": OllamaProvider(settings),\n        }",
+        "peekOfCode": "class ProviderRegistry:\n    def __init__(self, providers: dict[str, ProviderAdapter]) -> None:\n        self._providers = providers\n    @classmethod\n    def from_settings(cls, settings: Settings) -> \"ProviderRegistry\":\n        providers: dict[str, ProviderAdapter] = {\n            \"openai\": OpenAIProvider(settings),\n            \"gemini\": GeminiProvider(settings),\n            \"ollama\": OllamaProvider(settings),\n            \"nim\": NimProvider(settings),",
         "detail": "backend.app.providers.registry",
         "documentation": {}
     },
@@ -3436,7 +3566,7 @@
         "kind": 6,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "class EmbeddingProvider(ABC):\n    provider_name: str\n    @abstractmethod\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:\n        raise NotImplementedError\nclass OpenAIEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"openai\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:",
+        "peekOfCode": "class EmbeddingProvider(ABC):\n    provider_name: str\n    @abstractmethod\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:\n        raise NotImplementedError",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3445,7 +3575,16 @@
         "kind": 6,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "class OpenAIEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"openai\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:\n        if not self._settings.openai_api_key:\n            raise ValueError(\"OPENAI_API_KEY is required for OpenAI embeddings\")\n        headers = {\n            \"Authorization\": f\"Bearer {self._settings.openai_api_key}\",\n            \"Content-Type\": \"application/json\",",
+        "peekOfCode": "class OpenAIEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"openai\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:",
+        "detail": "backend.app.services.embeddings",
+        "documentation": {}
+    },
+    {
+        "label": "NimEmbeddingProvider",
+        "kind": 6,
+        "importPath": "backend.app.services.embeddings",
+        "description": "backend.app.services.embeddings",
+        "peekOfCode": "class NimEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"nim\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3454,7 +3593,7 @@
         "kind": 6,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "class GeminiEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"gemini\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:\n        if not self._settings.gemini_api_key:\n            raise ValueError(\"GEMINI_API_KEY is required for Gemini embeddings\")\n        embeddings: list[list[float]] = []\n        async with httpx.AsyncClient(timeout=30.0) as client:\n            for text in texts:",
+        "peekOfCode": "class GeminiEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"gemini\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3463,7 +3602,7 @@
         "kind": 6,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "class OllamaEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"ollama\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:\n        embeddings: list[list[float]] = []\n        async with httpx.AsyncClient(\n            base_url=self._settings.ollama_base_url,\n            timeout=60.0,\n        ) as client:",
+        "peekOfCode": "class OllamaEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"ollama\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3472,7 +3611,7 @@
         "kind": 6,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "class EmbeddingService:\n    def __init__(self, settings: Settings, cache_service: CacheService | None = None) -> None:\n        self._settings = settings\n        self._cache = cache_service\n        self._providers: dict[ProviderName, EmbeddingProvider] = {\n            \"openai\": OpenAIEmbeddingProvider(settings),\n            \"gemini\": GeminiEmbeddingProvider(settings),\n            \"ollama\": OllamaEmbeddingProvider(settings),\n        }\n        if self._settings.default_embedding_profile not in self._settings.embedding_profiles:",
+        "peekOfCode": "class EmbeddingService:\n    def __init__(self, settings: Settings, cache_service: CacheService | None = None) -> None:\n        self._settings = settings\n        self._cache = cache_service\n        self._providers: dict[ProviderName, EmbeddingProvider] = {\n            \"openai\": OpenAIEmbeddingProvider(settings),\n            \"gemini\": GeminiEmbeddingProvider(settings),\n            \"ollama\": OllamaEmbeddingProvider(settings),\n            \"nim\": NimEmbeddingProvider(settings),\n        }",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3481,7 +3620,7 @@
         "kind": 5,
         "importPath": "backend.app.services.embeddings",
         "description": "backend.app.services.embeddings",
-        "peekOfCode": "logger = get_logger(__name__)\nclass EmbeddingProvider(ABC):\n    provider_name: str\n    @abstractmethod\n    async def embed(self, texts: list[str], model: str) -> list[list[float]]:\n        raise NotImplementedError\nclass OpenAIEmbeddingProvider(EmbeddingProvider):\n    provider_name = \"openai\"\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings",
+        "peekOfCode": "logger = get_logger(__name__)\nclass EmbeddingProvider(ABC):\n    provider_name: str\n    @abstractmethod\n    async def embed(\n        self,\n        texts: list[str],\n        model: str,\n        input_type: str | None = None,\n    ) -> list[list[float]]:",
         "detail": "backend.app.services.embeddings",
         "documentation": {}
     },
@@ -3528,6 +3667,15 @@
         "description": "backend.app.services.prompt_builder",
         "peekOfCode": "SAFE_FALLBACK_TEXT = \"I couldn't find that in the knowledge base.\"\nclass PromptBuilder:\n    def build(\n        self,\n        user_message: str,\n        chat_history: list[ChatMessage],\n        retrieved_chunks: list[RetrievedChunk],\n        max_history_messages: int,\n        max_context_chars: int,\n        max_context_tokens: int,",
         "detail": "backend.app.services.prompt_builder",
+        "documentation": {}
+    },
+    {
+        "label": "RerankService",
+        "kind": 6,
+        "importPath": "backend.app.services.rerank",
+        "description": "backend.app.services.rerank",
+        "peekOfCode": "class RerankService:\n    def __init__(self, settings: Settings) -> None:\n        self._settings = settings\n    async def rerank(self, query_text: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:\n        if not self._settings.rerank_enabled:\n            return chunks\n        if len(chunks) < self._settings.rerank_min_candidates:\n            return chunks\n        if not self._settings.rerank_invoke_url.strip():\n            return chunks",
+        "detail": "backend.app.services.rerank",
         "documentation": {}
     },
     {

@@ -1,6 +1,6 @@
 # Backend RAG Multipurpose
 
-Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and multi-provider generation support across OpenAI, Gemini, and Ollama.
+Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and multi-provider generation support across OpenAI, Gemini, Ollama, and a dedicated NVIDIA NIM alias for embeddings, generation, and reranking.
 
 ## TODO
 
@@ -23,6 +23,7 @@ Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and 
 - Qdrant similarity search
 - Redis rate limiting, retrieval caching, embedding caching, and optional session storage
 - Request-level generation provider/model selection
+- Optional reranking plugin for retrieval quality
 - Multipart ingestion for `txt`, `md`, `docx`, `csv`, and `xlsx`
 - JWT bearer authentication and hashed API keys
 - Chat guardrails for spam, quota, prompt-injection phrases, and output limits
@@ -33,11 +34,18 @@ Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and 
 
 The generation provider is switchable per request. Embeddings are selected through named profiles in `backend/.env`, and the app creates or reuses a dimension-specific Qdrant collection for that profile automatically.
 
+If you want to point the app at NVIDIA NIM, use OpenAI-compatible endpoints with models like:
+
+- `nvidia/llama-3.3-nemotron-super-49b-v1.5`
+- `nvidia/llama-nemotron-embed-1b-v2`
+- `nvidia/llama-nemotron-rerank-1b-v2`
+
 Example profiles:
 
 - `ollama_1536`
 - `openai_small_1536`
 - `ollama_4096`
+- `nim_nemotron_2048`
 
 If you add a new dimension, the app will create the matching Qdrant collection on first use. Existing collections remain untouched.
 
