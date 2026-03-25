@@ -190,6 +190,9 @@ class ChatService:
             max_context_chars=self._settings.chat_max_context_chars,
             max_context_tokens=self._settings.chat_max_context_tokens,
             max_chunk_chars=self._settings.chat_max_context_chunk_chars,
+            disable_reasoning=(
+                generation.provider == "nim" and self._settings.nim_no_think
+            ),
         )
         return _PreparedChatContext(
             provider=generation.provider,

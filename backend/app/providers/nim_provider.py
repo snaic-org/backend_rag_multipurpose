@@ -65,6 +65,8 @@ class NimProvider(ProviderAdapter):
         payload = {
             "model": model,
             "messages": [message.model_dump() for message in messages],
+            "temperature": 0 if self._settings.nim_no_think else 0.6,
+            "top_p": 1 if self._settings.nim_no_think else 0.95,
         }
 
         async with httpx.AsyncClient(
@@ -99,6 +101,8 @@ class NimProvider(ProviderAdapter):
             "model": model,
             "messages": [message.model_dump() for message in messages],
             "stream": True,
+            "temperature": 0 if self._settings.nim_no_think else 0.6,
+            "top_p": 1 if self._settings.nim_no_think else 0.95,
         }
 
         async with httpx.AsyncClient(

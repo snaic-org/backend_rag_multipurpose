@@ -74,14 +74,20 @@
         { "name": "REDIS_URL", "value": "redis://127.0.0.1:6379/0" },
         { "name": "QDRANT_URL", "value": "http://127.0.0.1:6333" },
         { "name": "OLLAMA_ENABLED", "value": "false" },
-        { "name": "OPENAI_ENABLED", "value": "true" },
-        { "name": "DEFAULT_LLM_PROVIDER", "value": "openai" },
-        { "name": "DEFAULT_LLM_MODEL", "value": "gpt-4.1-mini" },
-        { "name": "DEFAULT_EMBEDDING_PROFILE", "value": "openai_small_1536" },
+        { "name": "OPENAI_ENABLED", "value": "false" },
+        { "name": "NIM_ENABLED", "value": "true" },
+        { "name": "NIM_BASE_URL", "value": "https://integrate.api.nvidia.com/v1" },
+        { "name": "NIM_NO_THINK", "value": "true" },
+        { "name": "DEFAULT_LLM_PROVIDER", "value": "nim" },
+        { "name": "DEFAULT_LLM_MODEL", "value": "nvidia/llama-3.3-nemotron-super-49b-v1.5" },
+        { "name": "DEFAULT_EMBEDDING_PROFILE", "value": "nim_nemotron_2048" },
         {
           "name": "EMBEDDING_PROFILES",
-          "value": "{\"openai_small_1536\":{\"provider\":\"openai\",\"model\":\"text-embedding-3-small\",\"dimension\":1536}}"
+          "value": "{\"nim_nemotron_2048\":{\"provider\":\"nim\",\"model\":\"nvidia/llama-nemotron-embed-1b-v2\",\"dimension\":2048}}"
         },
+        { "name": "RERANK_ENABLED", "value": "true" },
+        { "name": "RERANK_INVOKE_URL", "value": "https://ai.api.nvidia.com/v1/retrieval/nvidia/llama-nemotron-rerank-1b-v2/reranking" },
+        { "name": "RERANK_MODEL", "value": "nvidia/llama-nemotron-rerank-1b-v2" },
         { "name": "AUTH_ENABLED", "value": "true" },
         { "name": "AUTH_REQUIRE_HTTPS", "value": "false" },
         { "name": "CHAT_RATE_LIMIT_REQUESTS", "value": "20" },
@@ -101,8 +107,8 @@
       ],
       "secrets": [
         {
-          "name": "OPENAI_API_KEY",
-          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/OPENAI_API_KEY"
+          "name": "NIM_API_KEY",
+          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/NIM_API_KEY"
         },
         {
           "name": "AUTH_JWT_SECRET",

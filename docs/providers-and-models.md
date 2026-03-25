@@ -48,6 +48,7 @@ Embedding providers are implemented through named profiles. That means:
 - `NIM_ENABLED`
 - `NIM_API_KEY`
 - `NIM_BASE_URL`
+- `NIM_NO_THINK`
 - `GEMINI_API_KEY`
 - `OLLAMA_BASE_URL`
 - `RERANK_ENABLED`
@@ -97,6 +98,7 @@ NIM is implemented as a dedicated alias so the config stays explicit:
 - generation uses `DEFAULT_LLM_PROVIDER=nim`
 - generation and embeddings use `NIM_BASE_URL`
 - embeddings use a profile with `provider="nim"`
+- set `NIM_NO_THINK=true` to prepend `/no_think` and use greedy decoding defaults
 
 Relevant NIM model IDs:
 

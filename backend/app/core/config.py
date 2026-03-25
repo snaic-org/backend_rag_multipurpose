@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     nim_enabled: bool = Field(default=False)
     nim_api_key: str | None = Field(default=None)
     nim_base_url: str = Field(default="")
+    nim_no_think: bool = Field(default=True)
 
     gemini_enabled: bool = Field(default=False)
     gemini_api_key: str | None = Field(default=None)
@@ -144,6 +145,7 @@ class Settings(BaseSettings):
             "default_generation_model": self.default_llm_model,
             "nim_enabled": self.nim_enabled,
             "nim_base_url": self.nim_base_url,
+            "nim_no_think": self.nim_no_think,
             "rerank_enabled": self.rerank_enabled,
             "rerank_invoke_url": self.rerank_invoke_url,
             "rerank_model": self.rerank_model,

@@ -9,6 +9,35 @@ docker compose -f backend/docker-compose.yml up --build -d
 
 Local Docker reads values from `backend/.env`. `backend/.env.example` is only the template.
 
+## What To Change
+
+Use these rules when you update the app:
+
+- Change a model or provider name:
+  - update `backend/.env`
+  - update `backend/.env.example`
+  - update `deploy/ecs/task-definition.json` if ECS should match
+  - update `README.md` and `docs/providers-and-models.md`
+- Change chat behavior or reasoning:
+  - update `backend/app/services/prompt_builder.py`
+  - update `backend/app/services/chat_service.py`
+  - update `backend/app/providers/nim_provider.py` if the change is NIM-specific
+  - update `backend/.env.example` for any new toggle
+- Change embeddings or retrieval:
+  - update `backend/app/services/embeddings.py`
+  - update `backend/app/services/retrieval.py`
+  - update `backend/app/services/rerank.py` if reranking changes
+  - update `backend/app/core/config.py` for new defaults
+- Change API request or response fields:
+  - update `backend/app/models/schemas.py`
+  - update the dependent service code
+  - update tests that build or assert those payloads
+- Change ECS deployment behavior:
+  - update `deploy/ecs/task-definition.json`
+  - update `deploy/ecs/README.md`
+  - update `docs/deployment.md`
+  - add or rename SSM parameters in AWS if the secret list changes
+
 If `9010` is blocked on the host:
 
 ```bash
@@ -221,12 +250,26 @@ Examples:
 
 - `ollama_1536`
 - `openai_small_1536`
+- `nim_nemotron_2048`
 
 Use `DEFAULT_EMBEDDING_PROFILE` in `backend/.env` or the ECS task definition to switch the active embedding profile without editing code.
 
 The active profile controls the provider/model/dimension. If you choose a new dimension, the app creates the matching Qdrant collection automatically on first use.
 
 For per-request overrides, send `embedding_profile` on `/ingest/text`, `/ingest/files`, or `/chat` instead of mixing raw provider/model fields.
+
+NIM-specific defaults used by this repository:
+
+- `DEFAULT_LLM_PROVIDER=nim`
+- `DEFAULT_LLM_MODEL=nvidia/llama-3.3-nemotron-super-49b-v1.5`
+- `NIM_BASE_URL=https://integrate.api.nvidia.com/v1`
+- `NIM_NO_THINK=true`
+- `DEFAULT_EMBEDDING_PROFILE=nim_nemotron_2048`
+- `EMBEDDING_PROFILES` contains the `nim_nemotron_2048` profile
+- `RERANK_ENABLED=true`
+- `RERANK_INVOKE_URL` points at NVIDIA reranking
+
+When using NIM, you do not need to pull local models on the host or inside Docker because the app talks to NVIDIA-hosted endpoints through `NIM_BASE_URL`.
 
 ## Reset the backend state
 
@@ -287,6 +330,13 @@ Current default setup expects:
 - provider: `ollama`
 - model: `rjmalagon/gte-qwen2-1.5b-instruct-embed-f16`
 - dimension: `1536`
+
+If you switch to NIM, expect:
+
+- profile: `nim_nemotron_2048`
+- provider: `nim`
+- model: `nvidia/llama-nemotron-embed-1b-v2`
+- dimension: `2048`
 
 ### Chat returns fallback unexpectedly
 

@@ -257,6 +257,49 @@ Behavior:
 - the same content can still be ingested separately under a different embedding profile
 - duplicate uploads return a successful ingest result marked as deduplicated
 
+## v0.5.6 - 2026-03-25
+
+NVIDIA NIM support added as an explicit provider alias.
+
+Added:
+
+- `nim` provider alias for generation and embeddings
+- `NIM_BASE_URL` and `NIM_API_KEY` env wiring
+- NIM embedding profile example for `nvidia/llama-nemotron-embed-1b-v2`
+- reranking path using `RERANK_INVOKE_URL`
+- reranker reuses `NIM_API_KEY`
+
+Changed:
+
+- OpenAI provider remains fixed to the public OpenAI endpoint internally
+- `OPENAI_BASE_URL` was removed from the env surface
+- NIM embedding requests now send `input_type=query|passage` and `truncate=NONE`
+
+## v0.5.7 - 2026-03-25
+
+Reasoning-off controls and ingest compatibility fixes added.
+
+Added:
+
+- NIM-only `/no_think` system directive through `NIM_NO_THINK`
+- greedy decoding defaults for NIM chat when reasoning is disabled
+
+Fixed:
+
+- document ingest `ON CONFLICT` handling now works with the existing partial unique index
+- local Docker ingest no longer fails on `ON CONFLICT` target inference
+
+## v0.5.8 - 2026-03-25
+
+ECS deployment synced to the NIM-based runtime contract.
+
+Changed:
+
+- ECS task definition defaults moved from OpenAI to NVIDIA NIM
+- ECS now uses `NIM_API_KEY` for generation, embeddings, and reranking
+- ECS task definition includes `NIM_BASE_URL`, `NIM_NO_THINK`, and `RERANK_INVOKE_URL`
+- ECS docs now describe the NIM-based deployment path
+
 ## Current feature set - 2026-03-22
 
 The repository currently includes:
@@ -266,6 +309,8 @@ The repository currently includes:
 - PostgreSQL plus pgvector storage and retrieval
 - Redis-backed rate limiting, caching, and optional sessions
 - multi-provider chat generation
+- explicit NVIDIA NIM alias support
+- optional reranking
 - chat guardrails for abuse, prompt injection, and output caps
 - Dockerized local runtime behind `nginx`
 - JWT auth, API keys, and admin user management

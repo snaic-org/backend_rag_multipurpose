@@ -121,14 +121,18 @@ Chat guardrail defaults can also be overridden through environment variables if 
 Current repository default embedding settings:
 
 - `DEFAULT_EMBEDDING_PROFILE=ollama_1536`
-- `EMBEDDING_PROFILES={"ollama_1536":{"provider":"ollama","model":"rjmalagon/gte-qwen2-1.5b-instruct-embed-f16","dimension":1536},"openai_small_1536":{"provider":"openai","model":"text-embedding-3-small","dimension":1536}}`
+- `EMBEDDING_PROFILES={"ollama_1536":{"provider":"ollama","model":"rjmalagon/gte-qwen2-1.5b-instruct-embed-f16","dimension":1536},"openai_small_1536":{"provider":"openai","model":"text-embedding-3-small","dimension":1536},"nim_nemotron_2048":{"provider":"nim","model":"nvidia/llama-nemotron-embed-1b-v2","dimension":2048}}`
 - `SIMILARITY_THRESHOLD=0.35`
 
 Depending on provider usage:
 
 - `OPENAI_API_KEY`
+- `NIM_API_KEY`
+- `NIM_BASE_URL`
+- `NIM_NO_THINK`
 - `GEMINI_API_KEY`
 - `OLLAMA_BASE_URL`
+- `RERANK_INVOKE_URL`
 
 Authentication-related settings:
 

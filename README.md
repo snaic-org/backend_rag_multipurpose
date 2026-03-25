@@ -49,6 +49,31 @@ Example profiles:
 
 If you add a new dimension, the app will create the matching Qdrant collection on first use. Existing collections remain untouched.
 
+## Change Map
+
+Use this when you want to update the system without guessing which file owns what.
+
+- Code behavior: edit `backend/app/`
+- API shapes and response models: edit `backend/app/models/schemas.py`
+- Runtime config and defaults: edit `backend/app/core/config.py`
+- Provider wiring and API calls: edit `backend/app/providers/`
+- Embedding, retrieval, prompt building, reranking, and chat orchestration: edit `backend/app/services/`
+- Local Docker defaults: edit `backend/.env.example`
+- Local runtime values: edit `backend/.env`
+- ECS runtime defaults and secrets: edit `deploy/ecs/task-definition.json`
+- ECS deployment instructions: edit `deploy/ecs/README.md`
+- User-facing deployment guide: edit `docs/deployment.md`
+- Behavior history and release notes: edit `docs/feature-log.md`
+- Troubleshooting history: edit `docs/troubleshooting-log.md`
+
+Typical change flow:
+
+- If you change a model name or provider, update the matching env var in `backend/.env`, then update the default examples in `backend/.env.example`, `deploy/ecs/task-definition.json`, and the docs.
+- If you change a request or response field, update `backend/app/models/schemas.py` first, then adjust the services and any tests that depend on it.
+- If you change how NIM works, keep `NIM_BASE_URL`, `NIM_API_KEY`, `NIM_NO_THINK`, and the NIM embedding profile in sync across local env, ECS, and docs.
+- If you add a new deployment secret, add it to `backend/.env.example`, `deploy/ecs/task-definition.json`, and the ECS README / deployment docs together.
+- If you change retrieval behavior, update `backend/app/services/retrieval.py`, `backend/app/services/rerank.py`, and the RAG pipeline docs together.
+
 ## Chat guardrails
 
 Default chat safety controls are enforced in code and can be overridden through `backend/.env` or the ECS task definition:

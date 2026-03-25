@@ -208,7 +208,7 @@ Example policy:
         "ssm:GetParameters"
       ],
       "Resource": [
-        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/OPENAI_API_KEY",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/NIM_API_KEY",
         "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_JWT_SECRET",
         "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME",
         "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD"
@@ -392,6 +392,85 @@ Relevant files:
 
 - `backend/app/db/schema.sql`
 - `backend/app/core/config.py`
+- `backend/.env.example`
+
+### ECS task still uses OpenAI after switching to NIM
+
+Symptoms:
+
+- `GET /health` still reports `default_generation_provider="openai"`
+- `/chat` continues calling OpenAI instead of NVIDIA NIM
+- the task definition update appears to have had no effect
+
+Cause:
+
+- the live ECS service is still running an older task definition revision
+- `DEFAULT_LLM_PROVIDER`, `NIM_BASE_URL`, or `NIM_API_KEY` were updated in the file but not in the running service
+- ECS has not been forced to deploy the new revision
+
+Solution:
+
+- update `deploy/ecs/task-definition.json` with the NIM defaults
+- register a new task definition revision
+- update the ECS service with `--force-new-deployment`
+- verify `GET /health` shows `default_generation_provider="nim"`
+
+Relevant files:
+
+- `deploy/ecs/task-definition.json`
+- `deploy/ecs/README.md`
+- `docs/deployment.md`
+
+### NIM reasoning still appears in chat responses
+
+Symptoms:
+
+- the model emits visible reasoning or `<think>`-style output
+- chat responses look more verbose than expected
+
+Cause:
+
+- `NIM_NO_THINK` is false or missing
+- the live ECS task or local `.env` does not include the reasoning-off toggle
+
+Solution:
+
+- set `NIM_NO_THINK=true`
+- rebuild or redeploy the app
+- confirm the live task definition includes `NIM_NO_THINK=true`
+
+Relevant files:
+
+- `backend/app/services/prompt_builder.py`
+- `backend/app/providers/nim_provider.py`
+- `backend/app/core/config.py`
+- `deploy/ecs/task-definition.json`
+
+### Reranker fails even though generation and embeddings work
+
+Symptoms:
+
+- chat generation succeeds
+- embeddings succeed
+- retrieval fails only when reranking is enabled
+
+Cause:
+
+- the rerank endpoint is configured separately with `RERANK_INVOKE_URL`
+- the NVIDIA API key is missing from `NIM_API_KEY`
+- the rerank URL is wrong or unreachable
+
+Solution:
+
+- ensure `RERANK_ENABLED=true`
+- set `RERANK_INVOKE_URL` to NVIDIA’s rerank endpoint
+- reuse `NIM_API_KEY` for the reranker
+- confirm the endpoint responds outside the app first
+
+Relevant files:
+
+- `backend/app/services/rerank.py`
+- `deploy/ecs/task-definition.json`
 - `backend/.env.example`
 
 ## Usage

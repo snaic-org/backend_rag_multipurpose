@@ -14,6 +14,7 @@ class PromptBuilder:
         max_context_chars: int,
         max_context_tokens: int,
         max_chunk_chars: int,
+        disable_reasoning: bool = False,
     ) -> PromptContext:
         system_prompt = (
             "You are SNAIC, a professional, friendly, cheerful grounded RAG assistant. "
@@ -79,7 +80,10 @@ class PromptBuilder:
             ]
         )
 
-        messages = [ChatMessage(role="system", content=system_prompt)]
+        messages = []
+        if disable_reasoning:
+            messages.append(ChatMessage(role="system", content="/no_think"))
+        messages.append(ChatMessage(role="system", content=system_prompt))
         messages.extend(chat_history[-max_history_messages:])
         messages.append(ChatMessage(role="user", content=user_prompt))
 

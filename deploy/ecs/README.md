@@ -14,10 +14,12 @@ This keeps the current local Compose architecture inside one ECS task.
 
 Current ECS template defaults:
 
-- generation provider: `openai`
-- generation model: `gpt-4.1-mini`
-- embedding profile: `openai_small_1536`
+- generation provider: `nim`
+- generation model: `nvidia/llama-3.3-nemotron-super-49b-v1.5`
+- embedding profile: `nim_nemotron_2048`
 - embedding profiles are supplied via `EMBEDDING_PROFILES`
+- reasoning is disabled with `NIM_NO_THINK=true`
+- reranking is enabled and reuses `NIM_API_KEY`
 
 Chat safety defaults are enforced by the app and can be overridden in the task definition if needed:
 
@@ -95,7 +97,7 @@ Create:
 5. One IAM task execution role: `ecsTaskExecutionRole`.
 6. One IAM task role: `ecsTaskRole`.
 7. SSM Parameter Store entries for secrets used by the app.
-   - `/backend-rag/OPENAI_API_KEY`
+   - `/backend-rag/NIM_API_KEY`
    - `/backend-rag/AUTH_JWT_SECRET`
    - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME`
    - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD`
@@ -195,7 +197,7 @@ The ECS task definition reads secrets from AWS Systems Manager Parameter Store.
 
 Create these parameters as `SecureString`:
 
-- `/backend-rag/OPENAI_API_KEY`
+- `/backend-rag/NIM_API_KEY`
 - `/backend-rag/AUTH_JWT_SECRET`
 - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME`
 - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD`
@@ -214,24 +216,12 @@ Create these parameters as `SecureString`:
 
 Suggested values:
 
-- `/backend-rag/OPENAI_API_KEY`: your OpenAI API key
+- `/backend-rag/NIM_API_KEY`: your NVIDIA API key
 - `/backend-rag/AUTH_JWT_SECRET`: a long random secret
 - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME`: your admin username
 - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD`: your admin password
 
-If you prefer Gemini instead of OpenAI:
-
-- create `/backend-rag/GEMINI_API_KEY`
-- replace the OpenAI env vars and secret reference in the task definition
-
-If you prefer Ollama instead of OpenAI in ECS:
-
-- update the app container environment in `deploy/ecs/task-definition.json`
-- set `OLLAMA_ENABLED=true`
-- set the OpenAI defaults to `false`
-- provide a reachable `OLLAMA_BASE_URL`
-
-The current ECS task template is OpenAI-based by default.
+The current ECS task template is NIM-based by default.
 
 ### Permissions note
 
@@ -240,6 +230,28 @@ Your `ecsTaskExecutionRole` must be able to read these parameters.
 At minimum it needs:
 
 - `ssm:GetParameters`
+
+Example policy scope for the current NIM-based task:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameters"
+      ],
+      "Resource": [
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/NIM_API_KEY",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_JWT_SECRET",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD"
+      ]
+    }
+  ]
+}
+```
 
 If you use a customer-managed KMS key for `SecureString`, it also needs:
 
@@ -268,7 +280,8 @@ Recommended production edits before registering:
 
 Important:
 
-- `OPENAI_ENABLED=true` does not change the default embedding path by itself.
+- `NIM_ENABLED=true` turns on the NIM provider alias for both generation and embeddings.
+- `NIM_NO_THINK=true` adds the `/no_think` system directive and uses greedy decoding defaults.
 - `/ingest/files` and `/ingest/text` use `DEFAULT_EMBEDDING_PROFILE` when the request does not send `embedding_profile`.
 - ECS will keep running the old task definition until you register a new revision and update the service.
 
