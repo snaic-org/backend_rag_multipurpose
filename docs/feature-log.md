@@ -401,17 +401,18 @@ Changed:
 
 ## v0.5.15 - 2026-03-26
 
-Default generation profile selection added.
+Admin-managed generation and embedding selection added.
 
 Added:
 
-- `DEFAULT_LLM_PROFILE` for selecting the active chat default by short alias
-- `GENERATION_PROFILES` for mapping named generation profiles to provider/model pairs
+- `GET /admin/model-catalog` for listing the selectable generation and embedding profiles
+- `GET /admin/model-selection` for viewing the active profiles
+- `PUT /admin/model-selection` for switching the active generation and embedding profiles
 
 Changed:
 
-- chat defaults now resolve through a named generation profile when one is configured
-- docs and example env files now show a short NIM profile such as `nim_3super120`
+- chat defaults now resolve through the DB-backed model-selection record
+- docs now treat the profile catalog as the selectable list, while the active selection is managed by admin
 
 ## Current feature set - 2026-03-26
 

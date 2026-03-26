@@ -420,6 +420,62 @@ class SystemPromptResponse(BaseModel):
     updated_at: datetime
 
 
+class ModelCatalogGenerationProfile(BaseModel):
+    profile_name: str
+    provider: ProviderName
+    model: str
+
+
+class ModelCatalogEmbeddingProfile(BaseModel):
+    profile_name: str
+    provider: ProviderName
+    model: str
+    dimension: int
+
+
+class ModelCatalogResponse(BaseModel):
+    generation_profiles: list[ModelCatalogGenerationProfile] = Field(default_factory=list)
+    embedding_profiles: list[ModelCatalogEmbeddingProfile] = Field(default_factory=list)
+
+
+class ModelSelectionUpdateRequest(BaseModel):
+    generation_profile: str = Field(
+        examples=["openai_gpt41_mini", "nim_3super120"]
+    )
+    embedding_profile: str = Field(
+        examples=["openai_small_1536", "nim_nemotron_2048"]
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "generation_profile": "openai_gpt41_mini",
+                "embedding_profile": "openai_small_1536",
+            }
+        }
+    )
+
+
+class ModelSelectionRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    generation_profile: str
+    embedding_profile: str
+    updated_at: datetime
+
+
+class ModelSelectionResponse(BaseModel):
+    generation_profile: str
+    generation_provider: ProviderName
+    generation_model: str
+    embedding_profile: str
+    embedding_provider: ProviderName
+    embedding_model: str
+    embedding_dimension: int
+    updated_at: datetime
+
+
 class IngestedDocumentSummary(BaseModel):
     document: DocumentRecord
     embedding_profile: str | None = None

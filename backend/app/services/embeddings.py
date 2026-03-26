@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import Settings
+from app.core.defaults import DEFAULT_EMBEDDING_PROFILE
 from app.core.logging import get_logger
 from app.models.schemas import EmbeddingSelection, ProviderName
 from app.services.cache_service import CacheService
@@ -182,16 +183,13 @@ class EmbeddingService:
             "ollama": OllamaEmbeddingProvider(settings),
             "nim": NimEmbeddingProvider(settings),
         }
-        if self._settings.default_embedding_profile not in self._settings.embedding_profiles:
-            raise ValueError(
-                f"Unknown default embedding profile '{self._settings.default_embedding_profile}'"
-            )
 
     def resolve_selection(
         self,
         profile_name: str | None,
         provider: str | None,
         model: str | None,
+        default_profile_name: str | None = None,
     ) -> EmbeddingSelection:
         if profile_name is not None:
             selected_profile_name = profile_name
@@ -212,8 +210,10 @@ class EmbeddingService:
             if profile is None:
                 raise ValueError(f"Unknown embedding profile '{selected_profile_name}'")
         else:
-            selected_profile_name = self._settings.default_embedding_profile
+            selected_profile_name = default_profile_name or DEFAULT_EMBEDDING_PROFILE
             profile = self._settings.embedding_profiles.get(selected_profile_name)
+            if profile is None:
+                raise ValueError(f"Unknown embedding profile '{selected_profile_name}'")
 
         if profile.provider not in self._providers:
             raise ValueError(f"Unsupported embedding provider '{profile.provider}'")
@@ -232,8 +232,9 @@ class EmbeddingService:
         provider: str | None = None,
         model: str | None = None,
         input_type: str | None = None,
+        default_profile_name: str | None = None,
     ) -> tuple[EmbeddingSelection, list[list[float]]]:
-        selection = self.resolve_selection(profile_name, provider, model)
+        selection = self.resolve_selection(profile_name, provider, model, default_profile_name=default_profile_name)
         if not texts:
             return selection, []
 
@@ -278,7 +279,7 @@ class EmbeddingService:
 
     def _find_profile_name(self, provider: str | None, model: str | None) -> str:
         if provider is None and model is None:
-            return self._settings.default_embedding_profile
+            return DEFAULT_EMBEDDING_PROFILE
 
         matches: list[str] = []
         for profile_name, profile in self._settings.embedding_profiles.items():

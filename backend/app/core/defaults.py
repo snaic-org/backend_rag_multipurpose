@@ -13,3 +13,48 @@ SESSION_STORAGE_ENABLED = False
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 RERANK_BASE_URL = "https://ai.api.nvidia.com/v1/retrieval"
+DEFAULT_GENERATION_PROFILE = "openai_gpt41_mini"
+DEFAULT_EMBEDDING_PROFILE = "openai_small_1536"
+DEFAULT_GENERATION_CATALOG = [
+    {
+        "profile_name": "openai_gpt41_mini",
+        "provider": "openai",
+        "model": "gpt-4.1-mini",
+    },
+    {
+        "profile_name": "nim_3super120",
+        "provider": "nim",
+        "model": "nvidia/nemotron-3-super-120b-a12b",
+    },
+    {
+        "profile_name": "ollama_llama32",
+        "provider": "ollama",
+        "model": "llama3.2",
+    },
+]
+DEFAULT_EMBEDDING_CATALOG = [
+    {
+        "profile_name": "openai_small_1536",
+        "provider": "openai",
+        "model": "text-embedding-3-small",
+        "dimension": 1536,
+    },
+    {
+        "profile_name": "ollama_1536",
+        "provider": "ollama",
+        "model": "rjmalagon/gte-qwen2-1.5b-instruct-embed-f16",
+        "dimension": 1536,
+    },
+    {
+        "profile_name": "ollama_4096",
+        "provider": "ollama",
+        "model": "qwen3-embedding",
+        "dimension": 4096,
+    },
+    {
+        "profile_name": "nim_nemotron_2048",
+        "provider": "nim",
+        "model": "nvidia/llama-nemotron-embed-1b-v2",
+        "dimension": 2048,
+    },
+]

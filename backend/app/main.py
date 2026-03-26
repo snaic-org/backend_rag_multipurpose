@@ -11,6 +11,7 @@ from app.db.postgres import PostgresManager
 from app.db.redis import RedisManager
 from app.providers.registry import ProviderRegistry
 from app.services.auth_service import AuthService
+from app.services.model_selection_service import ModelSelectionService
 from app.services.system_prompt_service import SystemPromptService
 
 
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
     providers = ProviderRegistry.from_settings(settings)
     auth_service = AuthService(settings, postgres.pool)
     prompt_service = SystemPromptService(postgres.pool)
+    model_selection_service = ModelSelectionService(settings, postgres.pool)
 
     app.state.settings = settings
     app.state.postgres = postgres
@@ -34,11 +36,15 @@ async def lifespan(app: FastAPI):
     app.state.providers = providers
     app.state.auth_service = auth_service
     app.state.prompt_service = prompt_service
+    app.state.model_selection_service = model_selection_service
 
     await postgres.connect()
     await redis.connect()
-    await _wait_for_qdrant(qdrant, settings.default_embedding_spec.dimension)
     await prompt_service.ensure_default_system_prompt()
+    await model_selection_service.ensure_default_model_selection()
+    model_selection = await model_selection_service.get_model_selection()
+    embedding_profile = settings.embedding_profiles[model_selection.embedding_profile]
+    await _wait_for_qdrant(qdrant, embedding_profile.dimension)
     await auth_service.ensure_bootstrap_admin()
 
     logger.info("application_startup_complete")

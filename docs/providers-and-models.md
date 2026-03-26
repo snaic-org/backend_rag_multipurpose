@@ -21,8 +21,16 @@ Relevant request fields:
 
 Default generation selection can also be profile-based through:
 
-- `DEFAULT_LLM_PROFILE`
-- `GENERATION_PROFILES`
+- the selectable catalog is defined in `backend/app/core/defaults.py`
+- the active profile is stored in PostgreSQL and managed through the admin model-selection endpoints
+
+Startup defaults come from these env values:
+
+- `DEFAULT_GENERATION_PROVIDER`
+- `DEFAULT_GENERATION_MODEL`
+- `DEFAULT_EMBEDDING_PROVIDER`
+- `DEFAULT_EMBEDDING_MODEL`
+- `DEFAULT_EMBEDDING_DIMENSION`
 
 ## Embedding providers
 
@@ -59,29 +67,26 @@ Embedding providers are implemented through named profiles. That means:
 
 ## Defaults
 
-- `DEFAULT_LLM_PROFILE`
-- `GENERATION_PROFILES`
-- `DEFAULT_EMBEDDING_PROFILE`
-- `EMBEDDING_PROFILES`
+- the selectable generation and embedding catalogs are defined in `backend/app/core/defaults.py`
+- the active generation and embedding selections are stored in PostgreSQL
 
-Current repository defaults:
+Current repository catalog:
 
-- `DEFAULT_LLM_PROFILE=ollama_llama32`
-- `GENERATION_PROFILES={"nim_3super120":{"provider":"nim","model":"nvidia/nemotron-3-super-120b-a12b"},"openai_gpt41_mini":{"provider":"openai","model":"gpt-4.1-mini"},"ollama_llama32":{"provider":"ollama","model":"llama3.2"}}`
-- `DEFAULT_EMBEDDING_PROFILE=ollama_1536`
-- `EMBEDDING_PROFILES={"ollama_1536":{"provider":"ollama","model":"rjmalagon/gte-qwen2-1.5b-instruct-embed-f16","dimension":1536},"openai_small_1536":{"provider":"openai","model":"text-embedding-3-small","dimension":1536}}`
+- catalog entries are seeded in code from `backend/app/core/defaults.py`
 - `SIMILARITY_THRESHOLD` uses the code default
 - `RERANK_ENABLED=false`
 
 Generation profile registry:
 
-- `DEFAULT_LLM_PROFILE` selects the default generation profile when set
-- `GENERATION_PROFILES` defines named provider/model pairs for chat defaults
+- `GET /admin/model-catalog` returns the available generation profiles
+- `GET /admin/model-selection` returns the active generation profile
+- `PUT /admin/model-selection` updates it
 
 Embedding profile registry:
 
-- `DEFAULT_EMBEDDING_PROFILE` selects the active profile
-- `EMBEDDING_PROFILES` defines the named provider/model/dimension map
+- `GET /admin/model-catalog` returns the available embedding profiles
+- `GET /admin/model-selection` returns the active embedding profile
+- `PUT /admin/model-selection` updates it
 
 ## OpenAI
 
@@ -93,13 +98,13 @@ Embedding route implementation:
 
 - `POST https://api.openai.com/v1/embeddings`
 
-OpenAI is implemented and can be selected with a profile, but it is not the default path in the current `.env.example`.
+OpenAI is implemented and can be selected with a profile. The startup seed uses the OpenAI generation and embedding profiles unless an admin changes them later.
 
 OpenAI uses the fixed public API endpoint internally, so there is no `OPENAI_BASE_URL` setting to manage.
 
 NIM is implemented as a dedicated alias so the config stays explicit:
 
-- generation uses `DEFAULT_LLM_PROFILE=nim_3super120`
+- generation can be selected through the admin model-selection endpoint
 - generation and embeddings use the built-in NVIDIA base URL unless you override it in env
 - embeddings use a profile with `provider="nim"`
 - NIM thinking follows `CHAT_THINKING_ENABLED` and falls back automatically if the model rejects reasoning mode

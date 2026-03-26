@@ -13,6 +13,7 @@ from app.providers.registry import ProviderRegistry
 from app.services.guardrails import GuardrailService
 from app.services.embeddings import EmbeddingService
 from app.services.assistant_copy import SAFE_FALLBACK_TEXT
+from app.services.model_selection_service import ModelSelectionService
 from app.services.prompt_builder import PromptBuilder
 from app.services.system_prompt_service import SystemPromptService
 from app.services.retrieval import RetrievalService
@@ -28,6 +29,7 @@ class ChatService:
         redis_manager: RedisManager,
         provider_registry: ProviderRegistry,
         system_prompt_service: SystemPromptService,
+        model_selection_service: ModelSelectionService,
     ) -> None:
         self._settings = settings
         self._providers = provider_registry
@@ -35,6 +37,7 @@ class ChatService:
         self._retrieval_service = RetrievalService(settings, qdrant_manager, redis_manager)
         self._prompt_builder = PromptBuilder()
         self._system_prompt_service = system_prompt_service
+        self._model_selection_service = model_selection_service
         self._guardrails = GuardrailService(settings, redis_manager.client)
         self._session_service = SessionService(
             redis_client=redis_manager.client,
@@ -164,7 +167,8 @@ class ChatService:
     ) -> "_PreparedChatContext":
         await self._guardrails.enforce_request_budget(rate_limit_key)
 
-        generation = self._resolve_generation_selection(payload.provider, payload.model)
+        generation = await self._resolve_generation_selection(payload.provider, payload.model)
+        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
         session_messages = await self._session_service.get_messages(payload.session_id)
         history = session_messages + payload.chat_history
         history = self._guardrails.limit_history(history)
@@ -174,7 +178,7 @@ class ChatService:
 
         embedding_selection, query_embeddings = await self._embedding_service.embed_texts(
             texts=[normalized_message],
-            profile_name=payload.embedding_profile,
+            profile_name=payload.embedding_profile or default_embedding_profile,
             provider=payload.embedding_provider,
             model=payload.embedding_model,
             input_type="query",
@@ -232,7 +236,7 @@ class ChatService:
             user_message=normalized_message,
         )
 
-    def _resolve_generation_selection(
+    async def _resolve_generation_selection(
         self,
         provider: str | None,
         model: str | None,
@@ -241,15 +245,17 @@ class ChatService:
         resolved_model = model
 
         if resolved_provider is None or resolved_model is None:
-            default_provider = getattr(self._settings, "default_generation_provider", None)
-            default_model = getattr(self._settings, "default_generation_model", None)
+            default_profile = await self._model_selection_service.get_generation_profile_name()
+            default_generation = self._settings.generation_profiles.get(default_profile)
+            if default_generation is None:
+                raise ValueError(f"Unknown generation profile '{default_profile}'")
             if resolved_provider is None:
-                resolved_provider = default_provider
+                resolved_provider = default_generation.provider
             if resolved_model is None:
-                resolved_model = default_model
+                resolved_model = default_generation.model
 
         if resolved_provider is None or resolved_model is None:
-            raise ValueError("DEFAULT_LLM_PROFILE is required")
+            raise ValueError("generation profile is required")
 
         if resolved_provider not in self._providers.supported_provider_names():
             raise ValueError(f"Unsupported generation provider '{resolved_provider}'")

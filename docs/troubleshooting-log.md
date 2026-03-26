@@ -295,12 +295,12 @@ Symptoms:
 Cause:
 
 - embedding selection is profile-based
-- the app uses `DEFAULT_EMBEDDING_PROFILE` when the request does not specify `embedding_profile`
+- the app uses the DB-backed active embedding profile when the request does not specify `embedding_profile`
 - changing the task definition file alone does not update an already-running ECS service
 
 Checks:
 
-- call `GET /health` and inspect `assumptions.default_embedding_profile`
+- call `GET /admin/model-selection` and inspect the active embedding profile
 - verify the live task revision matches the revision you registered
 - verify the service was updated with `--force-new-deployment`
 
@@ -311,10 +311,11 @@ aws --region ap-southeast-1 ecs register-task-definition --cli-input-json file:/
 aws --region ap-southeast-1 ecs update-service --cluster snaic_website_cluster --service backend-rag-multipurpose --task-definition <new-task-definition-arn> --force-new-deployment
 ```
 
-If you want OpenAI to be the default for ingestion, make sure the live task definition sets:
+If you want OpenAI to be the default for ingestion, make sure the active model-selection record is seeded or updated to:
 
-- `DEFAULT_EMBEDDING_PROFILE=openai_small_1536`
-- `EMBEDDING_PROFILES` contains the matching OpenAI profile
+- generation profile: `openai_gpt41_mini`
+- embedding profile: `openai_small_1536`
+- the catalog contains the matching OpenAI profiles
 - `OPENAI_API_KEY` is injected into the app container
 
 ### ECS health showed Ollama defaults even though the task definition was OpenAI-based
@@ -330,21 +331,19 @@ Cause:
 
 - the live app was not running the latest repo state
 - the ECS deployment was still on an older image/task revision
-- the embedding default is controlled by `DEFAULT_EMBEDDING_PROFILE`
+- the embedding default is controlled by the DB-backed model-selection record
 
 Fix:
 
 - push the latest code to the repo
 - rebuild and push the updated backend image
-- confirm the running ECS task definition revision is the one with:
-  - `DEFAULT_EMBEDDING_PROFILE=openai_small_1536`
-  - `EMBEDDING_PROFILES` containing the OpenAI profile
+- confirm the configured catalog includes the OpenAI embedding profile
 - redeploy the service with a new task definition revision
 - force a new ECS deployment so the service pulls the latest image and env
-- verify `GET /health` shows:
-  - `default_embedding_provider="openai"`
-  - `default_embedding_model="text-embedding-3-small"`
-  - `canonical_embedding_dimension=1536`
+- verify `GET /admin/model-selection` shows:
+  - `embedding_provider="openai"`
+  - `embedding_model="text-embedding-3-small"`
+  - `embedding_dimension=1536`
 
 Relevant files:
 
@@ -421,15 +420,15 @@ Symptoms:
 Cause:
 
 - the live ECS service is still running an older task definition revision
-- `DEFAULT_LLM_PROFILE` or `NIM_API_KEY` were updated in the file but not in the running service
+- the active model-selection record still points at the previous generation profile
 - ECS has not been forced to deploy the new revision
 
 Solution:
 
-- update `deploy/ecs/task-definition.json` with the NIM defaults
+- update the active model-selection record through `PUT /admin/model-selection`
 - register a new task definition revision
 - update the ECS service with `--force-new-deployment`
-- verify `GET /health` shows the expected `default_generation_profile` and resolved provider/model
+- verify `GET /admin/model-selection` shows the expected generation profile and resolved provider/model
 
 Relevant files:
 
@@ -668,18 +667,18 @@ Relevant files:
 Symptoms:
 
 - `/chat` returns an error about an unknown default generation profile
-- `GET /health` or startup assumptions show the wrong provider/model pair
-- updating `DEFAULT_LLM_PROFILE` without adding a matching profile entry breaks startup or chat routing
+- `GET /admin/model-selection` shows the wrong provider/model pair
+- updating the active generation profile to a name that does not exist in the catalog breaks startup or chat routing
 
 Cause:
 
-- `DEFAULT_LLM_PROFILE` points at a name that does not exist in `GENERATION_PROFILES`
-- the app falls back only when no profile is configured at all
+- the active generation profile points at a name that does not exist in the catalog
+- the app validates the selected profile against the configured catalog
 
 Solution:
 
-- make sure `DEFAULT_LLM_PROFILE` exactly matches a key in `GENERATION_PROFILES`
-- restart the app after updating `.env`
+- make sure the selected generation profile exactly matches a key in the catalog
+- update it through `PUT /admin/model-selection` or correct the catalog entry in `backend/app/core/defaults.py`
 
 Relevant files:
 

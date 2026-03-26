@@ -36,7 +36,7 @@ Backend-only RAG chatbot MVP built with FastAPI, PostgreSQL, Qdrant, Redis, and 
 
 ## Important MVP constraint
 
-The generation provider is switchable per request. Embeddings are selected through named profiles in `backend/.env`, and the app creates or reuses a dimension-specific Qdrant collection for that profile automatically.
+The generation provider is switchable per request. The active generation and embedding profiles are stored in PostgreSQL and managed through the admin model-selection endpoints, while the selectable profile catalog lives in `backend/app/core/defaults.py`.
 
 If you want to point the app at NVIDIA NIM, use OpenAI-compatible endpoints with models like:
 
@@ -72,9 +72,9 @@ Use this when you want to update the system without guessing which file owns wha
 
 Typical change flow:
 
-- If you change a model name or provider, update the matching env var in `backend/.env`, then update the default examples in `backend/.env.example`, `deploy/ecs/task-definition.json`, and the docs.
+- If you change a model name or provider, update `backend/app/core/defaults.py`, then update the active startup defaults in `backend/.env`, the examples in `backend/.env.example`, `deploy/ecs/task-definition.json`, and the docs.
 - If you change a request or response field, update `backend/app/models/schemas.py` first, then adjust the services and any tests that depend on it.
-- If you change how NIM works, keep `NIM_API_KEY` and the NIM embedding profile in sync across local env, ECS, and docs. Use `scripts/sync-provider-urls.ps1` to write the NIM base URL and rerank URL into `backend/.env` when you want explicit values there. For chat defaults, `DEFAULT_LLM_PROFILE` and `GENERATION_PROFILES` let you pick a short profile name like `nim_3super120` instead of repeating the provider/model pair.
+- If you change how NIM works, keep `NIM_API_KEY` and the NIM embedding profile in sync across local env, ECS, and docs. Use `scripts/sync-provider-urls.ps1` to write the NIM base URL and rerank URL into `backend/.env` when you want explicit values there. Use `GET /admin/model-selection` and `PUT /admin/model-selection` to change the active generation or embedding profile without editing code.
 - If you add a new deployment secret, add it to `backend/.env.example`, `deploy/ecs/task-definition.json`, and the ECS README / deployment docs together.
 - If you change retrieval behavior, update `backend/app/services/retrieval.py`, `backend/app/services/rerank.py`, and the RAG pipeline docs together.
 

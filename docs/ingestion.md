@@ -121,9 +121,6 @@ The ingestion endpoints expose:
 
 In the current implementation these values must match a configured embedding profile.
 
-The active profile comes from:
-
-- `DEFAULT_EMBEDDING_PROFILE`
-- `EMBEDDING_PROFILES`
+The active profile comes from the model-selection record in PostgreSQL and must match one of the configured entries in `backend/app/core/defaults.py`.
 
 If the profile uses a new embedding dimension, the app creates the matching Qdrant collection automatically on first use.

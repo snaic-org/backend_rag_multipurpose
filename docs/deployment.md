@@ -93,10 +93,11 @@ If you run the app container outside Compose, make sure `POSTGRES_DSN`, `REDIS_U
 
 - `POSTGRES_DSN`
 - `REDIS_URL`
-- `DEFAULT_LLM_PROFILE`
-- `GENERATION_PROFILES`
-- `DEFAULT_EMBEDDING_PROFILE`
-- `EMBEDDING_PROFILES`
+- `DEFAULT_GENERATION_PROVIDER`
+- `DEFAULT_GENERATION_MODEL`
+- `DEFAULT_EMBEDDING_PROVIDER`
+- `DEFAULT_EMBEDDING_MODEL`
+- `DEFAULT_EMBEDDING_DIMENSION`
 - `AUTH_ENABLED`
 - `AUTH_JWT_SECRET`
 - `AUTH_BOOTSTRAP_ADMIN_USERNAME`
@@ -104,10 +105,11 @@ If you run the app container outside Compose, make sure `POSTGRES_DSN`, `REDIS_U
 
 Chat guardrail defaults now use code values, so they are not expected in `backend/.env`.
 
-Current repository default embedding settings:
+Current repository default model-selection seed:
 
-- `DEFAULT_EMBEDDING_PROFILE=ollama_1536`
-- `EMBEDDING_PROFILES={"ollama_1536":{"provider":"ollama","model":"rjmalagon/gte-qwen2-1.5b-instruct-embed-f16","dimension":1536},"openai_small_1536":{"provider":"openai","model":"text-embedding-3-small","dimension":1536},"nim_nemotron_2048":{"provider":"nim","model":"nvidia/llama-nemotron-embed-1b-v2","dimension":2048}}`
+- the startup seed uses the provider/model/dimension values from `backend/.env`
+- the catalog entries themselves are seeded in code from `backend/app/core/defaults.py`
+- the selectable catalog is seeded in code on startup, then can be changed through the admin APIs
 - `SIMILARITY_THRESHOLD` uses the code default
 
 Depending on provider usage:
@@ -125,6 +127,12 @@ Authentication-related settings:
 - `AUTH_JWT_ALGORITHM`
 - `AUTH_ACCESS_TOKEN_TTL_SECONDS`
 - `AUTH_REQUIRE_HTTPS`
+
+To change the active chat or embedding profile after deployment, use the admin endpoints:
+
+- `GET /admin/model-catalog`
+- `GET /admin/model-selection`
+- `PUT /admin/model-selection`
 
 ## Database initialization
 

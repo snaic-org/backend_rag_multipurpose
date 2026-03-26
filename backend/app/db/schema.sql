@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS system_prompt_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS model_selection_settings (
+    id SMALLINT PRIMARY KEY CHECK (id = 1),
+    generation_profile TEXT NOT NULL,
+    embedding_profile TEXT NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY,
     content_hash TEXT,

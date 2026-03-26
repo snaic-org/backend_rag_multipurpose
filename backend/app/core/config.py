@@ -1,5 +1,4 @@
 from functools import lru_cache
-import json
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -11,6 +10,8 @@ from app.core.defaults import (
     CHAT_MAX_RESPONSE_TOKENS,
     CHAT_FREQUENCY_PENALTY,
     CHAT_PRESENCE_PENALTY,
+    DEFAULT_EMBEDDING_CATALOG,
+    DEFAULT_GENERATION_CATALOG,
     NIM_BASE_URL,
     CHAT_TOP_P,
     SESSION_STORAGE_ENABLED,
@@ -71,10 +72,18 @@ class Settings(BaseSettings):
     rerank_max_candidates: int = Field(default=12)
     rerank_min_candidates: int = Field(default=2)
 
-    default_llm_profile: str = Field(default="")
-    generation_profiles: dict[str, GenerationProfileSpec] = Field(default_factory=dict)
-    default_embedding_profile: str = Field(default="")
-    embedding_profiles: dict[str, EmbeddingProfileSpec] = Field(default_factory=dict)
+    default_generation_provider: ProviderName = Field(default="openai")
+    default_generation_model: str = Field(default="gpt-4.1-mini")
+    default_embedding_provider: ProviderName = Field(default="openai")
+    default_embedding_model: str = Field(default="text-embedding-3-small")
+    default_embedding_dimension: int = Field(default=1536)
+
+    generation_profiles: dict[str, GenerationProfileSpec] = Field(
+        default_factory=lambda: _default_generation_profiles()
+    )
+    embedding_profiles: dict[str, EmbeddingProfileSpec] = Field(
+        default_factory=lambda: _default_embedding_profiles()
+    )
     chunk_size: int = Field(default=1000)
     chunk_overlap: int = Field(default=150)
     structured_rows_per_chunk: int = Field(default=10)
@@ -101,108 +110,55 @@ class Settings(BaseSettings):
     auth_bootstrap_admin_password: str = Field(default="change-me-immediately")
     auth_require_https: bool = Field(default=False)
 
-    @field_validator("default_embedding_profile", mode="before")
+    @field_validator("default_generation_provider", mode="before")
     @classmethod
-    def normalize_default_embedding_profile(cls, value: object) -> object:
+    def normalize_default_generation_provider(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip()
         return value
 
-    @field_validator("default_llm_profile", mode="before")
+    @field_validator("default_generation_model", mode="before")
     @classmethod
-    def normalize_default_llm_profile(cls, value: object) -> object:
+    def normalize_default_generation_model(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip()
         return value
 
-    @field_validator("generation_profiles", mode="before")
+    @field_validator("default_embedding_provider", mode="before")
     @classmethod
-    def parse_generation_profiles(cls, value: object) -> object:
-        if value in (None, ""):
-            return {}
+    def normalize_default_embedding_provider(cls, value: object) -> object:
         if isinstance(value, str):
-            parsed = json.loads(value)
-            if not isinstance(parsed, dict):
-                raise ValueError("GENERATION_PROFILES must decode to an object")
-            return parsed
+            return value.strip()
         return value
 
-    @field_validator("embedding_profiles", mode="before")
+    @field_validator("default_embedding_model", mode="before")
     @classmethod
-    def parse_embedding_profiles(cls, value: object) -> object:
-        if value in (None, ""):
-            return {}
+    def normalize_default_embedding_model(cls, value: object) -> object:
         if isinstance(value, str):
-            parsed = json.loads(value)
-            if not isinstance(parsed, dict):
-                raise ValueError("EMBEDDING_PROFILES must decode to an object")
-            return parsed
+            return value.strip()
         return value
-
-    @property
-    def default_embedding_spec(self) -> EmbeddingProfileSpec:
-        if not self.default_embedding_profile:
-            raise ValueError("DEFAULT_EMBEDDING_PROFILE is required")
-        profile = self.embedding_profiles.get(self.default_embedding_profile)
-        if profile is None:
-            raise ValueError(
-                f"Unknown default embedding profile '{self.default_embedding_profile}'"
-            )
-        return profile
-
-    @property
-    def default_embedding_provider(self) -> ProviderName:
-        return self.default_embedding_spec.provider
-
-    @property
-    def default_embedding_model(self) -> str:
-        return self.default_embedding_spec.model
-
-    @property
-    def canonical_embedding_dimension(self) -> int:
-        return self.default_embedding_spec.dimension
-
-    @property
-    def default_generation_spec(self) -> GenerationProfileSpec:
-        if not self.default_llm_profile:
-            raise ValueError("DEFAULT_LLM_PROFILE is required")
-        profile = self.generation_profiles.get(self.default_llm_profile)
-        if profile is None:
-            raise ValueError(f"Unknown default generation profile '{self.default_llm_profile}'")
-        return profile
-
-    @property
-    def default_generation_profile(self) -> str:
-        return self.default_llm_profile
-
-    @property
-    def default_generation_provider(self) -> ProviderName:
-        return self.default_generation_spec.provider
-
-    @property
-    def default_generation_model(self) -> str:
-        return self.default_generation_spec.model
 
     def phase_one_assumptions(self) -> dict[str, object]:
         return {
-            "default_generation_profile": self.default_generation_profile,
+            "model_selection_source": "database",
             "default_generation_provider": self.default_generation_provider,
             "default_generation_model": self.default_generation_model,
+            "default_generation_profile": self.default_generation_profile,
+            "default_embedding_provider": self.default_embedding_provider,
+            "default_embedding_model": self.default_embedding_model,
+            "default_embedding_dimension": self.default_embedding_dimension,
+            "default_embedding_profile": self.default_embedding_profile,
             "nim_base_url": self.nim_base_url,
             "rerank_enabled": self.rerank_enabled,
             "rerank_invoke_url": self.rerank_invoke_url,
             "rerank_model": self.rerank_model,
             "rerank_max_candidates": self.rerank_max_candidates,
             "rerank_min_candidates": self.rerank_min_candidates,
-            "default_embedding_profile": self.default_embedding_profile,
-            "default_embedding_provider": self.default_embedding_provider,
-            "default_embedding_model": self.default_embedding_model,
             "embedding_dimension_strategy": (
                 "Named embedding profiles resolve to one canonical provider/model "
                 "pair each. Request-level overrides are only valid when they map "
                 "to a configured profile whose dimension matches the deployed index."
             ),
-            "canonical_embedding_dimension": self.canonical_embedding_dimension,
             "configured_generation_profiles": {
                 name: profile.model_dump() for name, profile in self.generation_profiles.items()
             },
@@ -228,7 +184,86 @@ class Settings(BaseSettings):
             "authentication_enabled_by_default": self.auth_enabled,
         }
 
+    @property
+    def default_generation_profile(self) -> str:
+        return _resolve_generation_profile_name(
+            self.generation_profiles,
+            self.default_generation_provider,
+            self.default_generation_model,
+        )
+
+    @property
+    def default_embedding_profile(self) -> str:
+        return _resolve_embedding_profile_name(
+            self.embedding_profiles,
+            self.default_embedding_provider,
+            self.default_embedding_model,
+            self.default_embedding_dimension,
+        )
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _default_generation_profiles() -> dict[str, GenerationProfileSpec]:
+    return {
+        item["profile_name"]: GenerationProfileSpec(
+            provider=item["provider"],
+            model=item["model"],
+        )
+        for item in DEFAULT_GENERATION_CATALOG
+    }
+
+
+def _default_embedding_profiles() -> dict[str, EmbeddingProfileSpec]:
+    return {
+        item["profile_name"]: EmbeddingProfileSpec(
+            provider=item["provider"],
+            model=item["model"],
+            dimension=item["dimension"],
+        )
+        for item in DEFAULT_EMBEDDING_CATALOG
+    }
+
+
+def _resolve_generation_profile_name(
+    catalog: dict[str, GenerationProfileSpec],
+    provider: ProviderName,
+    model: str,
+) -> str:
+    matches = [
+        name
+        for name, spec in catalog.items()
+        if spec.provider == provider and spec.model == model
+    ]
+    if not matches:
+        raise ValueError(f"Unknown default generation provider/model pair '{provider}/{model}'")
+    if len(matches) > 1:
+        raise ValueError(
+            f"Multiple generation profiles match the default provider/model pair '{provider}/{model}'"
+        )
+    return matches[0]
+
+
+def _resolve_embedding_profile_name(
+    catalog: dict[str, EmbeddingProfileSpec],
+    provider: ProviderName,
+    model: str,
+    dimension: int,
+) -> str:
+    matches = [
+        name
+        for name, spec in catalog.items()
+        if spec.provider == provider and spec.model == model and spec.dimension == dimension
+    ]
+    if not matches:
+        raise ValueError(
+            f"Unknown default embedding provider/model/dimension triple '{provider}/{model}/{dimension}'"
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            "Multiple embedding profiles match the default provider/model/dimension triple"
+        )
+    return matches[0]

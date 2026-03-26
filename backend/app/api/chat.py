@@ -19,6 +19,7 @@ def _build_chat_service(request: Request) -> ChatService:
         redis_manager=request.app.state.redis,
         provider_registry=request.app.state.providers,
         system_prompt_service=request.app.state.prompt_service,
+        model_selection_service=request.app.state.model_selection_service,
     )
 
 

@@ -6,6 +6,9 @@ from app.core.security import require_admin_user
 from app.models.schemas import (
     AuthenticatedUser,
     ChunkRecord,
+    ModelCatalogResponse,
+    ModelSelectionResponse,
+    ModelSelectionUpdateRequest,
     IngestedDocumentDetails,
     IngestedDocumentSummary,
     ResetResponse,
@@ -37,6 +40,10 @@ def _build_prompt_service(request: Request):
     return request.app.state.prompt_service
 
 
+def _build_model_selection_service(request: Request):
+    return request.app.state.model_selection_service
+
+
 def _build_document_inspection_service(request: Request) -> DocumentInspectionService:
     return DocumentInspectionService(
         settings=request.app.state.settings,
@@ -49,9 +56,40 @@ def _build_document_inspection_service(request: Request) -> DocumentInspectionSe
 async def reset_backend_state(
     request: Request,
     _: AuthenticatedUser = Depends(require_admin_user),
-) -> ResetResponse:
+    ) -> ResetResponse:
     service = _build_reset_service(request)
     return await service.reset_all()
+
+
+@router.get("/model-catalog", response_model=ModelCatalogResponse)
+async def get_model_catalog(
+    request: Request,
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> ModelCatalogResponse:
+    return await _build_model_selection_service(request).get_catalog()
+
+
+@router.get("/model-selection", response_model=ModelSelectionResponse)
+async def get_model_selection(
+    request: Request,
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> ModelSelectionResponse:
+    return await _build_model_selection_service(request).get_model_selection()
+
+
+@router.put("/model-selection", response_model=ModelSelectionResponse)
+async def update_model_selection(
+    request: Request,
+    payload: ModelSelectionUpdateRequest,
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> ModelSelectionResponse:
+    try:
+        return await _build_model_selection_service(request).update_model_selection(
+            payload.generation_profile,
+            payload.embedding_profile,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/documents", response_model=list[IngestedDocumentSummary])

@@ -497,6 +497,30 @@
         "documentation": {}
     },
     {
+        "label": "ModelCatalogResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionUpdateRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "IngestedDocumentDetails",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -714,6 +738,14 @@
     },
     {
         "label": "NormalizedDocument",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionRecord",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -1185,6 +1217,22 @@
         "documentation": {}
     },
     {
+        "label": "ModelCatalogResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "ChatCitation",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -1465,6 +1513,14 @@
         "documentation": {}
     },
     {
+        "label": "ModelSelectionRecord",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "DependencyHealth",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -1714,6 +1770,22 @@
         "documentation": {}
     },
     {
+        "label": "DEFAULT_EMBEDDING_CATALOG",
+        "importPath": "app.core.defaults",
+        "description": "app.core.defaults",
+        "isExtraImport": true,
+        "detail": "app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_GENERATION_CATALOG",
+        "importPath": "app.core.defaults",
+        "description": "app.core.defaults",
+        "isExtraImport": true,
+        "detail": "app.core.defaults",
+        "documentation": {}
+    },
+    {
         "label": "NIM_BASE_URL",
         "importPath": "app.core.defaults",
         "description": "app.core.defaults",
@@ -1859,6 +1931,14 @@
     },
     {
         "label": "SESSION_TTL_SECONDS",
+        "importPath": "app.core.defaults",
+        "description": "app.core.defaults",
+        "isExtraImport": true,
+        "detail": "app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_EMBEDDING_PROFILE",
         "importPath": "app.core.defaults",
         "description": "app.core.defaults",
         "isExtraImport": true,
@@ -2343,6 +2423,30 @@
         "documentation": {}
     },
     {
+        "label": "dict_row",
+        "importPath": "psycopg.rows",
+        "description": "psycopg.rows",
+        "isExtraImport": true,
+        "detail": "psycopg.rows",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncConnectionPool",
+        "importPath": "psycopg_pool",
+        "description": "psycopg_pool",
+        "isExtraImport": true,
+        "detail": "psycopg_pool",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncConnectionPool",
+        "importPath": "psycopg_pool",
+        "description": "psycopg_pool",
+        "isExtraImport": true,
+        "detail": "psycopg_pool",
+        "documentation": {}
+    },
+    {
         "label": "AsyncConnectionPool",
         "importPath": "psycopg_pool",
         "description": "psycopg_pool",
@@ -2648,6 +2752,22 @@
     },
     {
         "label": "timedelta",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "timezone",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
         "importPath": "datetime",
         "description": "datetime",
         "isExtraImport": true,
@@ -2764,6 +2884,14 @@
         "description": "psycopg",
         "isExtraImport": true,
         "detail": "psycopg",
+        "documentation": {}
+    },
+    {
+        "label": "Settings",
+        "importPath": "app.core.config",
+        "description": "app.core.config",
+        "isExtraImport": true,
+        "detail": "app.core.config",
         "documentation": {}
     },
     {
@@ -3494,6 +3622,38 @@
         "documentation": {}
     },
     {
+        "label": "ModelSelectionService",
+        "importPath": "app.services.model_selection_service",
+        "description": "app.services.model_selection_service",
+        "isExtraImport": true,
+        "detail": "app.services.model_selection_service",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionService",
+        "importPath": "app.services.model_selection_service",
+        "description": "app.services.model_selection_service",
+        "isExtraImport": true,
+        "detail": "app.services.model_selection_service",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionService",
+        "importPath": "app.services.model_selection_service",
+        "description": "app.services.model_selection_service",
+        "isExtraImport": true,
+        "detail": "app.services.model_selection_service",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionService",
+        "importPath": "app.services.model_selection_service",
+        "description": "app.services.model_selection_service",
+        "isExtraImport": true,
+        "detail": "app.services.model_selection_service",
+        "documentation": {}
+    },
+    {
         "label": "PromptBuilder",
         "importPath": "app.services.prompt_builder",
         "description": "app.services.prompt_builder",
@@ -3712,6 +3872,14 @@
         "documentation": {}
     },
     {
+        "label": "ModelSelectionRepository",
+        "importPath": "app.db.repositories.model_selection",
+        "description": "app.db.repositories.model_selection",
+        "isExtraImport": true,
+        "detail": "app.db.repositories.model_selection",
+        "documentation": {}
+    },
+    {
         "label": "RetrievalRepository",
         "importPath": "app.db.repositories.retrieval",
         "description": "app.db.repositories.retrieval",
@@ -3915,7 +4083,7 @@
         "kind": 5,
         "importPath": "backend.app.api.chat",
         "description": "backend.app.api.chat",
-        "peekOfCode": "router = APIRouter()\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,\n        qdrant_manager=request.app.state.qdrant,\n        redis_manager=request.app.state.redis,\n        provider_registry=request.app.state.providers,\n        system_prompt_service=request.app.state.prompt_service,\n    )\ndef _resolve_rate_limit_key(current_user: AuthenticatedUser) -> str:",
+        "peekOfCode": "router = APIRouter()\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,\n        qdrant_manager=request.app.state.qdrant,\n        redis_manager=request.app.state.redis,\n        provider_registry=request.app.state.providers,\n        system_prompt_service=request.app.state.prompt_service,\n        model_selection_service=request.app.state.model_selection_service,\n    )",
         "detail": "backend.app.api.chat",
         "documentation": {}
     },
@@ -3933,7 +4101,7 @@
         "kind": 5,
         "importPath": "backend.app.api.ingest",
         "description": "backend.app.api.ingest",
-        "peekOfCode": "router = APIRouter()\ndef _build_ingest_service(request: Request) -> IngestService:\n    return IngestService(\n        settings=request.app.state.settings,\n        redis_manager=request.app.state.redis,\n        qdrant_manager=request.app.state.qdrant,\n        postgres_pool=request.app.state.postgres.pool,\n        provider_registry=request.app.state.providers,\n    )\ndef _normalize_optional_form_value(raw: str | None) -> str | None:",
+        "peekOfCode": "router = APIRouter()\ndef _build_ingest_service(request: Request) -> IngestService:\n    return IngestService(\n        settings=request.app.state.settings,\n        redis_manager=request.app.state.redis,\n        qdrant_manager=request.app.state.qdrant,\n        postgres_pool=request.app.state.postgres.pool,\n        provider_registry=request.app.state.providers,\n        model_selection_service=request.app.state.model_selection_service,\n    )",
         "detail": "backend.app.api.ingest",
         "documentation": {}
     },
@@ -3978,7 +4146,7 @@
         "kind": 2,
         "importPath": "backend.app.core.config",
         "description": "backend.app.core.config",
-        "peekOfCode": "def get_settings() -> Settings:\n    return Settings()",
+        "peekOfCode": "def get_settings() -> Settings:\n    return Settings()\ndef _default_generation_profiles() -> dict[str, GenerationProfileSpec]:\n    return {\n        item[\"profile_name\"]: GenerationProfileSpec(\n            provider=item[\"provider\"],\n            model=item[\"model\"],\n        )\n        for item in DEFAULT_GENERATION_CATALOG\n    }",
         "detail": "backend.app.core.config",
         "documentation": {}
     },
@@ -4050,7 +4218,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_TOP_P = 1.0\nCHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "CHAT_TOP_P = 1.0\nCHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4059,7 +4227,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "CHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4068,7 +4236,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "CHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4077,7 +4245,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "EMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "EMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4086,7 +4254,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "SESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "SESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4095,7 +4263,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "SESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "SESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4104,7 +4272,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "OPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "OPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4113,7 +4281,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "NIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "NIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4122,7 +4290,43 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "RERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"",
+        "peekOfCode": "RERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {",
+        "detail": "backend.app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_GENERATION_PROFILE",
+        "kind": 5,
+        "importPath": "backend.app.core.defaults",
+        "description": "backend.app.core.defaults",
+        "peekOfCode": "DEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",",
+        "detail": "backend.app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_EMBEDDING_PROFILE",
+        "kind": 5,
+        "importPath": "backend.app.core.defaults",
+        "description": "backend.app.core.defaults",
+        "peekOfCode": "DEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",\n        \"provider\": \"nim\",",
+        "detail": "backend.app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_GENERATION_CATALOG",
+        "kind": 5,
+        "importPath": "backend.app.core.defaults",
+        "description": "backend.app.core.defaults",
+        "peekOfCode": "DEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",\n        \"provider\": \"nim\",\n        \"model\": \"nvidia/nemotron-3-super-120b-a12b\",",
+        "detail": "backend.app.core.defaults",
+        "documentation": {}
+    },
+    {
+        "label": "DEFAULT_EMBEDDING_CATALOG",
+        "kind": 5,
+        "importPath": "backend.app.core.defaults",
+        "description": "backend.app.core.defaults",
+        "peekOfCode": "DEFAULT_EMBEDDING_CATALOG = [\n    {\n        \"profile_name\": \"openai_small_1536\",\n        \"provider\": \"openai\",\n        \"model\": \"text-embedding-3-small\",\n        \"dimension\": 1536,\n    },\n    {\n        \"profile_name\": \"ollama_1536\",\n        \"provider\": \"ollama\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4196,6 +4400,15 @@
         "description": "backend.app.db.repositories.documents",
         "peekOfCode": "class DocumentRepository:\n    def __init__(self, pool: AsyncConnectionPool) -> None:\n        self._pool = pool\n    async def create_or_get_by_content_hash(\n        self,\n        document: NormalizedDocument,\n        embedding_provider: str,\n        embedding_model: str,\n        content_hash: str,\n    ) -> tuple[DocumentRecord, bool]:",
         "detail": "backend.app.db.repositories.documents",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionRepository",
+        "kind": 6,
+        "importPath": "backend.app.db.repositories.model_selection",
+        "description": "backend.app.db.repositories.model_selection",
+        "peekOfCode": "class ModelSelectionRepository:\n    def __init__(self, pool: AsyncConnectionPool) -> None:\n        self._pool = pool\n    async def ensure_model_selection_table(\n        self,\n        default_generation_profile: str,\n        default_embedding_profile: str,\n    ) -> None:\n        queries: list[tuple[str, dict[str, object] | None]] = [\n            (",
+        "detail": "backend.app.db.repositories.model_selection",
         "documentation": {}
     },
     {
@@ -4572,7 +4785,61 @@
         "kind": 6,
         "importPath": "backend.app.models.schemas",
         "description": "backend.app.models.schemas",
-        "peekOfCode": "class SystemPromptResponse(BaseModel):\n    system_prompt: str\n    updated_at: datetime\nclass IngestedDocumentSummary(BaseModel):\n    document: DocumentRecord\n    embedding_profile: str | None = None\nclass IngestedDocumentDetails(BaseModel):\n    document: DocumentRecord\n    embedding_profile: str | None = None\n    content_source: str = \"reconstructed_from_chunks\"",
+        "peekOfCode": "class SystemPromptResponse(BaseModel):\n    system_prompt: str\n    updated_at: datetime\nclass ModelCatalogGenerationProfile(BaseModel):\n    profile_name: str\n    provider: ProviderName\n    model: str\nclass ModelCatalogEmbeddingProfile(BaseModel):\n    profile_name: str\n    provider: ProviderName",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelCatalogGenerationProfile",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelCatalogGenerationProfile(BaseModel):\n    profile_name: str\n    provider: ProviderName\n    model: str\nclass ModelCatalogEmbeddingProfile(BaseModel):\n    profile_name: str\n    provider: ProviderName\n    model: str\n    dimension: int\nclass ModelCatalogResponse(BaseModel):",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelCatalogEmbeddingProfile",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelCatalogEmbeddingProfile(BaseModel):\n    profile_name: str\n    provider: ProviderName\n    model: str\n    dimension: int\nclass ModelCatalogResponse(BaseModel):\n    generation_profiles: list[ModelCatalogGenerationProfile] = Field(default_factory=list)\n    embedding_profiles: list[ModelCatalogEmbeddingProfile] = Field(default_factory=list)\nclass ModelSelectionUpdateRequest(BaseModel):\n    generation_profile: str = Field(",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelCatalogResponse",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelCatalogResponse(BaseModel):\n    generation_profiles: list[ModelCatalogGenerationProfile] = Field(default_factory=list)\n    embedding_profiles: list[ModelCatalogEmbeddingProfile] = Field(default_factory=list)\nclass ModelSelectionUpdateRequest(BaseModel):\n    generation_profile: str = Field(\n        examples=[\"openai_gpt41_mini\", \"nim_3super120\"]\n    )\n    embedding_profile: str = Field(\n        examples=[\"openai_small_1536\", \"nim_nemotron_2048\"]\n    )",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionUpdateRequest",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelSelectionUpdateRequest(BaseModel):\n    generation_profile: str = Field(\n        examples=[\"openai_gpt41_mini\", \"nim_3super120\"]\n    )\n    embedding_profile: str = Field(\n        examples=[\"openai_small_1536\", \"nim_nemotron_2048\"]\n    )\n    model_config = ConfigDict(\n        json_schema_extra={\n            \"example\": {",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionRecord",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelSelectionRecord(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n    id: int\n    generation_profile: str\n    embedding_profile: str\n    updated_at: datetime\nclass ModelSelectionResponse(BaseModel):\n    generation_profile: str\n    generation_provider: ProviderName\n    generation_model: str",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionResponse",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ModelSelectionResponse(BaseModel):\n    generation_profile: str\n    generation_provider: ProviderName\n    generation_model: str\n    embedding_profile: str\n    embedding_provider: ProviderName\n    embedding_model: str\n    embedding_dimension: int\n    updated_at: datetime\nclass IngestedDocumentSummary(BaseModel):",
         "detail": "backend.app.models.schemas",
         "documentation": {}
     },
@@ -4833,7 +5100,7 @@
         "kind": 6,
         "importPath": "backend.app.services.chat_service",
         "description": "backend.app.services.chat_service",
-        "peekOfCode": "class ChatService:\n    def __init__(\n        self,\n        settings: Settings,\n        qdrant_manager: QdrantManager,\n        redis_manager: RedisManager,\n        provider_registry: ProviderRegistry,\n        system_prompt_service: SystemPromptService,\n    ) -> None:\n        self._settings = settings",
+        "peekOfCode": "class ChatService:\n    def __init__(\n        self,\n        settings: Settings,\n        qdrant_manager: QdrantManager,\n        redis_manager: RedisManager,\n        provider_registry: ProviderRegistry,\n        system_prompt_service: SystemPromptService,\n        model_selection_service: ModelSelectionService,\n    ) -> None:",
         "detail": "backend.app.services.chat_service",
         "documentation": {}
     },
@@ -4950,7 +5217,7 @@
         "kind": 6,
         "importPath": "backend.app.services.ingest_service",
         "description": "backend.app.services.ingest_service",
-        "peekOfCode": "class IngestService:\n    def __init__(\n        self,\n        settings: Settings,\n        redis_manager: RedisManager,\n        qdrant_manager: QdrantManager,\n        postgres_pool: AsyncConnectionPool,\n        provider_registry: ProviderRegistry,\n    ) -> None:\n        self._settings = settings",
+        "peekOfCode": "class IngestService:\n    def __init__(\n        self,\n        settings: Settings,\n        redis_manager: RedisManager,\n        qdrant_manager: QdrantManager,\n        postgres_pool: AsyncConnectionPool,\n        provider_registry: ProviderRegistry,\n        model_selection_service: ModelSelectionService,\n    ) -> None:",
         "detail": "backend.app.services.ingest_service",
         "documentation": {}
     },
@@ -4959,8 +5226,17 @@
         "kind": 5,
         "importPath": "backend.app.services.ingest_service",
         "description": "backend.app.services.ingest_service",
-        "peekOfCode": "logger = get_logger(__name__)\nclass IngestService:\n    def __init__(\n        self,\n        settings: Settings,\n        redis_manager: RedisManager,\n        qdrant_manager: QdrantManager,\n        postgres_pool: AsyncConnectionPool,\n        provider_registry: ProviderRegistry,\n    ) -> None:",
+        "peekOfCode": "logger = get_logger(__name__)\nclass IngestService:\n    def __init__(\n        self,\n        settings: Settings,\n        redis_manager: RedisManager,\n        qdrant_manager: QdrantManager,\n        postgres_pool: AsyncConnectionPool,\n        provider_registry: ProviderRegistry,\n        model_selection_service: ModelSelectionService,",
         "detail": "backend.app.services.ingest_service",
+        "documentation": {}
+    },
+    {
+        "label": "ModelSelectionService",
+        "kind": 6,
+        "importPath": "backend.app.services.model_selection_service",
+        "description": "backend.app.services.model_selection_service",
+        "peekOfCode": "class ModelSelectionService:\n    def __init__(self, settings: Settings, postgres_pool: AsyncConnectionPool) -> None:\n        self._settings = settings\n        self._repository = ModelSelectionRepository(postgres_pool)\n    async def ensure_default_model_selection(self) -> None:\n        generation_profile = self._resolve_default_generation_profile_name()\n        embedding_profile = self._resolve_default_embedding_profile_name()\n        await self._repository.ensure_model_selection_table(\n            generation_profile,\n            embedding_profile,",
+        "detail": "backend.app.services.model_selection_service",
         "documentation": {}
     },
     {
@@ -5828,6 +6104,15 @@
         "documentation": {}
     },
     {
+        "label": "_FakeModelSelectionRepository",
+        "kind": 6,
+        "importPath": "backend.tests.test_generation_settings",
+        "description": "backend.tests.test_generation_settings",
+        "peekOfCode": "class _FakeModelSelectionRepository:\n    def __init__(self) -> None:\n        self.record: ModelSelectionRecord | None = None\n        self.generation_profiles = []\n        self.embedding_profiles = []\n    async def ensure_model_catalog_tables(self) -> None:\n        return None\n    async def seed_default_model_catalog(\n        self,\n        generation_profiles,",
+        "detail": "backend.tests.test_generation_settings",
+        "documentation": {}
+    },
+    {
         "label": "test_openai_payload_uses_env_generation_settings",
         "kind": 2,
         "importPath": "backend.tests.test_generation_settings",
@@ -5886,16 +6171,16 @@
         "kind": 2,
         "importPath": "backend.tests.test_generation_settings",
         "description": "backend.tests.test_generation_settings",
-        "peekOfCode": "def test_chat_service_formats_thinking_block_based_on_setting() -> None:\n    service = object.__new__(ChatService)\n    service._settings = SimpleNamespace(chat_show_thinking_block=False)  # type: ignore[attr-defined]\n    assert service._format_answer(\"<think>reasoning</think> final\", \"reasoning\") == \"final\"\n    service._settings = SimpleNamespace(chat_show_thinking_block=True)  # type: ignore[attr-defined]\n    assert service._format_answer(\"final\", \"reasoning\") == \"<thinking>\\nreasoning\\n</thinking>\\n\\nfinal\"\ndef test_default_llm_profile_resolves_generation_default() -> None:\n    settings = Settings(\n        default_llm_profile=\"nim_3super120\",\n        generation_profiles={",
+        "peekOfCode": "def test_chat_service_formats_thinking_block_based_on_setting() -> None:\n    service = object.__new__(ChatService)\n    service._settings = SimpleNamespace(chat_show_thinking_block=False)  # type: ignore[attr-defined]\n    assert service._format_answer(\"<think>reasoning</think> final\", \"reasoning\") == \"final\"\n    service._settings = SimpleNamespace(chat_show_thinking_block=True)  # type: ignore[attr-defined]\n    assert service._format_answer(\"final\", \"reasoning\") == \"<thinking>\\nreasoning\\n</thinking>\\n\\nfinal\"\ndef test_model_selection_service_seeds_openai_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"openai\",\n        default_generation_model=\"gpt-4.1-mini\",",
         "detail": "backend.tests.test_generation_settings",
         "documentation": {}
     },
     {
-        "label": "test_default_llm_profile_resolves_generation_default",
+        "label": "test_model_selection_service_seeds_openai_defaults",
         "kind": 2,
         "importPath": "backend.tests.test_generation_settings",
         "description": "backend.tests.test_generation_settings",
-        "peekOfCode": "def test_default_llm_profile_resolves_generation_default() -> None:\n    settings = Settings(\n        default_llm_profile=\"nim_3super120\",\n        generation_profiles={\n            \"nim_3super120\": {\n                \"provider\": \"nim\",\n                \"model\": \"nvidia/nemotron-3-super-120b-a12b\",\n            }\n        },\n        default_embedding_profile=\"ollama_1536\",",
+        "peekOfCode": "def test_model_selection_service_seeds_openai_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"openai\",\n        default_generation_model=\"gpt-4.1-mini\",\n        default_embedding_provider=\"openai\",\n        default_embedding_model=\"text-embedding-3-small\",\n        default_embedding_dimension=1536,\n    )\n    service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())\n    service._repository = _FakeModelSelectionRepository()  # type: ignore[attr-defined]",
         "detail": "backend.tests.test_generation_settings",
         "documentation": {}
     },

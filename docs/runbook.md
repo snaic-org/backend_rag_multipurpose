@@ -14,11 +14,12 @@ Local Docker reads values from `backend/.env`. `backend/.env.example` is only th
 Use these rules when you update the app:
 
 - Change a model or provider name:
-  - update `backend/.env`
-  - update `backend/.env.example`
+  - update `backend/.env` and `backend/.env.example` for secrets and endpoints only
   - update `deploy/ecs/task-definition.json` if ECS should match
   - update `README.md` and `docs/providers-and-models.md`
-  - update `DEFAULT_LLM_PROFILE` and `GENERATION_PROFILES` if you want a short alias to select the model
+  - edit `backend/app/core/defaults.py` to manage the selectable catalog
+  - use `GET /admin/model-selection` and `PUT /admin/model-selection` to switch the active chat and embedding profiles
+  - set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` in `backend/.env` to control the startup default
 - Change chat behavior or reasoning:
   - update `backend/app/services/prompt_builder.py`
   - update `backend/app/services/chat_service.py`
@@ -270,7 +271,7 @@ See:
 
 ## Embedding profiles
 
-The app now supports named embedding profiles.
+The app now supports named embedding profiles and a DB-backed active selection.
 
 Examples:
 
@@ -278,18 +279,14 @@ Examples:
 - `openai_small_1536`
 - `nim_nemotron_2048`
 
-Use `DEFAULT_EMBEDDING_PROFILE` in `backend/.env` or the ECS task definition to switch the active embedding profile without editing code.
+Use `GET /admin/model-catalog` to see the available profiles and `PUT /admin/model-selection` to switch the active generation and embedding profiles without editing code.
 
-The active profile controls the provider/model/dimension. If you choose a new dimension, the app creates the matching Qdrant collection automatically on first use.
+The active embedding profile controls the provider/model/dimension. If you choose a new dimension, the app creates the matching Qdrant collection automatically on first use.
 
 For per-request overrides, send `embedding_profile` on `/ingest/text`, `/ingest/files`, or `/chat` instead of mixing raw provider/model fields.
 
 NIM-specific values used by this repository:
 
-- `DEFAULT_LLM_PROFILE=nim_3super120`
-- `GENERATION_PROFILES` contains the `nim_3super120` profile
-- `DEFAULT_EMBEDDING_PROFILE=nim_nemotron_2048`
-- `EMBEDDING_PROFILES` contains the `nim_nemotron_2048` profile
 - `RERANK_ENABLED=true`
 - `NIM_BASE_URL` defaults to the NVIDIA integrate endpoint in code, and `RERANK_INVOKE_URL` can be written into `backend/.env` with `scripts/sync-provider-urls.ps1`
 - `CHAT_THINKING_ENABLED` controls thinking globally, and the NIM provider adds the reasoning hint internally when supported
@@ -371,10 +368,11 @@ If you switch to NIM, expect:
 
 ## Provider selection
 
-The app uses `DEFAULT_LLM_PROFILE` plus `GENERATION_PROFILES` for the default chat model.
+The app stores the selectable chat and embedding catalog in code (`backend/app/core/defaults.py`), and the active selection in a separate PostgreSQL row.
 
-- `DEFAULT_LLM_PROFILE` selects the active generation profile
-- `GENERATION_PROFILES` maps the profile name to a provider/model pair
+- `GET /admin/model-catalog` lists the configured generation and embedding profiles
+- `GET /admin/model-selection` returns the currently active profiles
+- `PUT /admin/model-selection` updates the active generation and embedding profiles
 
 Provider-specific credentials and endpoints still need to be present when the chosen provider requires them.
 

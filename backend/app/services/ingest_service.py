@@ -21,6 +21,7 @@ from app.models.schemas import (
 )
 from app.parsers.factory import ParserFactory
 from app.providers.registry import ProviderRegistry
+from app.services.model_selection_service import ModelSelectionService
 from app.services.cache_service import CacheService
 from app.services.chunking import ChunkingService
 from app.services.embeddings import EmbeddingService
@@ -36,11 +37,13 @@ class IngestService:
         qdrant_manager: QdrantManager,
         postgres_pool: AsyncConnectionPool,
         provider_registry: ProviderRegistry,
+        model_selection_service: ModelSelectionService,
     ) -> None:
         self._settings = settings
         self._redis_manager = redis_manager
         self._postgres_pool = postgres_pool
         self._provider_registry = provider_registry
+        self._model_selection_service = model_selection_service
         self._document_repository = DocumentRepository(postgres_pool)
         self._chunk_repository = ChunkRepository(qdrant_manager)
         self._parser_factory = ParserFactory()
@@ -54,10 +57,12 @@ class IngestService:
         )
 
     async def ingest_text_items(self, payload: IngestTextRequest) -> IngestTextResponse:
+        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
         selection = self._embedding_service.resolve_selection(
             payload.embedding_profile,
             payload.embedding_provider,
             payload.embedding_model,
+            default_profile_name=default_embedding_profile,
         )
 
         results: list[IngestFileResult] = []
@@ -108,10 +113,12 @@ class IngestService:
         embedding_model: str | None,
         force_reingest: bool,
     ) -> IngestFilesResponse:
+        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
         selection = self._embedding_service.resolve_selection(
             embedding_profile,
             embedding_provider,
             embedding_model,
+            default_profile_name=default_embedding_profile,
         )
 
         results: list[IngestFileResult] = []
