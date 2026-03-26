@@ -14,13 +14,13 @@ This keeps the current local Compose architecture inside one ECS task.
 
 Current ECS template defaults:
 
-- generation provider: `openai`
-- generation model: `gpt-4.1-mini`
-- embedding provider: `openai`
-- embedding model: `text-embedding-3-small`
-- embedding dimension: `1536`
+- generation provider: `nim`
+- generation model: `nvidia/nemotron-3-super-120b-a12b`
+- embedding provider: `nim`
+- embedding model: `nvidia/llama-nemotron-embed-1b-v2`
+- embedding dimension: `2048`
 - the selectable catalog lives in `backend/app/core/defaults.py`
-- the active generation and embedding profiles are seeded from the task definition on startup
+- the active generation and embedding profiles are seeded from `deploy/ecs/task-definition.json` on startup
 - reasoning visibility is controlled by `CHAT_THINKING_ENABLED`
 - reranking is enabled and reuses `NIM_API_KEY`
 
@@ -275,7 +275,7 @@ Replace:
 Recommended production edits before registering:
 
 - Set `AUTH_REQUIRE_HTTPS=true` if TLS is terminated before traffic reaches `nginx`.
-- Set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` to the startup defaults you want.
+- Set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` in `deploy/ecs/task-definition.json` to the startup defaults you want.
 - Update `backend/app/core/defaults.py` when you add or change the catalog of allowed generation or embedding models.
 - Tune the chat guardrail env vars above if you need a different safety envelope.
 - Keep the `nginx` env vars aligned with your task networking model.
@@ -395,7 +395,7 @@ client
 
 - This design preserves the all-in-one task shape, but stateful containers on Fargate remain disposable.
 - Ollama is disabled in the ECS template because local models are not realistic in this deployment shape.
-- The ECS task template seeds OpenAI as the initial generation and embedding default, but the catalog still includes NIM and Ollama profiles in code if you switch them later through the admin API.
+- The ECS task template seeds NIM as the initial generation and embedding default, but the catalog still includes OpenAI and Ollama profiles in code if you switch them later through the admin API.
 - If you want Fargate to be production-ready, the next step is: app + nginx on Fargate, PostgreSQL on RDS, Redis on ElastiCache.
 - Chat persona wording lives in `backend/app/services/prompt_builder.py`, so any tone change requires rebuilding and pushing the `rag-backend` image, then registering a new task definition revision and updating the ECS service.
 

@@ -93,6 +93,8 @@ If you run the app container outside Compose, make sure `POSTGRES_DSN`, `REDIS_U
 
 - `POSTGRES_DSN`
 - `REDIS_URL`
+For ECS, keep the startup defaults in `deploy/ecs/task-definition.json`:
+
 - `DEFAULT_GENERATION_PROVIDER`
 - `DEFAULT_GENERATION_MODEL`
 - `DEFAULT_EMBEDDING_PROVIDER`
@@ -107,7 +109,7 @@ Chat guardrail defaults now use code values, so they are not expected in `backen
 
 Current repository default model-selection seed:
 
-- the startup seed uses the provider/model/dimension values from `backend/.env`
+- the startup seed uses the provider/model/dimension values from `backend/.env` for local Docker and from `deploy/ecs/task-definition.json` for ECS
 - the catalog entries themselves are seeded in code from `backend/app/core/defaults.py`
 - the selectable catalog is seeded in code on startup, then can be changed through the admin APIs
 - `SIMILARITY_THRESHOLD` uses the code default

@@ -19,7 +19,7 @@ Use these rules when you update the app:
   - update `README.md` and `docs/providers-and-models.md`
   - edit `backend/app/core/defaults.py` to manage the selectable catalog
   - use `GET /admin/model-selection` and `PUT /admin/model-selection` to switch the active chat and embedding profiles
-  - set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` in `backend/.env` to control the startup default
+  - set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` in `backend/.env` for local Docker, or in `deploy/ecs/task-definition.json` for ECS, to control the startup default
 - Change chat behavior or reasoning:
   - update `backend/app/services/prompt_builder.py`
   - update `backend/app/services/chat_service.py`

@@ -1938,14 +1938,6 @@
         "documentation": {}
     },
     {
-        "label": "DEFAULT_EMBEDDING_PROFILE",
-        "importPath": "app.core.defaults",
-        "description": "app.core.defaults",
-        "isExtraImport": true,
-        "detail": "app.core.defaults",
-        "documentation": {}
-    },
-    {
         "label": "CHAT_MAX_RESPONSE_CHARS",
         "importPath": "app.core.defaults",
         "description": "app.core.defaults",
@@ -4218,7 +4210,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_TOP_P = 1.0\nCHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"",
+        "peekOfCode": "CHAT_TOP_P = 1.0\nCHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4227,7 +4219,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"",
+        "peekOfCode": "CHAT_FREQUENCY_PENALTY = 0.0\nCHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4236,7 +4228,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "CHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [",
+        "peekOfCode": "CHAT_PRESENCE_PENALTY = 0.0\nEMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4245,7 +4237,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "EMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {",
+        "peekOfCode": "EMBEDDING_CACHE_TTL_SECONDS = 3600\nSESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4254,7 +4246,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "SESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",",
+        "peekOfCode": "SESSION_TTL_SECONDS = 1800\nSESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4263,7 +4255,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "SESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",",
+        "peekOfCode": "SESSION_STORAGE_ENABLED = False\nOPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4272,7 +4264,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "OPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",",
+        "peekOfCode": "OPENAI_REASONING_EFFORT = \"low\"\nNIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4281,7 +4273,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "NIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },",
+        "peekOfCode": "NIM_BASE_URL = \"https://integrate.api.nvidia.com/v1\"\nRERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -4290,25 +4282,7 @@
         "kind": 5,
         "importPath": "backend.app.core.defaults",
         "description": "backend.app.core.defaults",
-        "peekOfCode": "RERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {",
-        "detail": "backend.app.core.defaults",
-        "documentation": {}
-    },
-    {
-        "label": "DEFAULT_GENERATION_PROFILE",
-        "kind": 5,
-        "importPath": "backend.app.core.defaults",
-        "description": "backend.app.core.defaults",
-        "peekOfCode": "DEFAULT_GENERATION_PROFILE = \"openai_gpt41_mini\"\nDEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",",
-        "detail": "backend.app.core.defaults",
-        "documentation": {}
-    },
-    {
-        "label": "DEFAULT_EMBEDDING_PROFILE",
-        "kind": 5,
-        "importPath": "backend.app.core.defaults",
-        "description": "backend.app.core.defaults",
-        "peekOfCode": "DEFAULT_EMBEDDING_PROFILE = \"openai_small_1536\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",\n        \"provider\": \"nim\",",
+        "peekOfCode": "RERANK_BASE_URL = \"https://ai.api.nvidia.com/v1/retrieval\"\nDEFAULT_GENERATION_CATALOG = [\n    {\n        \"profile_name\": \"openai_gpt41_mini\",\n        \"provider\": \"openai\",\n        \"model\": \"gpt-4.1-mini\",\n    },\n    {\n        \"profile_name\": \"nim_3super120\",\n        \"provider\": \"nim\",",
         "detail": "backend.app.core.defaults",
         "documentation": {}
     },
@@ -6171,16 +6145,16 @@
         "kind": 2,
         "importPath": "backend.tests.test_generation_settings",
         "description": "backend.tests.test_generation_settings",
-        "peekOfCode": "def test_chat_service_formats_thinking_block_based_on_setting() -> None:\n    service = object.__new__(ChatService)\n    service._settings = SimpleNamespace(chat_show_thinking_block=False)  # type: ignore[attr-defined]\n    assert service._format_answer(\"<think>reasoning</think> final\", \"reasoning\") == \"final\"\n    service._settings = SimpleNamespace(chat_show_thinking_block=True)  # type: ignore[attr-defined]\n    assert service._format_answer(\"final\", \"reasoning\") == \"<thinking>\\nreasoning\\n</thinking>\\n\\nfinal\"\ndef test_model_selection_service_seeds_openai_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"openai\",\n        default_generation_model=\"gpt-4.1-mini\",",
+        "peekOfCode": "def test_chat_service_formats_thinking_block_based_on_setting() -> None:\n    service = object.__new__(ChatService)\n    service._settings = SimpleNamespace(chat_show_thinking_block=False)  # type: ignore[attr-defined]\n    assert service._format_answer(\"<think>reasoning</think> final\", \"reasoning\") == \"final\"\n    service._settings = SimpleNamespace(chat_show_thinking_block=True)  # type: ignore[attr-defined]\n    assert service._format_answer(\"final\", \"reasoning\") == \"<thinking>\\nreasoning\\n</thinking>\\n\\nfinal\"\ndef test_model_selection_service_seeds_nim_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"nim\",\n        default_generation_model=\"nvidia/nemotron-3-super-120b-a12b\",",
         "detail": "backend.tests.test_generation_settings",
         "documentation": {}
     },
     {
-        "label": "test_model_selection_service_seeds_openai_defaults",
+        "label": "test_model_selection_service_seeds_nim_defaults",
         "kind": 2,
         "importPath": "backend.tests.test_generation_settings",
         "description": "backend.tests.test_generation_settings",
-        "peekOfCode": "def test_model_selection_service_seeds_openai_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"openai\",\n        default_generation_model=\"gpt-4.1-mini\",\n        default_embedding_provider=\"openai\",\n        default_embedding_model=\"text-embedding-3-small\",\n        default_embedding_dimension=1536,\n    )\n    service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())\n    service._repository = _FakeModelSelectionRepository()  # type: ignore[attr-defined]",
+        "peekOfCode": "def test_model_selection_service_seeds_nim_defaults() -> None:\n    settings = Settings(\n        default_generation_provider=\"nim\",\n        default_generation_model=\"nvidia/nemotron-3-super-120b-a12b\",\n        default_embedding_provider=\"nim\",\n        default_embedding_model=\"nvidia/llama-nemotron-embed-1b-v2\",\n        default_embedding_dimension=2048,\n    )\n    service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())\n    service._repository = _FakeModelSelectionRepository()  # type: ignore[attr-defined]",
         "detail": "backend.tests.test_generation_settings",
         "documentation": {}
     },

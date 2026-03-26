@@ -13,8 +13,6 @@ SESSION_STORAGE_ENABLED = False
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 RERANK_BASE_URL = "https://ai.api.nvidia.com/v1/retrieval"
-DEFAULT_GENERATION_PROFILE = "openai_gpt41_mini"
-DEFAULT_EMBEDDING_PROFILE = "openai_small_1536"
 DEFAULT_GENERATION_CATALOG = [
     {
         "profile_name": "openai_gpt41_mini",

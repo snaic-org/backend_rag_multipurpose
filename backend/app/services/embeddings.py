@@ -4,7 +4,6 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import Settings
-from app.core.defaults import DEFAULT_EMBEDDING_PROFILE
 from app.core.logging import get_logger
 from app.models.schemas import EmbeddingSelection, ProviderName
 from app.services.cache_service import CacheService
@@ -210,7 +209,7 @@ class EmbeddingService:
             if profile is None:
                 raise ValueError(f"Unknown embedding profile '{selected_profile_name}'")
         else:
-            selected_profile_name = default_profile_name or DEFAULT_EMBEDDING_PROFILE
+            selected_profile_name = default_profile_name or self._settings.default_embedding_profile
             profile = self._settings.embedding_profiles.get(selected_profile_name)
             if profile is None:
                 raise ValueError(f"Unknown embedding profile '{selected_profile_name}'")
@@ -279,7 +278,7 @@ class EmbeddingService:
 
     def _find_profile_name(self, provider: str | None, model: str | None) -> str:
         if provider is None and model is None:
-            return DEFAULT_EMBEDDING_PROFILE
+            return self._settings.default_embedding_profile
 
         matches: list[str] = []
         for profile_name, profile in self._settings.embedding_profiles.items():

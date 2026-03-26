@@ -355,13 +355,13 @@ def test_chat_service_formats_thinking_block_based_on_setting() -> None:
     assert service._format_answer("final", "reasoning") == "<thinking>\nreasoning\n</thinking>\n\nfinal"
 
 
-def test_model_selection_service_seeds_openai_defaults() -> None:
+def test_model_selection_service_seeds_nim_defaults() -> None:
     settings = Settings(
-        default_generation_provider="openai",
-        default_generation_model="gpt-4.1-mini",
-        default_embedding_provider="openai",
-        default_embedding_model="text-embedding-3-small",
-        default_embedding_dimension=1536,
+        default_generation_provider="nim",
+        default_generation_model="nvidia/nemotron-3-super-120b-a12b",
+        default_embedding_provider="nim",
+        default_embedding_model="nvidia/llama-nemotron-embed-1b-v2",
+        default_embedding_dimension=2048,
     )
 
     service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())
@@ -372,13 +372,13 @@ def test_model_selection_service_seeds_openai_defaults() -> None:
     catalog = asyncio.run(service.get_catalog())
     assumptions = settings.phase_one_assumptions()
 
-    assert selection.generation_profile == "openai_gpt41_mini"
-    assert selection.embedding_profile == "openai_small_1536"
-    assert selection.generation_provider == "openai"
-    assert selection.embedding_provider == "openai"
-    assert catalog.generation_profiles[0].profile_name == "openai_gpt41_mini"
+    assert selection.generation_profile == "nim_3super120"
+    assert selection.embedding_profile == "nim_nemotron_2048"
+    assert selection.generation_provider == "nim"
+    assert selection.embedding_provider == "nim"
+    assert catalog.generation_profiles[1].profile_name == "nim_3super120"
     assert assumptions["model_selection_source"] == "database"
-    assert assumptions["configured_generation_profiles"]["openai_gpt41_mini"]["provider"] == "openai"
+    assert assumptions["configured_generation_profiles"]["nim_3super120"]["provider"] == "nim"
 
 
 def test_guardrails_truncate_response_ends_cleanly() -> None:

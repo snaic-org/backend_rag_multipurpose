@@ -72,11 +72,11 @@ class Settings(BaseSettings):
     rerank_max_candidates: int = Field(default=12)
     rerank_min_candidates: int = Field(default=2)
 
-    default_generation_provider: ProviderName = Field(default="openai")
-    default_generation_model: str = Field(default="gpt-4.1-mini")
-    default_embedding_provider: ProviderName = Field(default="openai")
-    default_embedding_model: str = Field(default="text-embedding-3-small")
-    default_embedding_dimension: int = Field(default=1536)
+    default_generation_provider: ProviderName | None = Field(default=None)
+    default_generation_model: str | None = Field(default=None)
+    default_embedding_provider: ProviderName | None = Field(default=None)
+    default_embedding_model: str | None = Field(default=None)
+    default_embedding_dimension: int | None = Field(default=None)
 
     generation_profiles: dict[str, GenerationProfileSpec] = Field(
         default_factory=lambda: _default_generation_profiles()
@@ -186,20 +186,50 @@ class Settings(BaseSettings):
 
     @property
     def default_generation_profile(self) -> str:
+        provider = self._require_default_generation_provider()
+        model = self._require_default_generation_model()
         return _resolve_generation_profile_name(
             self.generation_profiles,
-            self.default_generation_provider,
-            self.default_generation_model,
+            provider,
+            model,
         )
 
     @property
     def default_embedding_profile(self) -> str:
+        provider = self._require_default_embedding_provider()
+        model = self._require_default_embedding_model()
+        dimension = self._require_default_embedding_dimension()
         return _resolve_embedding_profile_name(
             self.embedding_profiles,
-            self.default_embedding_provider,
-            self.default_embedding_model,
-            self.default_embedding_dimension,
+            provider,
+            model,
+            dimension,
         )
+
+    def _require_default_generation_provider(self) -> ProviderName:
+        if self.default_generation_provider is None:
+            raise ValueError("DEFAULT_GENERATION_PROVIDER is required")
+        return self.default_generation_provider
+
+    def _require_default_generation_model(self) -> str:
+        if self.default_generation_model is None:
+            raise ValueError("DEFAULT_GENERATION_MODEL is required")
+        return self.default_generation_model
+
+    def _require_default_embedding_provider(self) -> ProviderName:
+        if self.default_embedding_provider is None:
+            raise ValueError("DEFAULT_EMBEDDING_PROVIDER is required")
+        return self.default_embedding_provider
+
+    def _require_default_embedding_model(self) -> str:
+        if self.default_embedding_model is None:
+            raise ValueError("DEFAULT_EMBEDDING_MODEL is required")
+        return self.default_embedding_model
+
+    def _require_default_embedding_dimension(self) -> int:
+        if self.default_embedding_dimension is None:
+            raise ValueError("DEFAULT_EMBEDDING_DIMENSION is required")
+        return self.default_embedding_dimension
 
 
 @lru_cache

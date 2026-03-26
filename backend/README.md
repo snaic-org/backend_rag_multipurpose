@@ -27,7 +27,7 @@ The Compose app service reads `backend/.env`. The `.env.example` file is only th
 
 Embedding selection is profile-based and stored in PostgreSQL:
 
-- set `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` to seed the startup default
+- set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` to seed the startup defaults
 - edit `backend/app/core/defaults.py` if you want to add or override named provider/model/dimension combinations
 - use `GET /admin/model-selection` and `PUT /admin/model-selection` to change the active embedding profile after startup
 - when a new dimension is used, the app creates the matching Qdrant collection automatically
