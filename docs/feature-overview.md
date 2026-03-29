@@ -12,8 +12,10 @@ This document summarizes the current implemented capabilities of the backend RAG
 - `POST /ingest/files`
 - `POST /chat`
 - `POST /chat/stream`
+- `POST /chat/feedback`
 - `DELETE /admin/reset`
 - `GET /admin/chat-activity`
+- `GET /admin/chat-feedback`
 - `GET /admin/system-prompt`
 - `PUT /admin/system-prompt`
 
@@ -22,6 +24,7 @@ This document summarizes the current implemented capabilities of the backend RAG
 - PostgreSQL storage for users, API keys, and documents
 - PostgreSQL storage for the editable system prompt
 - PostgreSQL storage for chat activity audit records
+- PostgreSQL storage for chat feedback records
 - Qdrant storage for chunk embeddings and similarity search
 - Redis rate limiting, retrieval caching, embedding caching, and optional session storage
 - Request-level generation provider and model selection
@@ -30,6 +33,7 @@ This document summarizes the current implemented capabilities of the backend RAG
 - JWT bearer authentication and hashed API keys
 - Admin-only system prompt management through JWT bearer auth
 - Admin-only chat activity monitoring with overview analytics and filtered search
+- Chat feedback capture with 1 to 5 rating and optional comments
 - Chat guardrails for spam, quota, prompt-injection phrases, and output limits
 - Exact duplicate knowledge-base uploads are deduplicated by normalized content hash plus embedding profile
 - Grounded chatbot behavior tuned for retrieved-context responses
@@ -83,6 +87,26 @@ Accepted date formats:
 
 - `DD/MM/YYYY`
 - ISO 8601 timestamps
+
+## Feedback capture
+
+Users can submit chat-session feedback through:
+
+- `POST /chat/feedback`
+
+Admins can review submitted feedback through:
+
+- `GET /admin/chat-feedback`
+
+Feedback records include:
+
+- `session_id`
+- `rating`
+- `date`
+- `full_chat_text`
+- `comments`
+
+When a client sends `session_id` on `/chat` or `/chat/stream`, the backend now echoes that same session id back in the response path.
 
 ## Related documentation
 

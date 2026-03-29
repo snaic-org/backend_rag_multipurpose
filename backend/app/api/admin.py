@@ -7,6 +7,7 @@ from app.core.security import require_admin_user
 from app.models.schemas import (
     AuthenticatedUser,
     ChatActivityQueryResponse,
+    ChatFeedbackResponse,
     ChunkRecord,
     ModelCatalogResponse,
     ModelSelectionResponse,
@@ -22,6 +23,7 @@ from app.models.schemas import (
 )
 from app.services.reset_service import ResetService
 from app.services.chat_activity_service import ChatActivityService
+from app.services.chat_feedback_service import ChatFeedbackService
 from app.services.document_inspection_service import DocumentInspectionService
 
 router = APIRouter()
@@ -78,6 +80,10 @@ def _build_model_selection_service(request: Request):
 
 def _build_chat_activity_service(request: Request) -> ChatActivityService:
     return request.app.state.activity_service
+
+
+def _build_chat_feedback_service(request: Request) -> ChatFeedbackService:
+    return request.app.state.feedback_service
 
 
 def _build_document_inspection_service(request: Request) -> DocumentInspectionService:
@@ -204,6 +210,42 @@ async def list_chat_activity(
         start_at=parsed_start_at,
         end_at=parsed_end_at,
         keyword=keyword,
+    )
+
+
+@router.get("/chat-feedback", response_model=list[ChatFeedbackResponse])
+async def list_chat_feedback(
+    request: Request,
+    limit: int = 100,
+    start_at: str | None = Query(
+        default=None,
+        openapi_examples={
+            "date_only": {
+                "summary": "Date only",
+                "value": "24/03/2025",
+            }
+        },
+        description="Filter feedback created at or after this date. Supports DD/MM/YYYY or ISO 8601 UTC timestamps.",
+    ),
+    end_at: str | None = Query(
+        default=None,
+        openapi_examples={
+            "date_only": {
+                "summary": "Date only",
+                "value": "29/03/2025",
+            }
+        },
+        description="Filter feedback created at or before this date. Supports DD/MM/YYYY or ISO 8601 UTC timestamps.",
+    ),
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> list[ChatFeedbackResponse]:
+    bounded_limit = max(1, min(limit, 500))
+    parsed_start_at = _parse_activity_datetime(start_at, end_of_day=False)
+    parsed_end_at = _parse_activity_datetime(end_at, end_of_day=True)
+    return await _build_chat_feedback_service(request).list_feedback(
+        limit=bounded_limit,
+        start_at=parsed_start_at,
+        end_at=parsed_end_at,
     )
 
 

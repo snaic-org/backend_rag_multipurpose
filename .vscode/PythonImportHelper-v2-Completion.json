@@ -88,6 +88,38 @@
         "documentation": {}
     },
     {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "timezone",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "datetime",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
+        "label": "timedelta",
+        "importPath": "datetime",
+        "description": "datetime",
+        "isExtraImport": true,
+        "detail": "datetime",
+        "documentation": {}
+    },
+    {
         "label": "timezone",
         "importPath": "datetime",
         "description": "datetime",
@@ -298,6 +330,14 @@
     },
     {
         "label": "uuid4",
+        "importPath": "uuid",
+        "description": "uuid",
+        "isExtraImport": true,
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "UUID",
         "importPath": "uuid",
         "description": "uuid",
         "isExtraImport": true,
@@ -705,6 +745,14 @@
         "documentation": {}
     },
     {
+        "label": "FastAPI",
+        "importPath": "fastapi",
+        "description": "fastapi",
+        "isExtraImport": true,
+        "detail": "fastapi",
+        "documentation": {}
+    },
+    {
         "label": "require_admin_user",
         "importPath": "app.core.security",
         "description": "app.core.security",
@@ -746,6 +794,14 @@
     },
     {
         "label": "ChatActivityQueryResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackResponse",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -913,6 +969,22 @@
         "documentation": {}
     },
     {
+        "label": "ChatFeedbackRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "ChatRequest",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -994,6 +1066,14 @@
     },
     {
         "label": "ChatActivityWrite",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackRecord",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -1370,6 +1450,38 @@
     },
     {
         "label": "ChatActivityWrite",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "AuthenticatedUser",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatActivityRecord",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackRequest",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackResponse",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
         "isExtraImport": true,
@@ -1833,6 +1945,30 @@
         "documentation": {}
     },
     {
+        "label": "ChatFeedbackResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "AccessTokenResponse",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "AuthenticatedUser",
+        "importPath": "app.models.schemas",
+        "description": "app.models.schemas",
+        "isExtraImport": true,
+        "detail": "app.models.schemas",
+        "documentation": {}
+    },
+    {
         "label": "ChatCitation",
         "importPath": "app.models.schemas",
         "description": "app.models.schemas",
@@ -2030,6 +2166,30 @@
         "description": "app.services.chat_activity_service",
         "isExtraImport": true,
         "detail": "app.services.chat_activity_service",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackService",
+        "importPath": "app.services.chat_feedback_service",
+        "description": "app.services.chat_feedback_service",
+        "isExtraImport": true,
+        "detail": "app.services.chat_feedback_service",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackService",
+        "importPath": "app.services.chat_feedback_service",
+        "description": "app.services.chat_feedback_service",
+        "isExtraImport": true,
+        "detail": "app.services.chat_feedback_service",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackService",
+        "importPath": "app.services.chat_feedback_service",
+        "description": "app.services.chat_feedback_service",
+        "isExtraImport": true,
+        "detail": "app.services.chat_feedback_service",
         "documentation": {}
     },
     {
@@ -2547,6 +2707,22 @@
     },
     {
         "label": "router",
+        "importPath": "app.api.admin",
+        "description": "app.api.admin",
+        "isExtraImport": true,
+        "detail": "app.api.admin",
+        "documentation": {}
+    },
+    {
+        "label": "router",
+        "importPath": "app.api.auth",
+        "description": "app.api.auth",
+        "isExtraImport": true,
+        "detail": "app.api.auth",
+        "documentation": {}
+    },
+    {
+        "label": "router",
         "importPath": "app.api.auth",
         "description": "app.api.auth",
         "isExtraImport": true,
@@ -2599,6 +2775,14 @@
         "isExtraImport": true,
         "importPath": "app.api.chat",
         "description": "app.api.chat",
+        "detail": "app.api.chat",
+        "documentation": {}
+    },
+    {
+        "label": "router",
+        "importPath": "app.api.chat",
+        "description": "app.api.chat",
+        "isExtraImport": true,
         "detail": "app.api.chat",
         "documentation": {}
     },
@@ -2903,6 +3087,30 @@
         "documentation": {}
     },
     {
+        "label": "dict_row",
+        "importPath": "psycopg.rows",
+        "description": "psycopg.rows",
+        "isExtraImport": true,
+        "detail": "psycopg.rows",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncConnectionPool",
+        "importPath": "psycopg_pool",
+        "description": "psycopg_pool",
+        "isExtraImport": true,
+        "detail": "psycopg_pool",
+        "documentation": {}
+    },
+    {
+        "label": "AsyncConnectionPool",
+        "importPath": "psycopg_pool",
+        "description": "psycopg_pool",
+        "isExtraImport": true,
+        "detail": "psycopg_pool",
+        "documentation": {}
+    },
+    {
         "label": "AsyncConnectionPool",
         "importPath": "psycopg_pool",
         "description": "psycopg_pool",
@@ -3020,6 +3228,14 @@
         "description": "psycopg.types.json",
         "isExtraImport": true,
         "detail": "psycopg.types.json",
+        "documentation": {}
+    },
+    {
+        "label": "annotations",
+        "importPath": "__future__",
+        "description": "__future__",
+        "isExtraImport": true,
+        "detail": "__future__",
         "documentation": {}
     },
     {
@@ -3830,6 +4046,22 @@
         "documentation": {}
     },
     {
+        "label": "ChatActivityRepository",
+        "importPath": "app.db.repositories.chat_activity",
+        "description": "app.db.repositories.chat_activity",
+        "isExtraImport": true,
+        "detail": "app.db.repositories.chat_activity",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackRepository",
+        "importPath": "app.db.repositories.chat_feedback",
+        "description": "app.db.repositories.chat_feedback",
+        "isExtraImport": true,
+        "detail": "app.db.repositories.chat_feedback",
+        "documentation": {}
+    },
+    {
         "label": "RedisManager",
         "importPath": "app.db.redis",
         "description": "app.db.redis",
@@ -4403,7 +4635,16 @@
         "kind": 6,
         "importPath": "backend.app.api.chat",
         "description": "backend.app.api.chat",
-        "peekOfCode": "class _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,\n        qdrant_manager=request.app.state.qdrant,\n        redis_manager=request.app.state.redis,\n        provider_registry=request.app.state.providers,\n        system_prompt_service=request.app.state.prompt_service,",
+        "peekOfCode": "class _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\nclass _NullChatFeedbackService:\n    async def submit_feedback(\n        self,\n        payload: ChatFeedbackRequest,\n        current_user: AuthenticatedUser,\n    ) -> ChatFeedbackResponse:\n        raise RuntimeError(\"chat feedback service is unavailable\")",
+        "detail": "backend.app.api.chat",
+        "documentation": {}
+    },
+    {
+        "label": "_NullChatFeedbackService",
+        "kind": 6,
+        "importPath": "backend.app.api.chat",
+        "description": "backend.app.api.chat",
+        "peekOfCode": "class _NullChatFeedbackService:\n    async def submit_feedback(\n        self,\n        payload: ChatFeedbackRequest,\n        current_user: AuthenticatedUser,\n    ) -> ChatFeedbackResponse:\n        raise RuntimeError(\"chat feedback service is unavailable\")\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,",
         "detail": "backend.app.api.chat",
         "documentation": {}
     },
@@ -4412,7 +4653,7 @@
         "kind": 5,
         "importPath": "backend.app.api.chat",
         "description": "backend.app.api.chat",
-        "peekOfCode": "router = APIRouter()\nlogger = get_logger(__name__)\nclass _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,\n        qdrant_manager=request.app.state.qdrant,\n        redis_manager=request.app.state.redis,",
+        "peekOfCode": "router = APIRouter()\nlogger = get_logger(__name__)\nclass _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\nclass _NullChatFeedbackService:\n    async def submit_feedback(\n        self,\n        payload: ChatFeedbackRequest,\n        current_user: AuthenticatedUser,",
         "detail": "backend.app.api.chat",
         "documentation": {}
     },
@@ -4421,7 +4662,7 @@
         "kind": 5,
         "importPath": "backend.app.api.chat",
         "description": "backend.app.api.chat",
-        "peekOfCode": "logger = get_logger(__name__)\nclass _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\ndef _build_chat_service(request: Request) -> ChatService:\n    return ChatService(\n        settings=request.app.state.settings,\n        qdrant_manager=request.app.state.qdrant,\n        redis_manager=request.app.state.redis,\n        provider_registry=request.app.state.providers,",
+        "peekOfCode": "logger = get_logger(__name__)\nclass _NullChatActivityService:\n    async def record(self, payload: ChatActivityWrite) -> None:\n        return None\nclass _NullChatFeedbackService:\n    async def submit_feedback(\n        self,\n        payload: ChatFeedbackRequest,\n        current_user: AuthenticatedUser,\n    ) -> ChatFeedbackResponse:",
         "detail": "backend.app.api.chat",
         "documentation": {}
     },
@@ -4714,6 +4955,15 @@
         "documentation": {}
     },
     {
+        "label": "ChatFeedbackRepository",
+        "kind": 6,
+        "importPath": "backend.app.db.repositories.chat_feedback",
+        "description": "backend.app.db.repositories.chat_feedback",
+        "peekOfCode": "class ChatFeedbackRepository:\n    def __init__(self, pool: AsyncConnectionPool) -> None:\n        self._pool = pool\n    async def ensure_table(self) -> None:\n        queries = [\n            \"\"\"\n            CREATE TABLE IF NOT EXISTS chat_feedback (\n                id BIGSERIAL PRIMARY KEY,\n                user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,\n                username TEXT NOT NULL,",
+        "detail": "backend.app.db.repositories.chat_feedback",
+        "documentation": {}
+    },
+    {
         "label": "ChunkRepository",
         "kind": 6,
         "importPath": "backend.app.db.repositories.chunks",
@@ -4908,6 +5158,33 @@
         "importPath": "backend.app.models.schemas",
         "description": "backend.app.models.schemas",
         "peekOfCode": "class ChatResponse(BaseModel):\n    answer: str\n    thinking: str | None = None\n    citations: list[ChatCitation] = Field(default_factory=list)\n    provider: ProviderName\n    model: str\n    embedding_profile: str\n    embedding_provider: ProviderName\n    embedding_model: str\n    used_fallback: bool = False",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackRequest",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ChatFeedbackRequest(BaseModel):\n    session_id: str\n    rating: int = Field(ge=1, le=5)\n    comments: str | None = None\n    @field_validator(\"session_id\")\n    @classmethod\n    def validate_session_id_not_empty(cls, value: str) -> str:\n        if not value.strip():\n            raise ValueError(\"session_id must not be empty\")\n        return value.strip()",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackResponse",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ChatFeedbackResponse(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n    id: int\n    session_id: str\n    rating: int\n    full_chat_text: str = \"\"\n    comments: str | None = None\n    date: datetime\n    created_at: datetime\nclass ChatFeedbackRecord(BaseModel):",
+        "detail": "backend.app.models.schemas",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackRecord",
+        "kind": 6,
+        "importPath": "backend.app.models.schemas",
+        "description": "backend.app.models.schemas",
+        "peekOfCode": "class ChatFeedbackRecord(BaseModel):\n    model_config = ConfigDict(from_attributes=True)\n    id: int\n    user_id: UUID\n    username: str\n    session_id: str\n    rating: int\n    comments: str | None = None\n    created_at: datetime\nclass DocumentRecord(BaseModel):",
         "detail": "backend.app.models.schemas",
         "documentation": {}
     },
@@ -5476,6 +5753,15 @@
         "description": "backend.app.services.chat_activity_service",
         "peekOfCode": "class ChatActivityService:\n    def __init__(self, postgres_pool: AsyncConnectionPool) -> None:\n        self._repository = ChatActivityRepository(postgres_pool)\n    async def ensure_table(self) -> None:\n        await self._repository.ensure_table()\n    async def record(self, payload: ChatActivityWrite) -> ChatActivityResponse:\n        record = await self._repository.create(payload)\n        return ChatActivityResponse.model_validate(record)\n    async def search(\n        self,",
         "detail": "backend.app.services.chat_activity_service",
+        "documentation": {}
+    },
+    {
+        "label": "ChatFeedbackService",
+        "kind": 6,
+        "importPath": "backend.app.services.chat_feedback_service",
+        "description": "backend.app.services.chat_feedback_service",
+        "peekOfCode": "class ChatFeedbackService:\n    def __init__(self, postgres_pool: AsyncConnectionPool) -> None:\n        self._repository = ChatFeedbackRepository(postgres_pool)\n        self._activity_repository = ChatActivityRepository(postgres_pool)\n    async def ensure_table(self) -> None:\n        await self._repository.ensure_table()\n    async def submit_feedback(\n        self,\n        payload: ChatFeedbackRequest,\n        current_user: AuthenticatedUser,",
+        "detail": "backend.app.services.chat_feedback_service",
         "documentation": {}
     },
     {
@@ -6385,6 +6671,195 @@
         "description": "backend.tests.test_chat_activity_monitoring",
         "peekOfCode": "psycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx\nimport jwt\nfrom fastapi import FastAPI\nimport app.api.chat as chat_api\nfrom app.api.admin import router as admin_router",
         "detail": "backend.tests.test_chat_activity_monitoring",
+        "documentation": {}
+    },
+    {
+        "label": "StubSettings",
+        "kind": 6,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "class StubSettings:\n    app_name = \"backend-rag-multipurpose\"\n    auth_enabled = True\n    auth_require_https = False\n    auth_jwt_secret = \"test-secret\"\n    auth_jwt_algorithm = \"HS256\"\n    auth_access_token_ttl_seconds = 3600\n    auth_bootstrap_admin_username = \"admin\"\n    auth_bootstrap_admin_password = \"change-me-immediately\"\nclass FakeAuthService:",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "FakeAuthService",
+        "kind": 6,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "class FakeAuthService:\n    def __init__(self, settings: StubSettings) -> None:\n        self._settings = settings\n        self._user = AuthenticatedUser(\n            id=UUID(\"11111111-1111-1111-1111-111111111111\"),\n            username=settings.auth_bootstrap_admin_username,\n            is_admin=True,\n            auth_type=\"bearer\",\n        )\n    async def issue_access_token(self, username: str, password: str) -> AccessTokenResponse:",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "FakeFeedbackService",
+        "kind": 6,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "class FakeFeedbackService:\n    def __init__(self) -> None:\n        self._next_id = 1\n        self._items: list[ChatFeedbackResponse] = []\n    async def submit_feedback(self, payload, current_user: AuthenticatedUser) -> ChatFeedbackResponse:\n        response = ChatFeedbackResponse(\n            id=self._next_id,\n            session_id=payload.session_id,\n            rating=payload.rating,\n            full_chat_text=\"User: hello\\n\\nAssistant: hi there\",",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "build_app",
+        "kind": 2,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "def build_app() -> FastAPI:\n    settings = StubSettings()\n    app = FastAPI()\n    app.include_router(auth_router, prefix=\"/auth\")\n    app.include_router(admin_router, prefix=\"/admin\")\n    app.include_router(chat_router, prefix=\"/chat\")\n    app.state.settings = settings\n    app.state.auth_service = FakeAuthService(settings)\n    app.state.feedback_service = FakeFeedbackService()\n    return app",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "test_submit_chat_feedback",
+        "kind": 2,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "def test_submit_chat_feedback() -> None:\n    app = build_app()\n    async def run_flow() -> None:\n        transport = httpx.ASGITransport(app=app)\n        async with httpx.AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n            token_response = await client.post(\n                \"/auth/token\",\n                json={\"username\": \"admin\", \"password\": \"change-me-immediately\"},\n            )\n            token = token_response.json()[\"access_token\"]",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "test_admin_can_list_chat_feedback_with_date_filter",
+        "kind": 2,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "def test_admin_can_list_chat_feedback_with_date_filter() -> None:\n    app = build_app()\n    feedback_service = app.state.feedback_service\n    feedback_service._items = [\n        ChatFeedbackResponse(\n            id=2,\n            session_id=\"session-new\",\n            rating=5,\n            full_chat_text=\"User: new\\n\\nAssistant: recent\",\n            comments=\"Great\",",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "test_submit_chat_feedback_validates_rating_range",
+        "kind": 2,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "def test_submit_chat_feedback_validates_rating_range() -> None:\n    app = build_app()\n    async def run_flow() -> None:\n        transport = httpx.ASGITransport(app=app)\n        async with httpx.AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n            token_response = await client.post(\n                \"/auth/token\",\n                json={\"username\": \"admin\", \"password\": \"change-me-immediately\"},\n            )\n            token = token_response.json()[\"access_token\"]",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "redis_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "redis_module = types.ModuleType(\"redis\")\nredis_asyncio_module = types.ModuleType(\"redis.asyncio\")\nredis_asyncio_module.Redis = object\nredis_module.asyncio = redis_asyncio_module\nsys.modules.setdefault(\"redis\", redis_module)\nsys.modules.setdefault(\"redis.asyncio\", redis_asyncio_module)\npsycopg_pool_module = types.ModuleType(\"psycopg_pool\")\npsycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "redis_asyncio_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "redis_asyncio_module = types.ModuleType(\"redis.asyncio\")\nredis_asyncio_module.Redis = object\nredis_module.asyncio = redis_asyncio_module\nsys.modules.setdefault(\"redis\", redis_module)\nsys.modules.setdefault(\"redis.asyncio\", redis_asyncio_module)\npsycopg_pool_module = types.ModuleType(\"psycopg_pool\")\npsycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "redis_asyncio_module.Redis",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "redis_asyncio_module.Redis = object\nredis_module.asyncio = redis_asyncio_module\nsys.modules.setdefault(\"redis\", redis_module)\nsys.modules.setdefault(\"redis.asyncio\", redis_asyncio_module)\npsycopg_pool_module = types.ModuleType(\"psycopg_pool\")\npsycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "redis_module.asyncio",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "redis_module.asyncio = redis_asyncio_module\nsys.modules.setdefault(\"redis\", redis_module)\nsys.modules.setdefault(\"redis.asyncio\", redis_asyncio_module)\npsycopg_pool_module = types.ModuleType(\"psycopg_pool\")\npsycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_pool_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_pool_module = types.ModuleType(\"psycopg_pool\")\npsycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_pool_module.AsyncConnectionPool",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_pool_module.AsyncConnectionPool = object\nsys.modules.setdefault(\"psycopg_pool\", psycopg_pool_module)\npsycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_module = types.ModuleType(\"psycopg\")\npsycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_rows_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_rows_module = types.ModuleType(\"psycopg.rows\")\npsycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_rows_module.dict_row",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_rows_module.dict_row = object\npsycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_types_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_types_module = types.ModuleType(\"psycopg.types\")\npsycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_types_json_module",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_types_json_module = types.ModuleType(\"psycopg.types.json\")\npsycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx\nimport jwt",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_types_json_module.Jsonb",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_types_json_module.Jsonb = object\npsycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx\nimport jwt\nfrom fastapi import FastAPI",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_module.rows",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_module.rows = psycopg_rows_module\npsycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx\nimport jwt\nfrom fastapi import FastAPI\nfrom app.api.admin import router as admin_router",
+        "detail": "backend.tests.test_chat_feedback",
+        "documentation": {}
+    },
+    {
+        "label": "psycopg_module.types",
+        "kind": 5,
+        "importPath": "backend.tests.test_chat_feedback",
+        "description": "backend.tests.test_chat_feedback",
+        "peekOfCode": "psycopg_module.types = psycopg_types_module\nsys.modules.setdefault(\"psycopg\", psycopg_module)\nsys.modules.setdefault(\"psycopg.rows\", psycopg_rows_module)\nsys.modules.setdefault(\"psycopg.types\", psycopg_types_module)\nsys.modules.setdefault(\"psycopg.types.json\", psycopg_types_json_module)\nimport httpx\nimport jwt\nfrom fastapi import FastAPI\nfrom app.api.admin import router as admin_router\nfrom app.api.auth import router as auth_router",
+        "detail": "backend.tests.test_chat_feedback",
         "documentation": {}
     },
     {

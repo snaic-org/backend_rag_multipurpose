@@ -64,6 +64,7 @@ class ChatService:
                 embedding_provider=prepared.embedding_provider,
                 embedding_model=prepared.embedding_model,
                 used_fallback=True,
+                session_id=prepared.session_id,
                 retrieved_chunks=[],
             )
 
@@ -93,6 +94,7 @@ class ChatService:
             embedding_provider=prepared.embedding_provider,
             embedding_model=prepared.embedding_model,
             used_fallback=False,
+            session_id=prepared.session_id,
             retrieved_chunks=prepared.retrieved_chunks,
         )
 

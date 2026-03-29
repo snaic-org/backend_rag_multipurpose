@@ -210,3 +210,44 @@ class ChatActivityRepository:
                 rows = await cursor.fetchall()
 
         return [ChatActivityRecord.model_validate(row) for row in rows]
+
+    async def list_by_session_ids(self, session_ids: list[str]) -> list[ChatActivityRecord]:
+        if not session_ids:
+            return []
+
+        query = """
+            SELECT
+                id,
+                user_id,
+                username,
+                auth_type,
+                request_path,
+                client_ip,
+                forwarded_for,
+                user_agent,
+                session_id,
+                request_message,
+                response_answer,
+                provider,
+                model,
+                embedding_profile,
+                embedding_provider,
+                embedding_model,
+                used_fallback,
+                citations_count,
+                retrieved_chunks_count,
+                status,
+                error_message,
+                metadata,
+                created_at
+            FROM chat_activity_logs
+            WHERE session_id = ANY(%(session_ids)s)
+            ORDER BY created_at ASC, id ASC
+        """
+
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(query, {"session_ids": session_ids})
+                rows = await cursor.fetchall()
+
+        return [ChatActivityRecord.model_validate(row) for row in rows]

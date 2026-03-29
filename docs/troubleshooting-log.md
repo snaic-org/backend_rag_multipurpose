@@ -722,6 +722,31 @@ Relevant files:
 - `backend/app/models/schemas.py`
 - `backend/app/db/repositories/chat_activity.py`
 
+### Chat feedback exists but `full_chat_text` is empty or incomplete
+
+Symptoms:
+
+- `POST /chat/feedback` succeeds
+- `GET /admin/chat-feedback` returns the rating and comment
+- `full_chat_text` is empty, partial, or does not match the expected conversation
+
+Cause:
+
+- feedback is joined to recorded chat activity by `session_id`
+- if the client did not send a stable `session_id` on `/chat` or `/chat/stream`, the backend has no reliable way to group the conversation into one feedback transcript
+
+Solution:
+
+- send the same `session_id` value on every request in the same chat session
+- reuse that same `session_id` when calling `POST /chat/feedback`
+- confirm `/chat` echoes the same `session_id` back in the response when it was provided
+
+Relevant files:
+
+- `backend/app/api/chat.py`
+- `backend/app/services/chat_feedback_service.py`
+- `backend/app/db/repositories/chat_activity.py`
+
 ### Chat default profile fails because the named generation profile is missing
 
 Symptoms:

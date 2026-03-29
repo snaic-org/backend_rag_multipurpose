@@ -146,7 +146,53 @@ class ChatResponse(BaseModel):
     embedding_provider: ProviderName
     embedding_model: str
     used_fallback: bool = False
+    session_id: str | None = None
     retrieved_chunks: list["RetrievedChunk"] = Field(default_factory=list)
+
+
+class ChatFeedbackRequest(BaseModel):
+    session_id: str
+    rating: int = Field(ge=1, le=5)
+    comments: str | None = None
+
+    @field_validator("session_id")
+    @classmethod
+    def validate_session_id_not_empty(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("session_id must not be empty")
+        return value.strip()
+
+    @field_validator("comments")
+    @classmethod
+    def validate_comments(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
+
+
+class ChatFeedbackResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    session_id: str
+    rating: int
+    full_chat_text: str = ""
+    comments: str | None = None
+    date: datetime
+    created_at: datetime
+
+
+class ChatFeedbackRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: UUID
+    username: str
+    session_id: str
+    rating: int
+    comments: str | None = None
+    created_at: datetime
 
 
 class DocumentRecord(BaseModel):
@@ -253,6 +299,7 @@ class ChatServiceResult(BaseModel):
     embedding_provider: ProviderName
     embedding_model: str
     used_fallback: bool = False
+    session_id: str | None = None
     retrieved_chunks: list["RetrievedChunk"] = Field(default_factory=list)
 
 

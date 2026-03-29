@@ -53,7 +53,7 @@ This starts:
 - Qdrant for chunk vectors and similarity search
 - Redis `redis:7.4-alpine`
 
-PostgreSQL also stores chat activity audit records for the admin monitoring endpoint.
+PostgreSQL also stores chat activity audit records and chat feedback records for the admin monitoring endpoints.
 
 Ollama is not containerized in the default stack.
 
@@ -161,6 +161,7 @@ To change the active chat or embedding profile after deployment, use the admin e
 To review chatbot usage after deployment, use:
 
 - `GET /admin/chat-activity`
+- `GET /admin/chat-feedback`
 
 Supported chat-activity query params:
 
@@ -170,6 +171,19 @@ Supported chat-activity query params:
 - `keyword`
 
 Date filters accept `DD/MM/YYYY` such as `24/03/2025` as well as ISO 8601 timestamps.
+
+Feedback capture endpoints:
+
+- `POST /chat/feedback`
+- `GET /admin/chat-feedback`
+
+Feedback list filters:
+
+- `limit`
+- `start_at`
+- `end_at`
+
+Feedback date filters accept `DD/MM/YYYY` and ISO 8601 timestamps.
 
 ## Database initialization
 
@@ -183,6 +197,7 @@ Auth table note:
 
 - the application now creates `app_users` and `api_keys` on startup if they are missing
 - the application also creates `chat_activity_logs` on startup if it is missing
+- the application also creates `chat_feedback` on startup if it is missing
 - this avoids startup failure on older local volumes that were initialized before the auth schema was added
 - chunk vectors now live in Qdrant collections, which are created automatically on first use
 

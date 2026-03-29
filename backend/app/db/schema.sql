@@ -90,3 +90,18 @@ CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_client_ip
     ON chat_activity_logs (client_ip, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_status
     ON chat_activity_logs (status, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS chat_feedback (
+    id BIGSERIAL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    username TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    comments TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_feedback_session_id
+    ON chat_feedback (session_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_feedback_user_id
+    ON chat_feedback (user_id, created_at DESC);

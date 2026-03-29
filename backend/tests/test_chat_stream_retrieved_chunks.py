@@ -150,6 +150,7 @@ class FakeChatService:
             embedding_provider="openai",
             embedding_model="text-embedding-3-small",
             used_fallback=False,
+            session_id=payload.session_id,
             retrieved_chunks=self._retrieved_chunks,
         )
 
@@ -179,7 +180,7 @@ class FakeChatService:
             stream=stream(),
             used_fallback=False,
             fallback_text="",
-            session_id=None,
+            session_id=payload.session_id,
             user_message="hello there",
         )
 
@@ -226,17 +227,18 @@ def test_chat_stream_exposes_same_retrieved_chunks_as_chat(monkeypatch) -> None:
             chat_response = await client.post(
                 "/chat",
                 headers=headers,
-                json={"message": "hello there", "debug": True},
+                json={"message": "hello there", "debug": True, "session_id": "session-abc"},
             )
             assert chat_response.status_code == 200, chat_response.text
             chat_payload = chat_response.json()
             assert len(chat_payload["retrieved_chunks"]) == 1
+            assert chat_payload["session_id"] == "session-abc"
 
             async with client.stream(
                 "POST",
                 "/chat/stream",
                 headers=headers,
-                json={"message": "hello there", "debug": True},
+                json={"message": "hello there", "debug": True, "session_id": "session-abc"},
             ) as stream_response:
                 assert stream_response.status_code == 200
                 body = await stream_response.aread()
@@ -250,5 +252,7 @@ def test_chat_stream_exposes_same_retrieved_chunks_as_chat(monkeypatch) -> None:
             assert done_lines, stream_text
             parsed_events = [json.loads(line) for line in done_lines]
             assert parsed_events[-1]["retrieved_chunks"] == chat_payload["retrieved_chunks"]
+            assert parsed_events[0]["session_id"] == "session-abc"
+            assert parsed_events[-1]["session_id"] == "session-abc"
 
     asyncio.run(run_flow())

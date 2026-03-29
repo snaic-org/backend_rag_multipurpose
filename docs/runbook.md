@@ -195,6 +195,46 @@ Supported date formats:
 - `DD/MM/YYYY`
 - ISO 8601 such as `2026-03-29T23:59:59Z`
 
+## Submit chat feedback
+
+Users can rate a chat session from `1` to `5` and include an optional comment:
+
+```bash
+curl -X POST http://localhost:9010/chat/feedback ^
+  -H "Authorization: Bearer YOUR_JWT" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"session_id\":\"session-123\",\"rating\":5,\"comments\":\"Very helpful\"}"
+```
+
+The feedback response now returns:
+
+- `session_id`
+- `rating`
+- `date`
+- `full_chat_text`
+- `comments`
+
+## Review chat feedback
+
+Admins can list chat feedback records:
+
+```bash
+curl http://localhost:9010/admin/chat-feedback ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Filter feedback by date range:
+
+```bash
+curl "http://localhost:9010/admin/chat-feedback?start_at=24/03/2025&end_at=29/03/2025" ^
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Supported date formats:
+
+- `DD/MM/YYYY`
+- ISO 8601 such as `2026-03-29T23:59:59Z`
+
 ## Pull Ollama models on the host
 
 If you use Ollama, pull the generation and embedding models on the host machine:
@@ -228,6 +268,8 @@ curl -X POST http://localhost:9010/chat ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"What do we offer?\",\"provider\":\"ollama\",\"model\":\"llama3.2\"}"
 ```
+
+If you send `session_id` in the request payload, `/chat` now returns the same `session_id` in the response. `/chat/stream` also includes it in the SSE metadata and done events.
 
 ## Chat guardrails
 
@@ -280,6 +322,7 @@ $headers = @{ Authorization = "Bearer $token" }
 Invoke-RestMethod -Method Get -Uri 'http://localhost:9010/health'
 Invoke-RestMethod -Method Get -Uri 'http://localhost:9010/admin/chat-activity' -Headers $headers
 Invoke-RestMethod -Method Get -Uri 'http://localhost:9010/admin/chat-activity?start_at=24/03/2025&end_at=29/03/2025' -Headers $headers
+Invoke-RestMethod -Method Get -Uri 'http://localhost:9010/admin/chat-feedback' -Headers $headers
 ```
 
 Bootstrap admin reminder:

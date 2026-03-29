@@ -447,6 +447,33 @@ Fixed:
 - chat activity response mapping fixed for Pydantic model-to-model validation
 - Docker smoke check confirmed `GET /admin/chat-activity` works both with no date filter and with `DD/MM/YYYY` dates
 
+## v0.5.17 - 2026-03-29
+
+Chat feedback capture and session-aware response shaping added.
+
+Added:
+
+- authenticated `POST /chat/feedback`
+- admin-only `GET /admin/chat-feedback`
+- PostgreSQL-backed `chat_feedback` table for session feedback capture
+- feedback records now include:
+  - session id
+  - rating from `1..5`
+  - optional comment
+  - feedback date
+  - reconstructed full chat text for the rated session
+
+Changed:
+
+- `/chat` now echoes `session_id` in the response when the client sends one
+- `/chat/stream` now includes `session_id` in SSE metadata and done events when the client sends one
+- feedback list supports optional `start_at` and `end_at` filters
+- feedback date filters accept `DD/MM/YYYY` and ISO 8601 timestamps
+
+Verified:
+
+- focused tests passed for chat activity, chat feedback, chat stream, and chat response coverage
+
 ## Current feature set - 2026-03-29
 
 The repository currently includes:
@@ -461,6 +488,7 @@ The repository currently includes:
 - optional reranking
 - admin document inspection endpoints for ingested content
 - admin chat activity monitoring and filtered audit search
+- chat-session feedback capture and admin feedback listing
 - forced reingest support for replacing duplicate uploads
 - chat guardrails for abuse, prompt injection, and output caps
 - Dockerized local runtime behind `nginx`

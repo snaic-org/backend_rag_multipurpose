@@ -7,8 +7,16 @@ from fastapi.responses import StreamingResponse
 from app.core.logging import get_logger
 from app.core.security import require_authenticated_user
 from app.core.defaults import CHAT_MAX_RESPONSE_CHARS
-from app.models.schemas import AuthenticatedUser, ChatActivityWrite, ChatRequest, ChatResponse
+from app.models.schemas import (
+    AuthenticatedUser,
+    ChatActivityWrite,
+    ChatFeedbackRequest,
+    ChatFeedbackResponse,
+    ChatRequest,
+    ChatResponse,
+)
 from app.services.chat_activity_service import ChatActivityService
+from app.services.chat_feedback_service import ChatFeedbackService
 from app.services.chat_service import ChatService
 
 router = APIRouter()
@@ -18,6 +26,15 @@ logger = get_logger(__name__)
 class _NullChatActivityService:
     async def record(self, payload: ChatActivityWrite) -> None:
         return None
+
+
+class _NullChatFeedbackService:
+    async def submit_feedback(
+        self,
+        payload: ChatFeedbackRequest,
+        current_user: AuthenticatedUser,
+    ) -> ChatFeedbackResponse:
+        raise RuntimeError("chat feedback service is unavailable")
 
 
 def _build_chat_service(request: Request) -> ChatService:
@@ -39,6 +56,10 @@ def _build_chat_activity_service(request: Request) -> ChatActivityService:
     return getattr(request.app.state, "activity_service", _NullChatActivityService())
 
 
+def _build_chat_feedback_service(request: Request) -> ChatFeedbackService:
+    return getattr(request.app.state, "feedback_service", _NullChatFeedbackService())
+
+
 def _raise_chat_http_error(exc: Exception) -> None:
     message = str(exc)
     status_code = status.HTTP_400_BAD_REQUEST
@@ -53,6 +74,10 @@ def _raise_chat_http_error(exc: Exception) -> None:
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+def _raise_feedback_http_error(exc: Exception) -> None:
+    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
 def _sse(event: str, data: dict) -> str:
@@ -129,7 +154,7 @@ async def _record_activity_safe(
         logger.warning("chat_activity_record_failed: %s", exc)
 
 
-@router.post("", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse, response_model_exclude_none=True)
 async def chat(
     request: Request,
     payload: ChatRequest,
@@ -183,6 +208,7 @@ async def chat(
         embedding_provider=result.embedding_provider,
         embedding_model=result.embedding_model,
         used_fallback=result.used_fallback,
+        session_id=result.session_id,
         retrieved_chunks=result.retrieved_chunks if payload.debug else [],
     )
 
@@ -214,21 +240,24 @@ async def chat_stream(
 
     async def event_generator() -> AsyncIterator[str]:
         max_response_chars = CHAT_MAX_RESPONSE_CHARS
+        metadata_payload = {
+            "provider": stream_state.provider,
+            "model": stream_state.model,
+            "embedding_profile": stream_state.embedding_profile,
+            "embedding_provider": stream_state.embedding_provider,
+            "embedding_model": stream_state.embedding_model,
+            "used_fallback": stream_state.used_fallback,
+            "retrieved_chunks": [
+                chunk.model_dump(mode="json", exclude_none=True) for chunk in stream_state.retrieved_chunks
+            ]
+            if payload.debug
+            else [],
+        }
+        if stream_state.session_id is not None:
+            metadata_payload["session_id"] = stream_state.session_id
         yield _sse(
             "metadata",
-            {
-                "provider": stream_state.provider,
-                "model": stream_state.model,
-                "embedding_profile": stream_state.embedding_profile,
-                "embedding_provider": stream_state.embedding_provider,
-                "embedding_model": stream_state.embedding_model,
-                "used_fallback": stream_state.used_fallback,
-                "retrieved_chunks": [
-                    chunk.model_dump(mode="json") for chunk in stream_state.retrieved_chunks
-                ]
-                if payload.debug
-                else [],
-            },
+            metadata_payload,
         )
 
         if stream_state.used_fallback:
@@ -251,15 +280,18 @@ async def chat_stream(
                 )
             )
             yield _sse("chunk", {"delta": stream_state.fallback_text})
+            done_payload = {
+                "answer": stream_state.fallback_text,
+                "thinking": None,
+                "citations": [],
+                "used_fallback": True,
+                "retrieved_chunks": [],
+            }
+            if stream_state.session_id is not None:
+                done_payload["session_id"] = stream_state.session_id
             yield _sse(
                 "done",
-                {
-                    "answer": stream_state.fallback_text,
-                    "thinking": None,
-                    "citations": [],
-                    "used_fallback": True,
-                    "retrieved_chunks": [],
-                },
+                done_payload,
             )
             return
 
@@ -300,22 +332,23 @@ async def chat_stream(
                     retrieved_chunks_count=len(stream_state.retrieved_chunks),
                 )
             )
-            yield _sse(
-                "done",
-                {
-                    "answer": final_text,
-                    "thinking": stream_state.thinking
-                    if _thinking_enabled_for(request.app.state.settings)
-                    else None,
-                    "citations": [citation.model_dump(mode="json") for citation in stream_state.citations],
-                    "used_fallback": False,
-                    "retrieved_chunks": [
-                        chunk.model_dump(mode="json") for chunk in stream_state.retrieved_chunks
-                    ]
-                    if payload.debug
-                    else [],
-                },
-            )
+            done_payload = {
+                "answer": final_text,
+                "thinking": stream_state.thinking
+                if _thinking_enabled_for(request.app.state.settings)
+                else None,
+                "citations": [citation.model_dump(mode="json") for citation in stream_state.citations],
+                "used_fallback": False,
+                "retrieved_chunks": [
+                    chunk.model_dump(mode="json", exclude_none=True)
+                    for chunk in stream_state.retrieved_chunks
+                ]
+                if payload.debug
+                else [],
+            }
+            if stream_state.session_id is not None:
+                done_payload["session_id"] = stream_state.session_id
+            yield _sse("done", done_payload)
         except Exception as exc:
             partial_answer = service.finalize_answer("".join(answer_parts))
             await _record_activity_safe(
@@ -339,3 +372,16 @@ async def chat_stream(
             raise
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post("/feedback", response_model=ChatFeedbackResponse)
+async def submit_chat_feedback(
+    request: Request,
+    payload: ChatFeedbackRequest,
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+) -> ChatFeedbackResponse:
+    service = _build_chat_feedback_service(request)
+    try:
+        return await service.submit_feedback(payload, current_user)
+    except Exception as exc:
+        _raise_feedback_http_error(exc)
