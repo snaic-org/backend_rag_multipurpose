@@ -1,6 +1,6 @@
 # Backend RAG Multipurpose
 
-A production-oriented RAG chatbot backend API built as a secure and highly customizable foundation for AI assistant solutions across websites, internal company tools, support platforms, and domain-specific business applications. It enables organizations to ingest documents, retrieve relevant knowledge, and generate grounded conversational responses through a scalable architecture designed for integration into real-world products. With support for authentication, semantic search, caching, rate limiting, configurable model selection, and multi-provider orchestration across OpenAI, Gemini, Ollama, and NVIDIA NIM, it is well suited for internal knowledge assistants, website chatbots, enterprise helpdesks, and other retrieval-driven AI experiences.
+A production-oriented RAG chatbot backend API service built as a secure and highly customizable foundation for AI assistant solutions across websites, internal company tools, support platforms, and domain-specific business applications. It enables organizations to ingest documents, retrieve relevant knowledge, and generate grounded conversational responses through a scalable architecture designed for integration into real-world products. With support for authentication, semantic search, caching, rate limiting, configurable model selection, and multi-provider orchestration across OpenAI, Gemini, Ollama, and NVIDIA NIM, it is well suited for internal knowledge assistants, website chatbots, enterprise helpdesks, and other retrieval-driven AI experiences.
 
 ## Feature overview
 
@@ -109,23 +109,6 @@ To run the live ingest/chat API flow with custom inputs, use the PowerShell wrap
 ```
 
 You can also override `-BaseUrl`, `-Username`, `-ChatMessage`, `-GenerationProvider`, `-GenerationModel`, `-EmbeddingProfile`, `-EmbeddingProvider`, and `-EmbeddingModel` on the same command.
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [API](docs/api.md)
-- [Feature Overview](docs/feature-overview.md)
-- [Feature Log](docs/feature-log.md)
-- [Development Notes](docs/development-log.md)
-- [Ingestion](docs/ingestion.md)
-- [RAG Pipeline](docs/rag-pipeline.md)
-- [Providers and Models](docs/providers-and-models.md)
-- [Redis and Caching](docs/redis-and-caching.md)
-- [Deployment](docs/deployment.md)
-- [ECS Fargate Deployment](deploy/ecs/README.md)
-- [Troubleshooting Log](docs/troubleshooting-log.md)
-- [Load Testing](loadtest/README.md)
-- [Runbook](docs/runbook.md)
 
 # Ownership and License
 
