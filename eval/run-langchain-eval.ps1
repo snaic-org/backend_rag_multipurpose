@@ -5,7 +5,7 @@
 #   .\eval\run-langchain-eval.ps1 -Username admin -Password change-me-immediately
 
 param(
-    [string]$BaseUrl = "",
+    [string]$BaseUrl = "http://localhost:9010/",
     [string]$Username = "",
     [string]$Password = ""
 )

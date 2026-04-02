@@ -154,6 +154,11 @@ curl -X DELETE http://localhost:9010/admin/users/USER_UUID ^
 
 The assistant system prompt is stored in PostgreSQL and can be updated by an admin with a valid JWT.
 
+Startup behavior:
+- on restart, the app will auto-sync the stored prompt to the latest built-in SNAIC prompt if the database still contains a known built-in prompt variant
+- custom admin-managed prompts are preserved
+- if an eval benchmark prompt was left behind as the live backend prompt, restart will replace it with the built-in SNAIC prompt
+
 View the current prompt:
 
 ```bash

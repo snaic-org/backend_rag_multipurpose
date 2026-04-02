@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import asyncio
 from urllib.parse import urlparse
 
 import httpx
@@ -84,28 +85,80 @@ class NimEmbeddingProvider(EmbeddingProvider):
         if self._requires_api_key() and not self._settings.nim_api_key:
             raise ValueError("NIM_API_KEY is required for NIM embeddings")
 
-        payload = {"input": texts, "model": model}
-        if input_type and self._supports_nim_input_type(model):
-            payload["input_type"] = input_type
-            payload["truncate"] = "NONE"
-
         headers = {"Content-Type": "application/json"}
         if self._settings.nim_api_key:
             headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
 
-        async with httpx.AsyncClient(
-            base_url=self._settings.nim_base_url,
-            timeout=30.0,
-        ) as client:
-            response = await client.post(
-                "/embeddings",
+        payload = {"input": texts, "model": model}
+        payload_with_input_type = dict(payload)
+        if input_type and self._supports_nim_input_type(model):
+            payload_with_input_type["input_type"] = input_type
+            payload_with_input_type["truncate"] = "NONE"
+
+        async with httpx.AsyncClient(base_url=self._settings.nim_base_url, timeout=30.0) as client:
+            data = await self._request_with_retry(
+                client=client,
                 headers=headers,
-                json=payload,
+                primary_payload=payload_with_input_type,
+                fallback_payload=payload,
             )
-            response.raise_for_status()
-            data = response.json()
 
         return [item["embedding"] for item in data["data"]]
+
+    async def _request_with_retry(
+        self,
+        *,
+        client: httpx.AsyncClient,
+        headers: dict[str, str],
+        primary_payload: dict[str, object],
+        fallback_payload: dict[str, object],
+    ) -> dict[str, object]:
+        attempts = 3
+        last_exc: Exception | None = None
+
+        for attempt in range(1, attempts + 1):
+            try:
+                response = await client.post(
+                    "/embeddings",
+                    headers=headers,
+                    json=primary_payload,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                last_exc = exc
+                status_code = exc.response.status_code
+
+                if status_code >= 500:
+                    if primary_payload != fallback_payload:
+                        try:
+                            fallback_response = await client.post(
+                                "/embeddings",
+                                headers=headers,
+                                json=fallback_payload,
+                            )
+                            fallback_response.raise_for_status()
+                            return fallback_response.json()
+                        except httpx.HTTPStatusError as fallback_exc:
+                            last_exc = fallback_exc
+                        except httpx.HTTPError as fallback_exc:
+                            last_exc = fallback_exc
+
+                    if attempt < attempts:
+                        await asyncio.sleep(0.75 * attempt)
+                        continue
+
+                raise RuntimeError(
+                    f"NIM embeddings request failed with status {status_code}: {exc.response.text[:300]}"
+                ) from exc
+            except httpx.HTTPError as exc:
+                last_exc = exc
+                if attempt < attempts:
+                    await asyncio.sleep(0.75 * attempt)
+                    continue
+                raise RuntimeError(f"NIM embeddings request failed: {exc}") from exc
+
+        raise RuntimeError(f"NIM embeddings request failed after {attempts} attempts: {last_exc}")
 
     def _requires_api_key(self) -> bool:
         host = urlparse(self._settings.nim_base_url).netloc.lower()

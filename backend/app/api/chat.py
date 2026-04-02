@@ -1,6 +1,7 @@
 import json
 from typing import AsyncIterator
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
@@ -64,13 +65,22 @@ def _raise_chat_http_error(exc: Exception) -> None:
     message = str(exc)
     status_code = status.HTTP_400_BAD_REQUEST
 
-    if "rate limit" in message.lower():
+    if isinstance(exc, httpx.HTTPStatusError):
+        upstream_status = exc.response.status_code
+        status_code = (
+            status.HTTP_503_SERVICE_UNAVAILABLE
+            if upstream_status >= 500
+            else status.HTTP_502_BAD_GATEWAY
+        )
+    elif isinstance(exc, httpx.HTTPError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif "rate limit" in message.lower():
         status_code = status.HTTP_429_TOO_MANY_REQUESTS
     elif "quota" in message.lower():
         status_code = status.HTTP_429_TOO_MANY_REQUESTS
     elif "required" in message.lower() or "unsupported" in message.lower():
         status_code = status.HTTP_400_BAD_REQUEST
-    elif "unreachable" in message.lower():
+    elif "unreachable" in message.lower() or "failed with status 5" in message.lower():
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     raise HTTPException(status_code=status_code, detail=message) from exc

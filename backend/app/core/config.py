@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     rerank_model: str = Field(default="nvidia/llama-nemotron-rerank-1b-v2")
     rerank_max_candidates: int = Field(default=12)
     rerank_min_candidates: int = Field(default=2)
+    retrieval_multi_query_enabled: bool = Field(default=True)
+    retrieval_multi_query_max_queries: int = Field(default=3)
+    retrieval_source_diversity_enabled: bool = Field(default=True)
+    retrieval_source_diversity_min_sources: int = Field(default=2)
 
     default_generation_provider: ProviderName | None = Field(default=None)
     default_generation_model: str | None = Field(default=None)
@@ -174,6 +178,10 @@ class Settings(BaseSettings):
             "rerank_model": self.rerank_model,
             "rerank_max_candidates": self.rerank_max_candidates,
             "rerank_min_candidates": self.rerank_min_candidates,
+            "retrieval_multi_query_enabled": self.retrieval_multi_query_enabled,
+            "retrieval_multi_query_max_queries": self.retrieval_multi_query_max_queries,
+            "retrieval_source_diversity_enabled": self.retrieval_source_diversity_enabled,
+            "retrieval_source_diversity_min_sources": self.retrieval_source_diversity_min_sources,
             "embedding_dimension_strategy": (
                 "Named embedding profiles resolve to one canonical provider/model "
                 "pair each. Request-level overrides are only valid when they map "
@@ -187,6 +195,7 @@ class Settings(BaseSettings):
             },
             "similarity_threshold": self.similarity_threshold,
             "chat_rate_limit_requests": self.chat_rate_limit_requests,
+            "chat_rate_limit_window_seconds": self.chat_rate_limit_window_seconds,
             "chat_daily_limit_requests": self.chat_daily_limit_requests,
             "chat_max_message_chars": self.chat_max_message_chars,
             "chat_max_input_tokens": self.chat_max_input_tokens,

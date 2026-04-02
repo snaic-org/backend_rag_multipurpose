@@ -15,10 +15,13 @@ from app.services.embeddings import EmbeddingService
 from app.services.assistant_copy import SAFE_FALLBACK_TEXT
 from app.services.model_selection_service import ModelSelectionService
 from app.services.prompt_builder import PromptBuilder
+from app.services.query_planner import QueryPlannerService
 from app.services.system_prompt_service import SystemPromptService
 from app.services.retrieval import RetrievalService
 from app.services.session_service import SessionService
+import json
 import re
+from typing import AsyncIterator
 
 
 class ChatService:
@@ -36,6 +39,7 @@ class ChatService:
         self._embedding_service = EmbeddingService(settings)
         self._retrieval_service = RetrievalService(settings, qdrant_manager, redis_manager)
         self._prompt_builder = PromptBuilder()
+        self._query_planner = QueryPlannerService(settings)
         self._system_prompt_service = system_prompt_service
         self._model_selection_service = model_selection_service
         self._guardrails = GuardrailService(settings, redis_manager.client)
@@ -68,13 +72,17 @@ class ChatService:
                 retrieved_chunks=[],
             )
 
-        completion = await self._providers.get(prepared.provider).complete_chat(
-            messages=prepared.prompt_messages,
-            model=prepared.model,
-        )
-        completion_text = completion.text or ""
-        completion_thinking = completion.thinking or None
-        answer = self.finalize_answer(self._format_answer(completion_text, completion_thinking))
+        if prepared.precomputed_answer is not None:
+            answer = prepared.precomputed_answer
+            completion_thinking = None
+        else:
+            completion = await self._providers.get(prepared.provider).complete_chat(
+                messages=prepared.prompt_messages,
+                model=prepared.model,
+            )
+            completion_text = completion.text or ""
+            completion_thinking = completion.thinking or None
+            answer = self.finalize_answer(self._format_answer(completion_text, completion_thinking))
 
         await self._session_service.append_messages(
             prepared.session_id,
@@ -122,9 +130,13 @@ class ChatService:
                 user_message=prepared.user_message,
             )
 
-        stream = self._providers.get(prepared.provider).stream_chat(
-            messages=prepared.prompt_messages,
-            model=prepared.model,
+        stream = (
+            self._single_chunk_stream(prepared.precomputed_answer)
+            if prepared.precomputed_answer is not None
+            else self._providers.get(prepared.provider).stream_chat(
+                messages=prepared.prompt_messages,
+                model=prepared.model,
+            )
         )
 
         return ChatStreamState(
@@ -177,9 +189,10 @@ class ChatService:
         recent_user_messages = [message.content for message in history if message.role == "user"]
         normalized_message = self._guardrails.validate_user_message(payload.message, recent_user_messages)
         top_k = self._guardrails.clamp_top_k(payload.top_k)
+        planned_queries = self._query_planner.build_queries(normalized_message) or [normalized_message]
 
         embedding_selection, query_embeddings = await self._embedding_service.embed_texts(
-            texts=[normalized_message],
+            texts=planned_queries,
             profile_name=payload.embedding_profile or default_embedding_profile,
             provider=payload.embedding_provider,
             model=payload.embedding_model,
@@ -190,6 +203,8 @@ class ChatService:
         retrieved_chunks = await self._retrieval_service.retrieve(
             query_text=normalized_message,
             query_embedding=query_embedding,
+            query_variants=planned_queries,
+            query_variant_embeddings=query_embeddings,
             selection=embedding_selection,
             top_k=top_k,
         )
@@ -212,15 +227,24 @@ class ChatService:
             )
 
         prompt_config = await self._system_prompt_service.get_system_prompt()
+        generation_chunks = self._prompt_builder.select_generation_chunks(
+            user_message=normalized_message,
+            retrieved_chunks=retrieved_chunks,
+        )
         prompt_context = self._prompt_builder.build(
             user_message=normalized_message,
             chat_history=history,
-            retrieved_chunks=retrieved_chunks,
+            retrieved_chunks=generation_chunks,
             max_history_messages=self._settings.chat_max_history_messages,
             max_context_chars=self._settings.chat_max_context_chars,
             max_context_tokens=self._settings.chat_max_context_tokens,
             max_chunk_chars=CHAT_MAX_CONTEXT_CHUNK_CHARS,
             system_prompt=prompt_config.system_prompt,
+        )
+        precomputed_answer = await self._maybe_precompute_binary_answer(
+            generation=generation,
+            user_message=normalized_message,
+            retrieved_chunks=generation_chunks,
         )
         return _PreparedChatContext(
             provider=generation.provider,
@@ -236,6 +260,7 @@ class ChatService:
             fallback_text="",
             session_id=payload.session_id,
             user_message=normalized_message,
+            precomputed_answer=precomputed_answer,
         )
 
     async def _resolve_generation_selection(
@@ -290,6 +315,43 @@ class ChatService:
         )
         return re.sub(r"\n{3,}", "\n\n", stripped).strip()
 
+    async def _maybe_precompute_binary_answer(
+        self,
+        *,
+        generation: GenerationSelection,
+        user_message: str,
+        retrieved_chunks: list,
+    ) -> str | None:
+        if not self._prompt_builder.is_binary_adjudication_candidate(user_message):
+            return None
+        if not retrieved_chunks:
+            return None
+
+        messages = self._prompt_builder.build_binary_adjudication_messages(
+            user_message=user_message,
+            retrieved_chunks=retrieved_chunks,
+            max_context_chars=self._settings.chat_max_context_chars,
+            max_context_tokens=self._settings.chat_max_context_tokens,
+            max_chunk_chars=CHAT_MAX_CONTEXT_CHUNK_CHARS,
+        )
+
+        try:
+            completion = await self._providers.get(generation.provider).complete_chat(
+                messages=messages,
+                model=generation.model,
+            )
+        except Exception:
+            return None
+
+        adjudicated = _parse_binary_adjudication_answer(completion.text or "")
+        if adjudicated not in {"Yes", "No"}:
+            return None
+        return self.finalize_answer(f"{adjudicated}.")
+
+    async def _single_chunk_stream(self, text: str) -> AsyncIterator[str]:
+        if text:
+            yield text
+
 
 class _PreparedChatContext:
     def __init__(
@@ -307,6 +369,7 @@ class _PreparedChatContext:
         fallback_text: str,
         session_id: str | None,
         user_message: str,
+        precomputed_answer: str | None = None,
     ) -> None:
         self.provider = provider
         self.model = model
@@ -321,3 +384,28 @@ class _PreparedChatContext:
         self.fallback_text = fallback_text
         self.session_id = session_id
         self.user_message = user_message
+        self.precomputed_answer = precomputed_answer
+
+
+def _parse_binary_adjudication_answer(raw_text: str) -> str | None:
+    candidate = raw_text.strip()
+    if not candidate:
+        return None
+
+    try:
+        payload = json.loads(candidate)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", candidate, flags=re.DOTALL)
+        if not match:
+            return None
+        try:
+            payload = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            return None
+
+    answer = str(payload.get("answer", "")).strip().lower()
+    if answer == "yes":
+        return "Yes"
+    if answer == "no":
+        return "No"
+    return None

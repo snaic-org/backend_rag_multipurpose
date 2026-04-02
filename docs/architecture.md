@@ -79,12 +79,13 @@ flowchart LR
 6. Documents are stored in PostgreSQL and chunk vectors are stored in Qdrant.
 7. A chat request is rate-limited and quota-checked per authenticated user.
 8. The input is filtered for blocked phrases, unusually long prompts, and repeated prompt abuse.
-9. The user query is embedded with the same active profile or an explicitly requested profile.
-10. Qdrant retrieves top matching chunks from the collection for that embedding dimension.
-11. Retrieval `top_k` is clamped to a safe range before any search happens.
-12. A grounded prompt is built from retrieved context with caps on history size, context size, and per-chunk size.
-13. The selected generation provider produces either a full answer or a streaming answer.
-14. The response is truncated to the configured output budget before being returned to the client.
+9. The user query is validated and may be expanded into a small set of heuristic retrieval variants for multi-clause questions.
+10. The query variants are embedded with the same active profile or an explicitly requested profile.
+11. Qdrant retrieves semantic candidates for the active embedding dimension, lexical candidates can top up sparse or entity-heavy queries, and reranking can reorder the merged set.
+12. Final retrieved context can prefer document diversity before prompt construction so one source does not crowd out the rest of the evidence set.
+13. A grounded prompt is built from retrieved context with caps on history size, context size, and per-chunk size.
+14. The selected generation provider produces either a full answer or a streaming answer.
+15. The response is truncated to the configured output budget before being returned to the client.
 
 ## Code layout
 
@@ -169,6 +170,7 @@ The application signs tokens and hashes credentials, but HTTP encryption itself 
 - Embedding profiles are configured in `.env` and can be switched without code changes.
 - Each embedding dimension maps to its own Qdrant collection, created automatically on first use.
 - Request payloads expose `embedding_profile`, `embedding_provider`, and `embedding_model` for explicit selection.
+- Retrieval can run in heuristic multi-query mode and can prefer document diversity, but it is still not a full planner-based multi-hop system.
 - Provider streaming is implemented, but integration tests against live providers are not included.
 - TLS termination is not implemented in the app itself.
 - Chat guardrails are implemented in the service layer, not only in the prompt.

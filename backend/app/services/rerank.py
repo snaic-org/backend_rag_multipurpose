@@ -47,7 +47,10 @@ class RerankService:
             response.raise_for_status()
             data = response.json()
 
-        ordered_indexes = self._extract_order(data, len(chunks))
+        ordered_indexes = self._append_missing_indexes(
+            self._extract_order(data, len(chunks)),
+            len(chunks),
+        )
         reranked = [chunks[index] for index in ordered_indexes if 0 <= index < len(chunks)]
         return reranked or chunks
 
@@ -63,7 +66,14 @@ class RerankService:
 
         if ranked_items:
             ranked_items.sort(key=lambda item: item[1], reverse=True)
-            return [index for index, _ in ranked_items]
+            ordered_indexes: list[int] = []
+            seen_indexes: set[int] = set()
+            for index, _ in ranked_items:
+                if index in seen_indexes:
+                    continue
+                seen_indexes.add(index)
+                ordered_indexes.append(index)
+            return ordered_indexes
 
         return list(range(candidate_count))
 
@@ -80,13 +90,22 @@ class RerankService:
     def _coerce_index(self, item: object) -> int | None:
         if not isinstance(item, dict):
             return None
-        for key in ("index", "passage_index", "rank", "id"):
+        for key in ("index", "passage_index", "id"):
             value = item.get(key)
             if isinstance(value, int):
                 return value
             if isinstance(value, str) and value.isdigit():
                 return int(value)
         return None
+
+    def _append_missing_indexes(self, ordered_indexes: list[int], candidate_count: int) -> list[int]:
+        seen_indexes = {index for index in ordered_indexes if 0 <= index < candidate_count}
+        full_order = [index for index in ordered_indexes if 0 <= index < candidate_count]
+        for index in range(candidate_count):
+            if index in seen_indexes:
+                continue
+            full_order.append(index)
+        return full_order
 
     def _coerce_score(self, item: object) -> float:
         if not isinstance(item, dict):

@@ -474,6 +474,107 @@ Verified:
 
 - focused tests passed for chat activity, chat feedback, chat stream, and chat response coverage
 
+## v0.5.18 - 2026-04-02
+
+Multi-query and source-diversity retrieval added.
+
+Added:
+
+- heuristic query planning for multi-clause questions before retrieval
+- retrieval fan-out across multiple query variants for the same user request
+- source-diversity-aware final chunk selection so one document is less likely to crowd out all top slots
+- regression tests for multi-query retrieval and reranker tail preservation
+
+Changed:
+
+- lexical retrieval is now allowed to contribute candidates even when semantic retrieval returns some results
+- reranker handling now preserves unranked candidates instead of silently truncating the tail
+- retrieval cache keys now include the active retrieval-strategy version
+
+Result:
+
+- the backend is no longer limited to single-query retrieval over a mixed corpus
+- it is still heuristic multi-source retrieval, not a full planner-based multi-hop system
+
+## v0.5.19 - 2026-04-02
+
+Generation-side evidence narrowing and binary adjudication prompting added.
+
+Added:
+
+- binary-question-specific generation chunk selection in `PromptBuilder`
+- question-anchored document scoring for generation context selection
+- explicit binary decision guidance in the generated user prompt for yes/no questions
+
+Changed:
+
+- `ChatService` now keeps the full retrieved chunk set for debug output, but can pass a smaller evidence subset into generation
+- binary and comparison-style questions now prioritize a smaller document set for final answer generation instead of the full retrieved bundle
+
+Result:
+
+- retrieval breadth is preserved for observability
+- final answer generation now favors precision over raw context volume on yes/no and multi-clause questions
+
+## v0.5.20 - 2026-04-02
+
+Binary adjudication pre-pass added for yes/no questions.
+
+Added:
+
+- internal JSON-based binary adjudication prompt for yes/no questions
+- binary answer parser for strict `Yes` or `No` extraction
+- precomputed yes/no answer path that works for both `/chat` and `/chat/stream`
+
+Changed:
+
+- binary questions can now be answered from a dedicated adjudication pass before the normal answer prompt is used
+- if the adjudicator cannot produce a clean `Yes` or `No`, the backend falls back to the normal generation path
+
+Result:
+
+- binary-heavy benchmarks can now separate decision quality from normal answer-style drift
+- the backend keeps the standard prompt path as a fallback instead of forcing the adjudication result when it is ambiguous
+
+## v0.5.21 - 2026-04-02
+
+Anchor-aware binary evidence selection and relation guidance added.
+
+Added:
+
+- source-anchor-aware generation document selection for binary questions
+- date-anchor-aware generation document selection for binary questions
+- relation guidance for conjunction, change/difference, and consistency questions in the adjudication prompt
+
+Changed:
+
+- binary question generation now prefers only the matched source/date documents when anchors are clear
+- binary adjudication prompts now explain what `Yes` means for change, difference, and consistency questions
+
+Result:
+
+- the adjudication path now sees less same-source noise
+- comparison-style yes/no questions have more explicit semantics for final decision making
+
+## v0.5.22 - 2026-04-02
+
+Built-in system prompt sync and prompt-quality improvements added.
+
+Changed:
+
+- the default SNAIC system prompt now includes the proven binary and comparison rules from the eval cycle
+- startup now auto-upgrades the stored system prompt when the current database prompt still matches a known built-in prompt variant
+- startup also replaces the temporary eval benchmark prompt if it was accidentally left as the live backend prompt
+
+Preserved:
+
+- custom admin-managed prompts are not overwritten on startup
+
+Result:
+
+- prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
+- existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
+
 ## Current feature set - 2026-03-29
 
 The repository currently includes:
@@ -485,6 +586,7 @@ The repository currently includes:
 - multi-provider chat generation
 - profile-based default LLM selection
 - explicit NVIDIA NIM alias support
+- heuristic multi-query retrieval and source-diversity selection
 - optional reranking
 - admin document inspection endpoints for ingested content
 - admin chat activity monitoring and filtered audit search

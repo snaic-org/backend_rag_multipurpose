@@ -28,6 +28,8 @@ This document summarizes the current implemented capabilities of the backend RAG
 - Qdrant storage for chunk embeddings and similarity search
 - Redis rate limiting, retrieval caching, embedding caching, and optional session storage
 - Request-level generation provider and model selection
+- Heuristic multi-query retrieval for multi-clause questions
+- Source-diversity-aware retrieved-context selection
 - Optional reranking for retrieval quality
 - Multipart ingestion for `txt`, `md`, `docx`, `csv`, and `xlsx`
 - JWT bearer authentication and hashed API keys

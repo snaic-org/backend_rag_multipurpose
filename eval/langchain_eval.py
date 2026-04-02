@@ -75,6 +75,9 @@ class EvalRunConfig:
     eval_embedding_api_key: str | None
     judge_metrics: list[str]
     judge_max_rpm: int
+    prompt_preset: str
+    prompt_temporary_override: bool
+    prompt_text: str | None
     output_dir: str
 
 
@@ -97,7 +100,6 @@ class JudgeRateLimiter:
                 time.sleep(remaining)
         self._last_request_started_at = time.monotonic()
         print(f"Judge request: {metric_name} for {sample_id} ({sample_index}/{total_samples})")
-
 
 class BackendRagClient:
     def __init__(
@@ -144,6 +146,20 @@ class BackendRagClient:
 
     async def get_model_selection(self) -> dict[str, Any]:
         response = await self._client.get("/admin/model-selection", headers=self._headers)
+        response.raise_for_status()
+        return response.json()
+
+    async def get_system_prompt(self) -> dict[str, Any]:
+        response = await self._client.get("/admin/system-prompt", headers=self._headers)
+        response.raise_for_status()
+        return response.json()
+
+    async def update_system_prompt(self, system_prompt: str) -> dict[str, Any]:
+        response = await self._client.put(
+            "/admin/system-prompt",
+            headers=self._headers,
+            json={"system_prompt": system_prompt},
+        )
         response.raise_for_status()
         return response.json()
 
@@ -435,6 +451,9 @@ def build_config(args: argparse.Namespace) -> EvalRunConfig:
         eval_embedding_api_key=eval_embedding_api_key,
         judge_metrics=parse_judge_metrics(args.judge_metrics),
         judge_max_rpm=max(1, args.judge_max_rpm),
+        prompt_preset=str(EVAL_DEFAULTS["prompt_preset"]),
+        prompt_temporary_override=bool(EVAL_DEFAULTS["prompt_temporary_override"]),
+        prompt_text=normalize_text(EVAL_DEFAULTS["prompt_text"]) or None,
         output_dir=output_dir,
     )
 
@@ -827,33 +846,54 @@ async def query_backend_for_sample(
     config: EvalRunConfig,
     sample: BenchmarkSample,
 ) -> dict[str, Any]:
-    chat_payload = await client.chat(
-        message=sample.question,
-        top_k=config.top_k,
-        generation_provider=config.generation_provider,
-        generation_model=config.generation_model,
-        embedding_provider=config.embedding_provider,
-        embedding_model=config.embedding_model,
-    )
-    result_row = {
-        "sample_id": sample.sample_id,
-        "question": sample.question,
-        "ground_truth": sample.ground_truth,
-        "reference_contexts": sample.reference_contexts,
-        "response": normalize_text(chat_payload.get("answer")),
-        "retrieved_contexts": extract_retrieved_contexts(chat_payload),
-        "citations": chat_payload.get("citations", []),
-        "used_fallback": bool(chat_payload.get("used_fallback", False)),
-        "provider": chat_payload.get("provider"),
-        "model": chat_payload.get("model"),
-        "metadata": sample.metadata,
-    }
-    print(
-        f"Evaluated {sample.sample_id}: "
-        f"fallback={result_row['used_fallback']} "
-        f"retrieved_contexts={len(result_row['retrieved_contexts'])}"
-    )
-    return result_row
+    try:
+        chat_payload = await client.chat(
+            message=sample.question,
+            top_k=config.top_k,
+            generation_provider=config.generation_provider,
+            generation_model=config.generation_model,
+            embedding_provider=config.embedding_provider,
+            embedding_model=config.embedding_model,
+        )
+        result_row = {
+            "sample_id": sample.sample_id,
+            "question": sample.question,
+            "ground_truth": sample.ground_truth,
+            "reference_contexts": sample.reference_contexts,
+            "response": normalize_text(chat_payload.get("answer")),
+            "retrieved_contexts": extract_retrieved_contexts(chat_payload),
+            "citations": chat_payload.get("citations", []),
+            "used_fallback": bool(chat_payload.get("used_fallback", False)),
+            "provider": chat_payload.get("provider"),
+            "model": chat_payload.get("model"),
+            "metadata": sample.metadata,
+            "backend_error": None,
+            "backend_status_code": None,
+        }
+        print(
+            f"Evaluated {sample.sample_id}: "
+            f"fallback={result_row['used_fallback']} "
+            f"retrieved_contexts={len(result_row['retrieved_contexts'])}"
+        )
+        return result_row
+    except httpx.HTTPStatusError as exc:
+        detail = exc.response.text[:500]
+        print(f"Backend sample failed {sample.sample_id}: status={exc.response.status_code} detail={detail}")
+        return {
+            "sample_id": sample.sample_id,
+            "question": sample.question,
+            "ground_truth": sample.ground_truth,
+            "reference_contexts": sample.reference_contexts,
+            "response": "",
+            "retrieved_contexts": [],
+            "citations": [],
+            "used_fallback": True,
+            "provider": None,
+            "model": None,
+            "metadata": sample.metadata,
+            "backend_error": detail,
+            "backend_status_code": exc.response.status_code,
+        }
 
 
 async def run_backend_flow(
@@ -870,18 +910,33 @@ async def run_backend_flow(
         await client.login()
         health_payload = await client.health()
         model_selection = await client.get_model_selection()
+        prompt_before = await client.get_system_prompt()
+        active_prompt = prompt_before
 
-        if config.reset_first:
-            reset_payload = await client.reset()
-            print(f"Reset complete: {json.dumps(reset_payload)}")
+        try:
+            if config.prompt_temporary_override and config.prompt_text:
+                print(f"Applying temporary eval prompt preset: {config.prompt_preset}")
+                active_prompt = await client.update_system_prompt(config.prompt_text)
 
-        ingest_stats = await ingest_benchmark_contexts(client, config, samples)
+            if config.reset_first:
+                reset_payload = await client.reset()
+                print(f"Reset complete: {json.dumps(reset_payload)}")
 
-        for sample in samples:
-            results.append(await query_backend_for_sample(client, config, sample))
+            ingest_stats = await ingest_benchmark_contexts(client, config, samples)
+
+            for sample in samples:
+                results.append(await query_backend_for_sample(client, config, sample))
+        finally:
+            if config.prompt_temporary_override and config.prompt_text:
+                if normalize_text(prompt_before.get("system_prompt")) != normalize_text(config.prompt_text):
+                    print("Restoring original backend system prompt after eval run.")
+                    await client.update_system_prompt(str(prompt_before.get("system_prompt", "")))
 
     ingest_stats["backend_assumptions"] = health_payload.get("assumptions", {})
     ingest_stats["model_selection"] = model_selection
+    ingest_stats["prompt_before"] = prompt_before
+    ingest_stats["prompt_active"] = active_prompt
+    ingest_stats["prompt_override_applied"] = bool(config.prompt_temporary_override and config.prompt_text)
     return results, ingest_stats
 
 
@@ -1165,6 +1220,8 @@ def build_summary(
     answered_count = sum(1 for row in rows if normalize_text(row["response"]))
     fallback_count = sum(1 for row in rows if row["used_fallback"])
     retrieved_count = sum(1 for row in rows if row["retrieved_contexts"])
+    backend_error_count = sum(1 for row in rows if row.get("backend_status_code"))
+    backend_rate_limited_count = sum(1 for row in rows if row.get("backend_status_code") == 429)
 
     for row, answer_similarity, context_match in zip(
         rows, answer_similarity_scores, context_match_scores, strict=True
@@ -1242,11 +1299,17 @@ def build_summary(
             "judge_metrics": config.judge_metrics,
             "judge_max_rpm": config.judge_max_rpm,
             "evaluator": "langchain",
+            "prompt_preset": config.prompt_preset,
+            "prompt_temporary_override": config.prompt_temporary_override,
         },
         "operational": {
             "answered_rate": round(answered_count / len(rows), 6),
             "fallback_rate": round(fallback_count / len(rows), 6),
             "retrieval_hit_rate": round(retrieved_count / len(rows), 6),
+            "backend_error_count": backend_error_count,
+            "backend_error_rate": round(backend_error_count / len(rows), 6),
+            "backend_rate_limited_count": backend_rate_limited_count,
+            "backend_rate_limited_rate": round(backend_rate_limited_count / len(rows), 6),
             "avg_retrieved_contexts": safe_mean([float(value) for value in retrieved_counts]),
             "avg_citations": safe_mean([float(value) for value in citation_counts]),
             "avg_response_chars": safe_mean([float(value) for value in response_lengths]),
@@ -1263,6 +1326,20 @@ def build_summary(
             "invoke_url": ingest_stats.get("backend_assumptions", {}).get("rerank_invoke_url"),
             "max_candidates": ingest_stats.get("backend_assumptions", {}).get("rerank_max_candidates"),
             "min_candidates": ingest_stats.get("backend_assumptions", {}).get("rerank_min_candidates"),
+        },
+        "prompt": {
+            "preset": config.prompt_preset,
+            "temporary_override": config.prompt_temporary_override,
+            "before_hash": hashlib.sha256(
+                normalize_text(ingest_stats.get("prompt_before", {}).get("system_prompt", "")).encode("utf-8")
+            ).hexdigest()
+            if normalize_text(ingest_stats.get("prompt_before", {}).get("system_prompt", ""))
+            else None,
+            "active_hash": hashlib.sha256(
+                normalize_text(ingest_stats.get("prompt_active", {}).get("system_prompt", "")).encode("utf-8")
+            ).hexdigest()
+            if normalize_text(ingest_stats.get("prompt_active", {}).get("system_prompt", ""))
+            else None,
         },
         "retrieval": {
             "avg_context_match": safe_mean(context_match_scores),
@@ -1329,8 +1406,15 @@ def build_config_snapshot(config: EvalRunConfig, ingest_stats: dict[str, Any]) -
         "eval_embedding_base_url": config.eval_embedding_base_url,
         "judge_metrics": config.judge_metrics,
         "judge_max_rpm": config.judge_max_rpm,
+        "prompt_preset": config.prompt_preset,
+        "prompt_temporary_override": config.prompt_temporary_override,
         "evaluator": "langchain",
         "backend_selection": ingest_stats.get("model_selection"),
+        "prompt": {
+            "before": ingest_stats.get("prompt_before"),
+            "active": ingest_stats.get("prompt_active"),
+            "override_applied": ingest_stats.get("prompt_override_applied"),
+        },
         "backend_reranker": {
             "enabled": ingest_stats.get("backend_assumptions", {}).get("rerank_enabled"),
             "model": ingest_stats.get("backend_assumptions", {}).get("rerank_model"),
