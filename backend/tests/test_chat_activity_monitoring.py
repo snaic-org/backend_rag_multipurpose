@@ -173,7 +173,12 @@ class FakeChatService:
     def __init__(self, *, should_fail: bool = False) -> None:
         self._should_fail = should_fail
 
-    async def prepare_chat(self, payload: ChatRequest, rate_limit_key: str) -> ChatServiceResult:
+    async def prepare_chat(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ) -> ChatServiceResult:
         if self._should_fail:
             raise ValueError("provider unreachable")
 
@@ -196,10 +201,16 @@ class FakeChatService:
             embedding_provider="ollama",
             embedding_model="qwen3-embedding",
             used_fallback=False,
+            session_id=session_id,
             retrieved_chunks=[],
         )
 
-    async def start_stream(self, payload: ChatRequest, rate_limit_key: str):
+    async def start_stream(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ):
         raise NotImplementedError
 
     async def finalize_stream(self, stream_state, answer: str) -> None:
@@ -256,7 +267,7 @@ def test_chat_activity_is_recorded_and_visible_to_admin(monkeypatch) -> None:
             assert payload["activities"][0]["user_agent"] == "pytest-agent"
             assert payload["activities"][0]["request_message"] == "Is this monitored?"
             assert payload["activities"][0]["response_answer"] == "Recorded answer"
-            assert payload["activities"][0]["session_id"] is None
+            assert payload["activities"][0]["session_id"] == chat_response.json()["session_id"]
             assert payload["activities"][0]["citations_count"] == 1
             assert payload["activities"][0]["status"] == "completed"
             assert payload["activities"][0]["metadata"] == {"debug": False, "top_k": 5}

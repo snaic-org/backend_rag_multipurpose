@@ -84,7 +84,8 @@
         { "name": "RERANK_ENABLED", "value": "true" },
         { "name": "RERANK_MODEL", "value": "nvidia/llama-nemotron-rerank-1b-v2" },
         { "name": "AUTH_ENABLED", "value": "true" },
-        { "name": "AUTH_REQUIRE_HTTPS", "value": "false" },
+        { "name": "AUTH_REQUIRE_HTTPS", "value": "true" },
+        { "name": "CHAT_DEBUG_ENABLED", "value": "false" },
         { "name": "CHAT_THINKING_ENABLED", "value": "false" },
         { "name": "CHAT_SHOW_THINKING_BLOCK", "value": "false" }
       ],

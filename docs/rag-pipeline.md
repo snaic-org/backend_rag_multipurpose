@@ -18,7 +18,7 @@
 14. Build a grounded prompt from retrieved chunks with history, context, and chunk-size caps
 15. Generate the answer using the selected generation provider
 16. Truncate the final answer to the configured output budget
-17. Return citations and metadata
+17. Return the answer and citations; diagnostics stay behind `CHAT_DEBUG_ENABLED`
 18. Optionally store session messages in Redis
 
 ## Retrieval query
@@ -78,6 +78,13 @@ Citations are built from retrieved chunks and include:
 - `source_type`
 - `snippet`
 - `metadata`
+
+For `/chat` and `/chat/stream`, public citation payloads are intentionally compact:
+
+- `document_id`
+- `chunk_id`
+
+When `CHAT_DEBUG_ENABLED=true`, chat responses also include provider/model details, retrieved chunks, prompt messages, fallback state, and full citation records.
 
 ## Current limitations
 

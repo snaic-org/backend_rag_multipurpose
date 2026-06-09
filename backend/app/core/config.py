@@ -21,8 +21,8 @@ CHAT_PRESENCE_PENALTY = 0.0
 CHAT_DEBUG_ENABLED = True
 CHAT_BINARY_PRECOMPUTE_ENABLED = False
 EMBEDDING_CACHE_TTL_SECONDS = 3600
-SESSION_TTL_SECONDS = 1800
-SESSION_STORAGE_ENABLED = False
+SESSION_TTL_SECONDS = 86400
+SESSION_STORAGE_ENABLED = True
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 RERANK_BASE_URL = "https://ai.api.nvidia.com/v1/retrieval"
@@ -109,6 +109,7 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
     log_level: str = Field(default="INFO")
+    cors_allowed_origins: list[str] = Field(default_factory=list)
 
     auth_enabled: bool = Field(default=True)
     auth_jwt_secret: str = Field(default="change-me-immediately")
@@ -184,6 +185,18 @@ class Settings(BaseSettings):
     chat_thinking_enabled: bool = Field(default=False)
     chat_show_thinking_block: bool = Field(default=False)
     retrieval_cache_ttl_seconds: int = Field(default=120)
+
+    @field_validator("cors_allowed_origins", mode="before")
+    @classmethod
+    def normalize_cors_allowed_origins(cls, value: object) -> object:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                return value
+            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
+        return value
 
     @field_validator("default_generation_provider", mode="before")
     @classmethod

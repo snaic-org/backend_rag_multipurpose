@@ -9,7 +9,7 @@ The project is a backend-only RAG chatbot service with these runtime dependencie
 - Qdrant for embedding storage and similarity search
 - Redis for rate limiting, caching, and optional session state
 - Provider adapters for OpenAI, Gemini, and Ollama
-- JWT bearer authentication and hashed API keys
+- JWT bearer authentication
 
 ## Architecture Diagrams
 
@@ -80,7 +80,7 @@ flowchart LR
 7. A chat request is rate-limited and quota-checked per authenticated user.
 8. The input is filtered for blocked phrases, unusually long prompts, and repeated prompt abuse.
 9. The user query is validated and may be expanded into a small set of heuristic retrieval variants for multi-clause questions.
-10. The query variants are embedded with the same active profile or an explicitly requested profile.
+10. The query variants are embedded with the active embedding profile.
 11. Qdrant retrieves semantic candidates for the active embedding dimension, lexical candidates can top up sparse or entity-heavy queries, and reranking can reorder the merged set.
 12. Final retrieved context can prefer document diversity before prompt construction so one source does not crowd out the rest of the evidence set.
 13. A grounded prompt is built from retrieved context with caps on history size, context size, and per-chunk size.

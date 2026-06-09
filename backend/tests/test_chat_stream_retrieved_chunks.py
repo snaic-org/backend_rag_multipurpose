@@ -36,6 +36,7 @@ sys.modules.setdefault("psycopg.types.json", psycopg_types_json_module)
 import httpx
 import jwt
 from fastapi import FastAPI
+from starlette.requests import Request
 
 import app.api.chat as chat_api
 from app.api.auth import router as auth_router
@@ -128,7 +129,12 @@ class FakeChatService:
             )
         ]
 
-    async def prepare_chat(self, payload: ChatRequest, rate_limit_key: str) -> ChatServiceResult:
+    async def prepare_chat(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ) -> ChatServiceResult:
         citation = ChatCitation(
             document_id=self._retrieved_chunks[0].document_id,
             chunk_id=self._retrieved_chunks[0].chunk_id,
@@ -147,11 +153,16 @@ class FakeChatService:
             embedding_provider="openai",
             embedding_model="text-embedding-3-small",
             used_fallback=False,
-            session_id=None,
+            session_id=session_id,
             retrieved_chunks=self._retrieved_chunks,
         )
 
-    async def start_stream(self, payload: ChatRequest, rate_limit_key: str) -> ChatStreamState:
+    async def start_stream(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ) -> ChatStreamState:
         async def stream():
             yield "final "
             yield "answer"
@@ -177,7 +188,7 @@ class FakeChatService:
             stream=stream(),
             used_fallback=False,
             fallback_text="",
-            session_id=None,
+            session_id=session_id,
             user_message="hello there",
         )
 
@@ -229,7 +240,7 @@ def test_chat_stream_exposes_same_retrieved_chunks_as_chat(monkeypatch) -> None:
             assert chat_response.status_code == 200, chat_response.text
             chat_payload = chat_response.json()
             assert len(chat_payload["retrieved_chunks"]) == 1
-            assert "session_id" not in chat_payload
+            assert chat_payload["session_id"]
 
             async with client.stream(
                 "POST",
@@ -249,7 +260,108 @@ def test_chat_stream_exposes_same_retrieved_chunks_as_chat(monkeypatch) -> None:
             assert done_lines, stream_text
             parsed_events = [json.loads(line) for line in done_lines]
             assert parsed_events[-1]["retrieved_chunks"] == chat_payload["retrieved_chunks"]
-            assert "session_id" not in parsed_events[0]
-            assert "session_id" not in parsed_events[-1]
+            assert parsed_events[0]["session_id"] == chat_payload["session_id"]
+            assert parsed_events[-1]["session_id"] == chat_payload["session_id"]
 
     asyncio.run(run_flow())
+
+
+def test_chat_stream_public_output_is_minimal(monkeypatch) -> None:
+    app = build_app()
+    app.state.settings.chat_debug_enabled = False
+
+    monkeypatch.setattr(
+        chat_api,
+        "_build_chat_service",
+        lambda request: FakeChatService(),
+    )
+
+    async def run_flow() -> None:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            token_response = await client.post(
+                "/auth/token",
+                json={
+                    "username": "admin",
+                    "password": "change-me-immediately",
+                },
+            )
+            assert token_response.status_code == 200, token_response.text
+            token = token_response.json()["access_token"]
+            headers = {"Authorization": f"Bearer {token}"}
+
+            async with client.stream(
+                "POST",
+                "/chat/stream",
+                headers=headers,
+                json={"message": "hello there"},
+            ) as stream_response:
+                assert stream_response.status_code == 200
+                response_session_id = stream_response.headers["x-chat-session-id"]
+                body = await stream_response.aread()
+
+            stream_text = body.decode("utf-8")
+            assert "event: metadata" not in stream_text
+
+            done_lines = [
+                line.removeprefix("data: ")
+                for line in stream_text.splitlines()
+                if line.startswith("data: ")
+            ]
+            done_payload = json.loads(done_lines[-1])
+            assert done_payload["session_id"]
+            assert done_payload["session_id"] == response_session_id
+            assert done_payload == {
+                "answer": "final answer",
+                "citations": [
+                    {
+                        "document_id": "22222222-2222-2222-2222-222222222222",
+                        "chunk_id": "33333333-3333-3333-3333-333333333331",
+                    }
+                ],
+                "session_id": done_payload["session_id"],
+            }
+
+    asyncio.run(run_flow())
+
+
+def test_chat_openapi_documents_public_and_debug_outputs() -> None:
+    app = build_app()
+    schema = app.openapi()
+
+    chat_response = schema["paths"]["/chat"]["post"]["responses"]["200"]
+    response_schema = chat_response["content"]["application/json"]["schema"]
+    assert any(
+        option.get("$ref", "").endswith("/ChatPublicResponse")
+        for option in response_schema["anyOf"]
+    )
+    assert any(
+        option.get("$ref", "").endswith("/ChatResponse")
+        for option in response_schema["anyOf"]
+    )
+
+    stream_response = schema["paths"]["/chat/stream"]["post"]["responses"]["200"]
+    assert "text/event-stream" in stream_response["content"]
+    examples = stream_response["content"]["text/event-stream"]["examples"]
+    assert {"default", "debug"} <= set(examples)
+
+
+def test_chat_session_resolver_uses_stable_server_side_fallback() -> None:
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/chat/stream",
+        "headers": [
+            (b"user-agent", b"pytest-browser"),
+            (b"origin", b"http://localhost:3000"),
+        ],
+        "client": ("127.0.0.1", 12345),
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+
+    first_session_id = chat_api._resolve_chat_session_id(Request(scope))
+    second_session_id = chat_api._resolve_chat_session_id(Request(scope))
+
+    assert first_session_id.startswith("public-")
+    assert first_session_id == second_session_id

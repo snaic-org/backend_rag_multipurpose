@@ -126,6 +126,7 @@ For ECS, keep the startup defaults in `deploy/ecs/task-definition.json`:
 - `AUTH_JWT_SECRET`
 - `AUTH_BOOTSTRAP_ADMIN_USERNAME`
 - `AUTH_BOOTSTRAP_ADMIN_PASSWORD`
+- `CHAT_DEBUG_ENABLED`
 
 Chat guardrail defaults now use code values, so they are not expected in `backend/.env`.
 
@@ -168,6 +169,9 @@ Important behavior notes after rollout:
 - chat activity and chat feedback are stored in PostgreSQL, so they persist only as long as the active database volume persists
 - in the single-task ECS shape, replacing the task can wipe these records because PostgreSQL is still task-local
 - `GET /admin/chat-feedback` stores submitted ratings and comments; full chat transcript reconstruction depends on server-side session/activity data
+- with `CHAT_DEBUG_ENABLED=false`, `/chat` and `/chat/stream` expose only `answer`, compact citation IDs, and `session_id`; keep debug disabled for public deployments unless operators need retrieved chunks and prompt payloads
+- `/ingest/text` accepts only `title` and `content`; `/ingest/files` accepts only file uploads. Source type, metadata, `created_by`, `created_at`, and embedding selection are populated by the backend.
+- `/chat` and `/chat/stream` accept only `message`; model selection, retrieval limits, session behavior, and debug behavior are server-side settings.
 
 Supported chat-activity query params:
 
@@ -218,17 +222,16 @@ After redeploying the backend image or replacing the task, verify:
 
 1. `GET /health` returns `200`
 2. admin login still works against the current persisted database state
-3. `POST /chat` returns `200`
-4. `POST /chat/stream` still streams successfully
+3. `POST /chat` returns `200` with only `answer`, compact `citations`, and `session_id` when `CHAT_DEBUG_ENABLED=false`
+4. `POST /chat/stream` still streams answer chunks and a compact final payload
 5. `GET /admin/chat-activity` returns `200`
 6. `GET /admin/chat-feedback` returns `200`
-7. submit a feedback record and confirm `GET /admin/chat-feedback` returns it
+7. Swagger shows `/chat` public and debug response schemas, and `/chat/stream` `text/event-stream` examples
 
 If chat works but admin monitoring fails, the likely causes are:
 
 - the running container is still on an older image
 - the Postgres volume predates the current bootstrap logic
-- the client is not sending a stable `session_id`, so feedback text linkage is incomplete
 
 ## Authentication deployment notes
 
@@ -237,7 +240,6 @@ Implemented auth:
 - bootstrap admin user stored in PostgreSQL
 - password hashing with `scrypt`
 - signed JWT bearer tokens
-- hashed API keys
 
 For secure deployment:
 
@@ -271,7 +273,6 @@ Implemented:
 - Redis-backed rate limiting
 - daily per-user chat quotas
 - JWT bearer auth
-- hashed API keys
 - health endpoint
 - provider abstraction
 - Qdrant-backed chunk storage and retrieval
@@ -296,13 +297,20 @@ If you want everything running inside ECS on Fargate:
 
 This deployment keeps `nginx`, the FastAPI app, PostgreSQL, and Redis in one ECS task and exposes port `80`.
 
+HTTPS domain path:
+
+- use ACM to issue a public certificate for `multiragapi.snaic.net`
+- use an internet-facing ALB with an HTTPS `443` listener and the ACM certificate
+- forward the ALB target group to ECS task `nginx` on port `80`
+- create a Route 53 alias record for `multiragapi.snaic.net` pointing to the ALB
+- use `deploy/ecs/service-definition.alb.example.json` as the ALB-backed ECS service template
+
 Current limitation:
 
-- the checked-in ECS deployment assets do not yet implement HTTPS termination
-- the checked-in ECS deployment assets do not yet implement custom DNS such as `api.snaic.net`
-- if you need HTTPS and a stable domain, add an external AWS layer such as ALB plus ACM, or Global Accelerator plus ALB
+- the checked-in ECS deployment assets do not yet implement custom DNS beyond the `multiragapi.snaic.net` example
+- if you need fixed edge IPs instead of an ALB DNS alias, add AWS Global Accelerator or use an NLB with Elastic IPs
 
-Before using the ECS assets, replace the environment-specific values in `deploy/ecs/task-definition.json`, `deploy/ecs/service-definition.json`, and the AWS setup commands:
+Before using the ECS assets, replace the environment-specific values in `deploy/ecs/task-definition.json`, `deploy/ecs/service-definition.alb.example.json`, `deploy/ecs/service-definition.json`, and the AWS setup commands:
 
 - AWS account IDs, region names, subnet IDs, and security group IDs
 - ECR image URIs and repository prefixes

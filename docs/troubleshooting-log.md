@@ -156,6 +156,91 @@ Relevant file:
 
 - `deploy/ecs/README.md`
 
+### ECS HTTPS task cannot pull SSM secrets after disabling public IP
+
+Error:
+
+```text
+ResourceInitializationError: unable to pull secrets or registry auth:
+unable to retrieve secrets from ssm:
+The task cannot pull secrets from AWS Systems Manager.
+operation error SSM: GetParameters ... context deadline exceeded
+```
+
+Cause:
+
+- the ECS service network config had `assignPublicIp=DISABLED`
+- the task was still in a subnet without NAT Gateway or SSM/ECR/CloudWatch VPC endpoints
+- Fargate could start the task ENI but could not reach SSM to fetch secrets
+
+Solution:
+
+- for the simple single-task HTTPS deployment, keep `assignPublicIp=ENABLED`
+- rely on the ALB and security groups for inbound access control
+- only disable task public IP if the VPC has NAT or the required AWS VPC endpoints
+- update `scripts/redeploy-ecs.ps1` so the default HTTPS path actively sets `assignPublicIp=ENABLED`
+
+Relevant files:
+
+- `scripts/redeploy-ecs.ps1`
+- `deploy/ecs/README.md`
+
+### ECS target group health checks fail because the ALB is missing the task Availability Zone
+
+Error:
+
+```text
+(service backend-rag-multipurpose) (task ...) (port 80) is unhealthy
+in (target-group ... backend-rag-tg ...)
+due to (reason Target is in an Availability Zone that is not enabled for the load balancer).
+```
+
+Cause:
+
+- the ECS task launched in an AZ such as `ap-southeast-1c`
+- the ALB was created with subnets that did not include that AZ
+- ALB target groups cannot health check targets in an AZ that is not enabled on the load balancer
+
+Solution:
+
+- include the ECS service subnet/AZ in the ALB subnet list
+- update existing ALB subnets when the deployment script reruns
+- keep at least two ALB subnets enabled
+- update `scripts/redeploy-ecs.ps1` to add the ECS service subnet to the ALB subnet set and call `elbv2 set-subnets`
+
+Relevant files:
+
+- `scripts/redeploy-ecs.ps1`
+- `deploy/ecs/README.md`
+
+### ECS target group health checks use the wrong path
+
+Symptoms:
+
+- ECS tasks start and then stop with:
+
+```text
+Task failed ELB health checks in target-group backend-rag-tg
+```
+
+Cause:
+
+- an existing target group was reused with an older or default health check path
+- the nginx container exposes a lightweight health endpoint at `/nginx-health`
+
+Solution:
+
+- configure the target group health check as:
+  - protocol: `HTTP`
+  - path: `/nginx-health`
+  - success code: `200`
+- update `scripts/redeploy-ecs.ps1` to call `elbv2 modify-target-group` for reused target groups
+
+Relevant files:
+
+- `scripts/redeploy-ecs.ps1`
+- `backend/nginx/nginx.conf.template`
+
 ## ECS and Fargate deployment
 
 ### ECS service launch failure: unable to assume `ecsTaskRole`

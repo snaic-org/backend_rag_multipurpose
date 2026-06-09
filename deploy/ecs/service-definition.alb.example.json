@@ -1,0 +1,26 @@
+{
+  "serviceName": "backend-rag-multipurpose",
+  "cluster": "backend-rag-cluster",
+  "taskDefinition": "backend-rag-multipurpose",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "enableExecuteCommand": true,
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 50
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-southeast-1:961341555117:targetgroup/backend-rag-tg/REPLACE_ME",
+      "containerName": "nginx",
+      "containerPort": 80
+    }
+  ],
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-REPLACE_ME_A", "subnet-REPLACE_ME_B"],
+      "securityGroups": ["sg-REPLACE_ME_ECS_TASK"],
+      "assignPublicIp": "DISABLED"
+    }
+  }
+}

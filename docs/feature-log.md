@@ -162,7 +162,7 @@ Auth header handling and Swagger behavior improved.
 
 Changed:
 
-- switched to FastAPI security schemes for bearer auth and API keys
+- switched to FastAPI security schemes for bearer auth
 - OpenAPI/Swagger now understands auth more cleanly
 - clearer validation for malformed bearer values
 - quoted secret values are normalized more safely
@@ -294,6 +294,14 @@ Changed:
 - ECS task definition defaults moved from OpenAI to NVIDIA NIM
 - ECS now uses `NIM_API_KEY` for generation, embeddings, and reranking
 - ECS docs now describe the NIM-based deployment path
+
+Updated later:
+
+- ECS redeploy automation now supports the HTTPS ALB path for `multiragapi.snaic.net`
+- `scripts/redeploy-ecs.ps1` creates or reuses the ALB, target group, listeners, Route 53 alias, and deployment security groups
+- the target group health check is normalized to `/nginx-health`
+- the deployment script keeps task public IP assignment enabled by default unless the VPC has NAT or AWS service endpoints
+- existing ALB subnet mappings are updated so the load balancer includes the ECS task Availability Zone
 
 ## v0.5.9 - 2026-03-25
 
@@ -649,7 +657,7 @@ The repository currently includes:
 - forced reingest support for replacing duplicate uploads
 - chat guardrails for abuse, prompt injection, and output caps
 - Dockerized local runtime behind `nginx`
-- JWT auth, API keys, and admin user management
+- JWT auth and admin user management
 - detailed operational documentation
 - ECS on Fargate deployment templates for a single-task setup
 - `k6`-based load-testing scripts with optional Docker runner

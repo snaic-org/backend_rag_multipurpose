@@ -249,6 +249,14 @@ curl -X POST http://localhost:9010/chat ^
 
 Chat generation, retrieval profile, session behavior, debug output, and retrieval limits are controlled by server settings and model selection.
 
+With `CHAT_DEBUG_ENABLED=false`, `/chat` returns only:
+
+- `answer`
+- `citations` as `document_id` and `chunk_id`
+- `session_id`
+
+With `CHAT_DEBUG_ENABLED=true`, `/chat` also returns the full debug payload such as provider/model details, retrieved chunks, prompt messages, fallback state, and full citations.
+
 ## Chat guardrails
 
 Default chat safety behavior:
@@ -280,6 +288,14 @@ curl -N -X POST http://localhost:9010/chat/stream ^
   -H "Content-Type: application/json" ^
   -d "{\"message\":\"What do we offer?\"}"
 ```
+
+With `CHAT_DEBUG_ENABLED=false`, the stream output is limited to answer chunks plus a final payload containing:
+
+- `answer`
+- `citations` as `document_id` and `chunk_id`
+- `session_id`
+
+With `CHAT_DEBUG_ENABLED=true`, stream events include the full debug payload such as provider/model details, retrieved chunks, prompt messages, fallback state, and full citations.
 
 ## Run tests
 

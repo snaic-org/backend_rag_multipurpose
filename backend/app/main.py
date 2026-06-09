@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
@@ -84,12 +85,22 @@ async def _wait_for_qdrant(qdrant: QdrantManager, dimension: int, retries: int =
 
 
 def create_app() -> FastAPI:
+    settings = get_settings()
     app = FastAPI(
-        title=get_settings().app_name,
-        version=get_settings().app_version,
-        description=get_settings().app_description,
+        title=settings.app_name,
+        version=settings.app_version,
+        description=settings.app_description,
         lifespan=lifespan,
     )
+    if settings.cors_allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_allowed_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+            expose_headers=["X-Chat-Session-Id"],
+        )
     app.include_router(api_router)
     return app
 

@@ -51,17 +51,15 @@ def test_live_api_flow(live_api_config: dict[str, str | None]) -> None:
 
             print("ANSWER:", payload["answer"])
             print("CITATIONS:", payload["citations"])
-            print("RETRIEVED_CHUNKS:", payload["retrieved_chunks"])
 
             assert payload["answer"].strip()
             assert "SIT Centre for AI" in payload["answer"]
             assert "NVIDIA" in payload["answer"]
             assert payload["citations"]
-            assert payload["retrieved_chunks"]
-            assert any(
-                citation.get("title") == live_api_config["ingest_title"]
+            assert set(payload) == {"answer", "citations", "session_id"}
+            assert all(
+                set(citation) == {"document_id", "chunk_id"}
                 for citation in payload["citations"]
             )
-            assert payload["used_fallback"] is False
 
     asyncio.run(run_flow())

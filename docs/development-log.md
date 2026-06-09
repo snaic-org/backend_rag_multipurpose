@@ -34,9 +34,22 @@ Use this when you want to update the system without guessing which file owns wha
 
 ## Open deployment TODOs
 
-- add HTTPS termination for the ECS deployment path
-- add custom DNS support for the ECS deployment path, for example `api.snaic.net`
-- define the target AWS pattern for public ingress, such as ALB plus ACM or Global Accelerator plus ALB
+- move PostgreSQL/Redis/Qdrant out of the single ECS task before treating the deployment as production durable
+- if task public IPs should be disabled, add NAT Gateway or VPC endpoints for SSM, ECR, and CloudWatch first
+- define any additional custom DNS names beyond `multiragapi.snaic.net`
+
+## Recent ECS HTTPS Deployment Update
+
+- `scripts/redeploy-ecs.ps1` now defaults to the HTTPS ALB deployment path for `multiragapi.snaic.net`
+- the script creates or reuses:
+  - an internet-facing ALB
+  - an IP target group for `nginx:80`
+  - HTTPS `443` and HTTP-to-HTTPS redirect listeners
+  - Route 53 alias records
+  - ALB and ECS task security groups
+- the target group health check is normalized to `/nginx-health` on every run
+- the script keeps Fargate task public IP assignment enabled by default so the task can reach SSM/ECR/CloudWatch without NAT or VPC endpoints
+- the script updates an existing ALB subnet set to include the ECS service subnet/AZ so targets do not fail health checks because the task AZ is not enabled on the load balancer
 
 ## Recent prompt-builder simplification
 
@@ -84,8 +97,11 @@ When editing this area:
   - excerpt text
 - `backend/app/core/config.py` now exposes `CHAT_MAX_EXCERPTS_PER_DOCUMENT`
 - `backend/app/api/chat.py` now applies a server-side debug gate through `chat_debug_enabled` before returning:
+  - provider/model details
+  - fallback state
   - `retrieved_chunks`
   - `prompt_messages`
+- public `/chat` and `/chat/stream` responses return only `answer`, compact citation IDs, and `session_id`
 - local `backend/.env` currently sets `CHAT_DEBUG_ENABLED=false`
 
 When editing this area:

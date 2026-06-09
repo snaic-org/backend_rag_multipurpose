@@ -21,9 +21,10 @@ Current ECS template defaults:
 - embedding provider: `nim`
 - embedding model: `nvidia/llama-nemotron-embed-1b-v2`
 - embedding dimension: `2048`
-- the selectable catalog lives in `backend/app/core/defaults.py`
+- the selectable catalog and config defaults live in `backend/app/core/config.py`
 - the active generation and embedding profiles are seeded from `deploy/ecs/task-definition.json` on startup
 - reasoning visibility is controlled by `CHAT_THINKING_ENABLED`
+- public chat responses are minimal because `CHAT_DEBUG_ENABLED=false`
 - reranking is enabled and reuses `NIM_API_KEY`
 
 Chat safety defaults are enforced by the app and can be overridden in the task definition if needed:
@@ -99,16 +100,112 @@ Create:
 
 1. One ECS cluster for Fargate tasks.
 2. One or more public or private subnets for the Fargate service.
-3. One security group allowing inbound `80/tcp` from the internet or from your ALB.
-4. One CloudWatch log group: `/ecs/backend-rag-multipurpose`.
-5. One IAM task execution role: `ecsTaskExecutionRole`.
-6. One IAM task role: `ecsTaskRole`.
-7. SSM Parameter Store entries for secrets used by the app.
+3. One Application Load Balancer for the public HTTPS endpoint.
+4. One ACM public certificate for `multiragapi.snaic.net`.
+5. One Route 53 alias record for `multiragapi.snaic.net` pointing to the ALB.
+6. One ALB security group allowing inbound `443/tcp` and optional `80/tcp` for HTTP-to-HTTPS redirects.
+7. One ECS task security group allowing inbound `80/tcp` only from the ALB security group.
+8. One CloudWatch log group: `/ecs/backend-rag-multipurpose`.
+9. One IAM task execution role: `ecsTaskExecutionRole`.
+10. One IAM task role: `ecsTaskRole`.
+11. SSM Parameter Store entries for secrets used by the app.
    - `/backend-rag/NIM_API_KEY`
    - `/backend-rag/AUTH_JWT_SECRET`
    - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME`
    - `/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD`
    - `/backend-rag/POSTGRES_PASSWORD`
+
+## HTTPS domain setup
+
+Use `multiragapi.snaic.net` as the public API hostname. Do not point Route 53 at the ECS task public IP because Fargate task IPs change when the task is replaced.
+
+Recommended public flow:
+
+```text
+multiragapi.snaic.net
+  -> Route 53 A/AAAA alias
+  -> Application Load Balancer HTTPS :443
+  -> ALB target group HTTP :80
+  -> ECS task nginx :80
+  -> FastAPI app :8000
+```
+
+### 1. Request the certificate
+
+In AWS Certificate Manager, in the same region as the ALB:
+
+- Fully qualified domain name: `multiragapi.snaic.net`
+- Allow export: `Disable export`
+- Validation method: `DNS validation`
+- Key algorithm: `RSA 2048`
+
+After requesting the certificate, create the DNS validation record in Route 53. Wait until ACM shows the certificate status as `Issued`.
+
+### 2. Create the target group
+
+Create an ALB target group:
+
+- Target type: `IP`
+- Protocol: `HTTP`
+- Port: `80`
+- VPC: same VPC as the ECS service
+- Health check path: `/nginx-health`
+- Success codes: `200`
+
+Fargate with `awsvpc` networking must use target type `IP`.
+
+### 3. Create the ALB
+
+Create an internet-facing Application Load Balancer:
+
+- Scheme: `internet-facing`
+- Listeners:
+  - `HTTPS :443`
+  - optional `HTTP :80`
+- Subnets: at least two public subnets in different Availability Zones
+- Security group inbound:
+  - `443/tcp` from the internet
+  - optional `80/tcp` from the internet only to redirect to HTTPS
+
+Configure listeners:
+
+- `HTTPS :443`: use the ACM certificate for `multiragapi.snaic.net` and forward to the ECS target group.
+- `HTTP :80`: redirect to `HTTPS :443`.
+
+### 4. Point Route 53 to the ALB
+
+In the `snaic.net` public hosted zone, create:
+
+- Record name: `multiragapi`
+- Record type: `A`
+- Alias: `Yes`
+- Alias target: the Application Load Balancer
+
+This creates `multiragapi.snaic.net`. Route 53 tracks the ALB DNS name, so no static ECS IP is needed.
+
+### 5. Attach ECS service to the target group
+
+Use the ALB service template as a starting point:
+
+- `deploy/ecs/service-definition.alb.example.json`
+
+Replace:
+
+- `targetGroupArn`
+- subnet IDs
+- ECS task security group ID
+- cluster and service names if yours differ
+
+The ALB-backed service should usually use:
+
+- `assignPublicIp`: `DISABLED`
+- ECS task security group inbound `80/tcp` from the ALB security group only
+
+The checked-in direct-public-IP service template remains at:
+
+- `deploy/ecs/service-definition.json`
+
+Use it only for temporary HTTP testing. If you use the direct HTTP template, set `AUTH_REQUIRE_HTTPS=false` in `deploy/ecs/task-definition.json`; the HTTPS domain deployment should keep it `true`.
 
 ## CloudWatch setup
 
@@ -305,7 +402,8 @@ Recommended production edits before registering:
 
 - Set `AUTH_REQUIRE_HTTPS=true` if TLS is terminated before traffic reaches `nginx`.
 - Set `DEFAULT_GENERATION_PROVIDER`, `DEFAULT_GENERATION_MODEL`, `DEFAULT_EMBEDDING_PROVIDER`, `DEFAULT_EMBEDDING_MODEL`, and `DEFAULT_EMBEDDING_DIMENSION` in `deploy/ecs/task-definition.json` to the startup defaults you want.
-- Update `backend/app/core/defaults.py` when you add or change the catalog of allowed generation or embedding models.
+- Update `backend/app/core/config.py` when you add or change the catalog of allowed generation or embedding models.
+- Keep `CHAT_DEBUG_ENABLED=false` for public deployments unless you intentionally want provider/model details, retrieved chunks, prompt messages, fallback state, and full citations exposed in `/chat` and `/chat/stream` responses.
 - Tune the chat guardrail env vars above if you need a different safety envelope.
 - Keep the `nginx` env vars aligned with your task networking model.
 - Adjust task `cpu`, `memory`, and `ephemeralStorage` to your workload.
@@ -313,7 +411,9 @@ Recommended production edits before registering:
 Important:
 
 - `CHAT_THINKING_ENABLED=true` allows providers to expose reasoning output when supported.
-- `/ingest/files` and `/ingest/text` use the active embedding profile from the admin-managed model-selection record when the request does not send `embedding_profile`.
+- `/ingest/text` accepts only `title` and `content`; `/ingest/files` accepts only file uploads. Source type, file metadata, `created_by`, `created_at`, and embedding selection are populated by the backend.
+- `/chat` and `/chat/stream` accept only `message`; generation profile, embedding profile, retrieval limits, session behavior, and debug behavior are server-side settings.
+- With `CHAT_DEBUG_ENABLED=false`, `/chat` returns only `answer`, compact citation IDs, and `session_id`; `/chat/stream` sends answer chunks plus the same compact final payload.
 - `GET /admin/model-selection` shows the active generation and embedding profiles.
 - `PUT /admin/model-selection` changes them without editing the task definition.
 - ECS will keep running the old task definition until you register a new revision and update the service.
@@ -329,20 +429,22 @@ aws ecs register-task-definition --cli-input-json file://deploy/ecs/task-definit
 
 Template file:
 
-- `deploy/ecs/service-definition.json`
+- `deploy/ecs/service-definition.alb.example.json` for the HTTPS `multiragapi.snaic.net` deployment
+- `deploy/ecs/service-definition.json` only for temporary direct-task HTTP testing
 
 Replace:
 
 - `snaic_website_cluster` with your ECS cluster name
 - subnet ids
-- security group id
+- ECS task security group id
+- target group ARN
 
 Then create or update the service.
 
 If the service does not exist yet:
 
 ```powershell
-aws ecs create-service --cluster snaic_website_cluster --cli-input-json file://deploy/ecs/service-definition.json
+aws ecs create-service --cluster snaic_website_cluster --cli-input-json file://deploy/ecs/service-definition.alb.example.json
 ```
 
 If the service already exists, register a new task definition revision and update the running service:
@@ -367,6 +469,24 @@ That script:
 - registers a new task definition revision from `deploy/ecs/task-definition.json`
 - updates the ECS service with `--desired-count 1` and `--force-new-deployment`
 - waits for the service to become stable
+
+For the HTTPS ALB deployment, use the default command:
+
+```powershell
+.\scripts\redeploy-ecs.ps1
+```
+
+The script will:
+
+- look up the issued ACM certificate for `multiragapi.snaic.net`
+- discover public ALB subnets from the ECS service VPC
+- create or reuse ALB and ECS task security groups
+- create or reuse the target group
+- create or reuse the ALB
+- create HTTPS `443` and HTTP-to-HTTPS redirect listeners when missing
+- attach the ECS service to the target group
+- upsert the Route 53 alias record
+- keep task public IP assignment enabled so the task can reach SSM/ECR/CloudWatch without NAT or VPC endpoints
 
 Override defaults if needed:
 
@@ -429,7 +549,7 @@ client
 - Ollama is disabled in the ECS template because local models are not realistic in this deployment shape.
 - The ECS task template seeds NIM as the initial generation and embedding default, but the catalog still includes OpenAI and Ollama profiles in code if you switch them later through the admin API.
 - Chat activity and chat feedback are stored in the task-local PostgreSQL container, so replacing the task can clear admin monitoring history.
-- Feedback `full_chat_text` depends on clients reusing the same `session_id` across chat requests before submitting feedback.
+- Public chat response details are controlled by `CHAT_DEBUG_ENABLED`; leave it disabled unless the endpoint is restricted to trusted operators.
 - If you want Fargate to be production-ready, the next step is: app + nginx on Fargate, PostgreSQL on RDS, Redis on ElastiCache.
 - Chat persona wording lives in `backend/app/services/prompt_builder.py`, so any tone change requires rebuilding and pushing the `rag-backend` image, then registering a new task definition revision and updating the ECS service.
 
@@ -438,11 +558,11 @@ client
 After a new task revision is live, verify:
 
 1. `GET /health` returns `200`
-2. `POST /chat` returns `200`
-3. `POST /chat/stream` still streams
+2. `POST /chat` returns `200` with only `answer`, compact `citations`, and `session_id` when `CHAT_DEBUG_ENABLED=false`
+3. `POST /chat/stream` still streams answer chunks and a compact final payload
 4. `GET /admin/chat-activity` returns `200`
 5. `GET /admin/chat-feedback` returns `200`
-6. if your client sends `session_id`, confirm it is echoed by `/chat` or `/chat/stream` and that feedback for that session includes `full_chat_text`
+6. Swagger shows `/chat` public and debug response schemas, and `/chat/stream` `text/event-stream` examples
 
 Related troubleshooting:
 

@@ -56,10 +56,17 @@ class ChatService:
         self,
         payload: ChatRequest,
         rate_limit_key: str,
+        session_id: str | None = None,
     ) -> ChatServiceResult:
-        prepared = await self._prepare_chat_context(payload, rate_limit_key)
+        prepared = await self._prepare_chat_context(payload, rate_limit_key, session_id)
 
         if prepared.used_fallback:
+            message_history = await self._append_turn_to_history(
+                prepared.session_id,
+                prepared.message_history,
+                prepared.user_message,
+                prepared.fallback_text,
+            )
             return ChatServiceResult(
                 answer=prepared.fallback_text,
                 thinking=None,
@@ -73,6 +80,7 @@ class ChatService:
                 session_id=prepared.session_id,
                 retrieved_chunks=[],
                 prompt_messages=[],
+                message_history=message_history,
             )
 
         completion = await self._providers.get(prepared.provider).complete_chat(
@@ -83,12 +91,11 @@ class ChatService:
         completion_thinking = completion.thinking or None
         answer = self.finalize_answer(self._format_answer(completion_text, completion_thinking))
 
-        await self._session_service.append_messages(
+        message_history = await self._append_turn_to_history(
             prepared.session_id,
-            [
-                ChatMessage(role="user", content=prepared.user_message),
-                ChatMessage(role="assistant", content=answer),
-            ],
+            prepared.message_history,
+            prepared.user_message,
+            answer,
         )
 
         return ChatServiceResult(
@@ -104,16 +111,24 @@ class ChatService:
             session_id=prepared.session_id,
             retrieved_chunks=prepared.retrieved_chunks,
             prompt_messages=prepared.prompt_messages,
+            message_history=message_history,
         )
 
     async def start_stream(
         self,
         payload: ChatRequest,
         rate_limit_key: str,
+        session_id: str | None = None,
     ) -> ChatStreamState:
-        prepared = await self._prepare_chat_context(payload, rate_limit_key)
+        prepared = await self._prepare_chat_context(payload, rate_limit_key, session_id)
 
         if prepared.used_fallback:
+            message_history = await self._append_turn_to_history(
+                prepared.session_id,
+                prepared.message_history,
+                prepared.user_message,
+                prepared.fallback_text,
+            )
             return ChatStreamState(
                 provider=prepared.provider,
                 model=prepared.model,
@@ -129,6 +144,7 @@ class ChatService:
                 session_id=prepared.session_id,
                 user_message=prepared.user_message,
                 prompt_messages=[],
+                message_history=message_history,
             )
 
         stream = self._providers.get(prepared.provider).stream_chat(
@@ -151,6 +167,7 @@ class ChatService:
             session_id=prepared.session_id,
             user_message=prepared.user_message,
             prompt_messages=prepared.prompt_messages,
+            message_history=prepared.message_history,
         )
 
     async def finalize_stream(
@@ -161,34 +178,53 @@ class ChatService:
         if stream_state.used_fallback:
             return
 
-        await self._session_service.append_messages(
+        stream_state.message_history = await self._append_turn_to_history(
             stream_state.session_id,
-            [
-                ChatMessage(role="user", content=stream_state.user_message),
-                ChatMessage(role="assistant", content=answer),
-            ],
+            stream_state.message_history,
+            stream_state.user_message,
+            answer,
         )
 
     def finalize_answer(self, text: str) -> str:
-        return self._guardrails.truncate_response(text)
+        cleaned = self._strip_user_question_preamble(text)
+        return self._guardrails.truncate_response(cleaned)
+
+    def _strip_user_question_preamble(self, text: str | None) -> str:
+        if not text:
+            return ""
+        cleaned = text.strip()
+        patterns = (
+            r"^The user's question[^.\n]*\.\s*",
+            r"^The user is asking[^.\n]*\.\s*",
+            r"^Based on the conversation history[^.\n]*\.\s*",
+            r"^This refers to[^.\n]*\.\s*",
+        )
+        previous = None
+        while previous != cleaned:
+            previous = cleaned
+            for pattern in patterns:
+                cleaned = re.sub(pattern, "", cleaned, count=1, flags=re.IGNORECASE)
+        return cleaned.strip()
 
     async def _prepare_chat_context(
         self,
         payload: ChatRequest,
         rate_limit_key: str,
+        session_id: str | None,
     ) -> "_PreparedChatContext":
         await self._guardrails.enforce_request_budget(rate_limit_key)
 
         generation = await self._resolve_generation_selection()
         default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        session_id = None
+        session_id = self._resolve_session_id(session_id)
         session_messages = await self._session_service.get_messages(session_id)
         history = session_messages
         history = self._guardrails.limit_history(history)
         recent_user_messages = [message.content for message in history if message.role == "user"]
         normalized_message = self._guardrails.validate_user_message(payload.message, recent_user_messages)
         top_k = self._guardrails.clamp_top_k(self._settings.chat_top_k)
-        planned_queries = self._query_planner.build_queries(normalized_message) or [normalized_message]
+        retrieval_message = self._build_retrieval_message(normalized_message, history)
+        planned_queries = self._query_planner.build_queries(retrieval_message) or [retrieval_message]
 
         embedding_selection, query_embeddings = await self._embedding_service.embed_texts(
             texts=planned_queries,
@@ -200,7 +236,7 @@ class ChatService:
         query_embedding = query_embeddings[0]
 
         retrieved_chunks = await self._retrieval_service.retrieve(
-            query_text=normalized_message,
+            query_text=retrieval_message,
             query_embedding=query_embedding,
             query_variants=planned_queries,
             query_variant_embeddings=query_embeddings,
@@ -223,6 +259,7 @@ class ChatService:
                 session_id=session_id,
                 user_message=normalized_message,
                 retrieved_chunks=[],
+                message_history=history,
             )
 
         prompt_config = await self._system_prompt_service.get_system_prompt()
@@ -250,7 +287,60 @@ class ChatService:
             fallback_text="",
             session_id=session_id,
             user_message=normalized_message,
+            message_history=history,
         )
+
+    async def _append_turn_to_history(
+        self,
+        session_id: str | None,
+        existing_history: list[ChatMessage],
+        user_message: str,
+        assistant_answer: str,
+    ) -> list[ChatMessage]:
+        turn = [
+            ChatMessage(role="user", content=user_message),
+            ChatMessage(role="assistant", content=assistant_answer),
+        ]
+        await self._session_service.append_messages(session_id, turn)
+        return (existing_history + turn)[-self._settings.max_session_messages :]
+
+    def _resolve_session_id(self, session_id: str | None) -> str | None:
+        if session_id is None:
+            return None
+        resolved = session_id.strip()
+        return resolved or None
+
+    def _build_retrieval_message(
+        self,
+        user_message: str,
+        history: list[ChatMessage],
+    ) -> str:
+        if not history:
+            return user_message
+        if not self._is_contextual_follow_up(user_message):
+            return user_message
+
+        recent_history = history[-4:]
+        history_text = "\n".join(
+            f"{message.role}: {message.content}"
+            for message in recent_history
+            if message.content.strip()
+        )
+        if not history_text:
+            return user_message
+        return f"{history_text}\nuser follow-up: {user_message}"
+
+    def _is_contextual_follow_up(self, user_message: str) -> bool:
+        normalized = user_message.strip().lower()
+        if len(normalized.split()) <= 5:
+            return True
+        follow_up_patterns = (
+            r"\b(tell|explain|describe)\s+me\s+(more\s+)?about\s+(\d+|it|that|this|them)\b",
+            r"\b(more|details?)\s+(about|on)\s+(\d+|it|that|this|them)\b",
+            r"\b(what|how)\s+about\s+(\d+|it|that|this|them)\b",
+            r"\b(the\s+)?(first|second|third|fourth|fifth|sixth|last)\s+(one|item|stage|step)\b",
+        )
+        return any(re.search(pattern, normalized) for pattern in follow_up_patterns)
 
     async def _resolve_generation_selection(self) -> GenerationSelection:
         default_profile = await self._model_selection_service.get_generation_profile_name()
@@ -308,6 +398,7 @@ class _PreparedChatContext:
         fallback_text: str,
         session_id: str | None,
         user_message: str,
+        message_history: list[ChatMessage],
     ) -> None:
         self.provider = provider
         self.model = model
@@ -322,3 +413,4 @@ class _PreparedChatContext:
         self.fallback_text = fallback_text
         self.session_id = session_id
         self.user_message = user_message
+        self.message_history = message_history

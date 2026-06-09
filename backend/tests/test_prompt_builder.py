@@ -31,9 +31,11 @@ def test_prompt_builder_includes_grounding_and_citations() -> None:
     assert system_content == DEFAULT_SYSTEM_PROMPT
     assert "You are the official SNAIC website assistant." in system_content
     assert "You answer questions exclusively about SNAIC using only the KNOWLEDGE BASE provided." in system_content
-    assert "including answers formed by directly combining closely related facts that are explicitly listed" in system_content
-    assert "Treat a question as In-scope, supported when the answer follows directly from facts that are separately stated but obviously related" in system_content
+    assert "You may combine directly related facts that are explicitly listed" in system_content
     assert "When the user asks for an implication, benefit, relevance, fit, or likely role of something in SNAIC" in system_content
+    assert "Reply as SNAIC Bot speaking directly to the person in the chat." in system_content
+    assert "Do not say phrases like \"The user's question\"" in system_content
+    assert "Do not refer to the person as \"the user\"." in system_content
     assert "- Do not end responses with emoji or celebratory symbols." in system_content
     assert prompt.messages[1].role == "assistant"
     assert prompt.messages[1].content == "Conversation history:\nHi"

@@ -118,6 +118,11 @@ class ChatCitation(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class ChatPublicCitation(BaseModel):
+    document_id: UUID
+    chunk_id: UUID
+
+
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,6 +149,13 @@ class ChatResponse(BaseModel):
     session_id: str | None = None
     retrieved_chunks: list["RetrievedChunk"] = Field(default_factory=list)
     prompt_messages: list[ChatMessage] = Field(default_factory=list)
+    message_history: list[ChatMessage] = Field(default_factory=list)
+
+
+class ChatPublicResponse(BaseModel):
+    answer: str
+    citations: list[ChatPublicCitation] = Field(default_factory=list)
+    session_id: str | None = None
 
 
 class ChatFeedbackRequest(BaseModel):
@@ -299,6 +311,7 @@ class ChatServiceResult(BaseModel):
     session_id: str | None = None
     retrieved_chunks: list["RetrievedChunk"] = Field(default_factory=list)
     prompt_messages: list[ChatMessage] = Field(default_factory=list)
+    message_history: list[ChatMessage] = Field(default_factory=list)
 
 
 class ChatActivityWrite(BaseModel):
@@ -416,6 +429,7 @@ class ChatStreamState(BaseModel):
     session_id: str | None = None
     user_message: str = ""
     prompt_messages: list[ChatMessage] = Field(default_factory=list)
+    message_history: list[ChatMessage] = Field(default_factory=list)
 
 
 class ResetResponse(BaseModel):

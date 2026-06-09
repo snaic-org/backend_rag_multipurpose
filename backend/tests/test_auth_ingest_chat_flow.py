@@ -215,7 +215,12 @@ class FakeChatService:
         self._settings = settings
         self._corpus = corpus
 
-    async def prepare_chat(self, payload: ChatRequest, rate_limit_key: str) -> ChatServiceResult:
+    async def prepare_chat(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ) -> ChatServiceResult:
         answer = (
             self._corpus[-1]["content"]
             if self._corpus
@@ -242,10 +247,16 @@ class FakeChatService:
             embedding_provider=profile.provider,
             embedding_model=profile.model,
             used_fallback=False,
+            session_id=session_id,
             retrieved_chunks=[],
         )
 
-    async def start_stream(self, payload: ChatRequest, rate_limit_key: str):
+    async def start_stream(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ):
         raise NotImplementedError
 
     async def finalize_stream(self, stream_state, answer: str) -> None:
@@ -324,6 +335,18 @@ def test_auth_then_ingest_then_chat_returns_ingested_content(monkeypatch) -> Non
             assert chat_response.status_code == 200
             chat_payload = chat_response.json()
             assert INGESTED_CONTENT in chat_payload["answer"]
-            assert chat_payload["used_fallback"] is False
+            assert chat_payload["session_id"]
+            assert chat_response.headers["x-chat-session-id"] == chat_payload["session_id"]
+            assert chat_response.cookies.get("rag_chat_session") == chat_payload["session_id"]
+            assert chat_payload == {
+                "answer": INGESTED_CONTENT,
+                "citations": [
+                    {
+                        "document_id": "22222222-2222-2222-2222-222222222222",
+                        "chunk_id": "33333333-3333-3333-3333-333333333333",
+                    }
+                ],
+                "session_id": chat_payload["session_id"],
+            }
 
     asyncio.run(run_flow())

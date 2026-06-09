@@ -133,7 +133,12 @@ class FakeChatService:
     def __init__(self, prompt_service: FakePromptService) -> None:
         self._prompt_service = prompt_service
 
-    async def prepare_chat(self, payload: ChatRequest, rate_limit_key: str) -> ChatServiceResult:
+    async def prepare_chat(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ) -> ChatServiceResult:
         prompt = await self._prompt_service.get_system_prompt()
         return ChatServiceResult(
             answer=prompt.system_prompt,
@@ -157,7 +162,12 @@ class FakeChatService:
             retrieved_chunks=[],
         )
 
-    async def start_stream(self, payload: ChatRequest, rate_limit_key: str):
+    async def start_stream(
+        self,
+        payload: ChatRequest,
+        rate_limit_key: str,
+        session_id: str | None = None,
+    ):
         raise NotImplementedError
 
     async def finalize_stream(self, stream_state, answer: str) -> None:
