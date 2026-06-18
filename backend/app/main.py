@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
     app.state.model_selection_service = model_selection_service
 
     await postgres.connect()
+    await postgres.apply_schema()
     await redis.connect()
     await auth_service.ensure_bootstrap_admin()
     await prompt_service.ensure_default_system_prompt()

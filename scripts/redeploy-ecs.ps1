@@ -31,7 +31,6 @@ $ErrorActionPreference = "Stop"
 $ecrBase = "$AccountId.dkr.ecr.$Region.amazonaws.com/$RepositoryPrefix"
 $backendImage = "$ecrBase/rag-backend:latest"
 $nginxImage = "$ecrBase/rag-nginx:latest"
-$postgresImage = "$ecrBase/rag-postgres:latest"
 $taskDefinitionArn = $null
 $resolvedTaskDefinitionPath = $null
 $targetGroupArn = $null
@@ -466,8 +465,7 @@ function New-ResolvedTaskDefinition {
     param(
         [string]$TemplatePath,
         [string]$BackendImageValue,
-        [string]$NginxImageValue,
-        [string]$PostgresImageValue
+        [string]$NginxImageValue
     )
 
     if (-not (Test-Path -LiteralPath $TemplatePath)) {
@@ -479,15 +477,13 @@ function New-ResolvedTaskDefinition {
 
     $appContainer = $containers | Where-Object { $_.name -eq "app" } | Select-Object -First 1
     $nginxContainer = $containers | Where-Object { $_.name -eq "nginx" } | Select-Object -First 1
-    $postgresContainer = $containers | Where-Object { $_.name -eq "postgres" } | Select-Object -First 1
 
-    if (-not $appContainer -or -not $nginxContainer -or -not $postgresContainer) {
-        throw "Task definition must include 'app', 'nginx', and 'postgres' containers."
+    if (-not $appContainer -or -not $nginxContainer) {
+        throw "Task definition must include 'app' and 'nginx' containers."
     }
 
     $appContainer.image = $BackendImageValue
     $nginxContainer.image = $NginxImageValue
-    $postgresContainer.image = $PostgresImageValue
 
     $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) ("ecs-task-definition-{0}.json" -f ([System.Guid]::NewGuid().ToString("N")))
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
@@ -503,7 +499,6 @@ if (-not $SkipBuild) {
     Write-Host "Building Docker images..."
     docker build -f backend/Dockerfile -t rag-backend:latest backend
     docker build -f backend/nginx/Dockerfile -t rag-nginx:latest backend/nginx
-    docker build -f backend/postgres/Dockerfile -t rag-postgres:latest backend
 }
 
 if (-not $SkipPush) {
@@ -513,20 +508,17 @@ if (-not $SkipPush) {
     Write-Host "Tagging images for ECR..."
     docker tag rag-backend:latest $backendImage
     docker tag rag-nginx:latest $nginxImage
-    docker tag rag-postgres:latest $postgresImage
 
     Write-Host "Pushing images to ECR..."
     docker push $backendImage
     docker push $nginxImage
-    docker push $postgresImage
 }
 
 if (-not $SkipRegister) {
     $resolvedTaskDefinitionPath = New-ResolvedTaskDefinition `
         -TemplatePath $TaskDefinitionPath `
         -BackendImageValue $backendImage `
-        -NginxImageValue $nginxImage `
-        -PostgresImageValue $postgresImage
+        -NginxImageValue $nginxImage
 
     Write-Host "Registering new ECS task definition revision..."
     $taskDefinitionArn = aws ecs register-task-definition --region $Region --cli-input-json "file://$resolvedTaskDefinitionPath" --query "taskDefinition.taskDefinitionArn" --output text

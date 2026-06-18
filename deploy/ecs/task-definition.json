@@ -2,21 +2,18 @@
   "family": "backend-rag-multipurpose",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "3072",
+  "cpu": "512",
+  "memory": "1024",
   "executionRoleArn": "arn:aws:iam::961341555117:role/ecsTaskExecutionRole",
   "taskRoleArn": "arn:aws:iam::961341555117:role/ecsTaskRole",
   "runtimePlatform": {
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "ephemeralStorage": {
-    "sizeInGiB": 30
-  },
   "containerDefinitions": [
     {
       "name": "nginx",
-      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/snaic_website/rag-nginx:latest",
+      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/sniac_website/rag-nginx:latest",
       "essential": true,
       "cpu": 64,
       "memoryReservation": 128,
@@ -55,10 +52,10 @@
     },
     {
       "name": "app",
-      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/snaic_website/rag-backend:latest",
+      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/sniac_website/rag-backend:latest",
       "essential": true,
-      "cpu": 384,
-      "memoryReservation": 768,
+      "cpu": 448,
+      "memoryReservation": 896,
       "portMappings": [
         {
           "containerPort": 8000,
@@ -70,12 +67,12 @@
         { "name": "APP_HOST", "value": "0.0.0.0" },
         { "name": "APP_PORT", "value": "8000" },
         { "name": "LOG_LEVEL", "value": "INFO" },
-        { "name": "POSTGRES_HOST", "value": "127.0.0.1" },
+        { "name": "POSTGRES_HOST", "value": "backend-rag-postgres.cxsuqq4o8xdb.ap-southeast-1.rds.amazonaws.com" },
         { "name": "POSTGRES_PORT", "value": "5432" },
         { "name": "POSTGRES_DB", "value": "ragdb" },
         { "name": "POSTGRES_USER", "value": "postgres" },
-        { "name": "REDIS_URL", "value": "redis://127.0.0.1:6379/0" },
-        { "name": "QDRANT_URL", "value": "http://127.0.0.1:6333" },
+        { "name": "REDIS_URL", "value": "rediss://master.backend-rag-redis.rrge6k.apse1.cache.amazonaws.com:6379/0" },
+        { "name": "QDRANT_URL", "value": "https://c4e09575-63ef-4fb6-8015-0064275666ed.us-west-1-0.aws.cloud.qdrant.io" },
         { "name": "DEFAULT_GENERATION_PROVIDER", "value": "nim" },
         { "name": "DEFAULT_GENERATION_MODEL", "value": "nvidia/nemotron-3-super-120b-a12b" },
         { "name": "DEFAULT_EMBEDDING_PROVIDER", "value": "nim" },
@@ -109,16 +106,14 @@
         {
           "name": "POSTGRES_PASSWORD",
           "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/POSTGRES_PASSWORD"
-        }
-      ],
-      "dependsOn": [
-        {
-          "containerName": "postgres",
-          "condition": "HEALTHY"
         },
         {
-          "containerName": "redis",
-          "condition": "HEALTHY"
+          "name": "POSTGRES_DSN",
+          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/POSTGRES_DSN"
+        },
+        {
+          "name": "QDRANT_API_KEY",
+          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/QDRANT_API_KEY"
         }
       ],
       "healthCheck": {
@@ -136,129 +131,6 @@
           "awslogs-stream-prefix": "app"
         }
       }
-    },
-    {
-      "name": "postgres",
-      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/snaic_website/rag-postgres:latest",
-      "essential": true,
-      "cpu": 256,
-      "memoryReservation": 1024,
-      "portMappings": [
-        {
-          "containerPort": 5432,
-          "hostPort": 5432,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        { "name": "POSTGRES_DB", "value": "ragdb" },
-        { "name": "POSTGRES_USER", "value": "postgres" }
-      ],
-      "secrets": [
-        {
-          "name": "POSTGRES_PASSWORD",
-          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/POSTGRES_PASSWORD"
-        }
-      ],
-      "mountPoints": [
-        {
-          "sourceVolume": "postgres-data",
-          "containerPath": "/var/lib/postgresql/data",
-          "readOnly": false
-        }
-      ],
-      "healthCheck": {
-        "command": ["CMD-SHELL", "pg_isready -U postgres -d ragdb || exit 1"],
-        "interval": 30,
-        "timeout": 5,
-        "retries": 5,
-        "startPeriod": 30
-      },
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/backend-rag-multipurpose",
-          "awslogs-region": "ap-southeast-1",
-          "awslogs-stream-prefix": "postgres"
-        }
-      }
-    },
-    {
-      "name": "redis",
-      "image": "redis:7.4-alpine",
-      "essential": true,
-      "cpu": 64,
-      "memoryReservation": 256,
-      "portMappings": [
-        {
-          "containerPort": 6379,
-          "hostPort": 6379,
-          "protocol": "tcp"
-        }
-      ],
-      "command": ["redis-server", "--appendonly", "yes"],
-      "mountPoints": [
-        {
-          "sourceVolume": "redis-data",
-          "containerPath": "/data",
-          "readOnly": false
-        }
-      ],
-      "healthCheck": {
-        "command": ["CMD", "redis-cli", "ping"],
-        "interval": 30,
-        "timeout": 5,
-        "retries": 5,
-        "startPeriod": 10
-      },
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/backend-rag-multipurpose",
-          "awslogs-region": "ap-southeast-1",
-          "awslogs-stream-prefix": "redis"
-        }
-      }
-    },
-    {
-      "name": "qdrant",
-      "image": "qdrant/qdrant:v1.14.1",
-      "essential": true,
-      "cpu": 64,
-      "memoryReservation": 512,
-      "portMappings": [
-        {
-          "containerPort": 6333,
-          "hostPort": 6333,
-          "protocol": "tcp"
-        }
-      ],
-      "mountPoints": [
-        {
-          "sourceVolume": "qdrant-data",
-          "containerPath": "/qdrant/storage",
-          "readOnly": false
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/backend-rag-multipurpose",
-          "awslogs-region": "ap-southeast-1",
-          "awslogs-stream-prefix": "qdrant"
-        }
-      }
-    }
-  ],
-  "volumes": [
-    {
-      "name": "postgres-data"
-    },
-    {
-      "name": "redis-data"
-    },
-    {
-      "name": "qdrant-data"
     }
   ]
 }

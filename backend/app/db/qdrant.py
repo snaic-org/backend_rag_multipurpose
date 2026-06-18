@@ -37,6 +37,14 @@ class QdrantManager:
                     distance=models.Distance.COSINE,
                 ),
             )
+
+        for field in ("embedding_profile", "embedding_provider", "embedding_model", "document_id"):
+            await self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field,
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+
         return collection_name
 
     async def delete_all_collections(self) -> int:

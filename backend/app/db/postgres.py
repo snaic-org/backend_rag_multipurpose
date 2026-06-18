@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 from psycopg import OperationalError
 from psycopg.rows import dict_row
@@ -6,6 +7,8 @@ from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import Settings
 from app.models.schemas import DependencyHealth
+
+_SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
 class PostgresManager:
@@ -52,3 +55,9 @@ class PostgresManager:
             if attempt < retries:
                 await asyncio.sleep(delay_seconds)
         raise RuntimeError(f"PostgreSQL is not ready: {last_detail}")
+
+    async def apply_schema(self) -> None:
+        sql = _SCHEMA_PATH.read_text(encoding="utf-8")
+        async with self._pool.connection() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql)

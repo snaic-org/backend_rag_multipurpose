@@ -23,15 +23,15 @@ class RetrievalRepository:
         collection_name = await self._qdrant.ensure_collection(embedding_dimension)
         query_filter = self._profile_filter(embedding_profile, embedding_provider, embedding_model)
 
-        points = await self._qdrant.client.search(
+        result = await self._qdrant.client.query_points(
             collection_name=collection_name,
-            query_vector=embedding,
+            query=embedding,
             query_filter=query_filter,
             limit=limit,
             with_payload=True,
             score_threshold=similarity_threshold,
         )
-        return [self._point_to_retrieved_chunk(point) for point in points]
+        return [self._point_to_retrieved_chunk(point) for point in result.points]
 
     async def search_keyword_chunks(
         self,
@@ -82,14 +82,14 @@ class RetrievalRepository:
         collection_name = await self._qdrant.ensure_collection(embedding_dimension)
         query_filter = self._profile_filter(embedding_profile, embedding_provider, embedding_model)
 
-        points = await self._qdrant.client.search(
+        result = await self._qdrant.client.query_points(
             collection_name=collection_name,
-            query_vector=embedding,
+            query=embedding,
             query_filter=query_filter,
             limit=limit,
             with_payload=True,
         )
-        return [self._point_to_retrieved_chunk(point) for point in points]
+        return [self._point_to_retrieved_chunk(point) for point in result.points]
 
     def _profile_filter(
         self,

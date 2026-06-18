@@ -1,6 +1,8 @@
 import hashlib
 from pathlib import Path
 
+INGEST_EMBEDDING_BATCH_SIZE = 50
+
 from fastapi import UploadFile
 from psycopg_pool import AsyncConnectionPool
 
@@ -199,6 +201,8 @@ class IngestService:
         documents_inserted = 0
         chunks_inserted = 0
 
+        # Phase 1: dedup check and chunk prep for all documents
+        new_documents: list[tuple] = []
         for document in parsed_file.documents:
             content_hash = self._hash_document(document.content)
             if force_reingest:
@@ -244,13 +248,31 @@ class IngestService:
                 )
                 continue
 
-            _, embeddings = await self._embedding_service.embed_texts(
-                texts=[chunk["content"] for chunk in chunks],
+            new_documents.append((document, document_record, chunks))
+
+        if not new_documents:
+            return {"results": results, "documents_inserted": documents_inserted, "chunks_inserted": chunks_inserted}
+
+        # Phase 2: batch embed all chunks in groups to stay within provider limits
+        all_texts = [chunk["content"] for _, _, chunks in new_documents for chunk in chunks]
+        all_embeddings: list[list[float]] = []
+        for i in range(0, len(all_texts), INGEST_EMBEDDING_BATCH_SIZE):
+            batch = all_texts[i:i + INGEST_EMBEDDING_BATCH_SIZE]
+            _, batch_embeddings = await self._embedding_service.embed_texts(
+                texts=batch,
                 provider=embedding_provider,
                 model=embedding_model,
                 input_type="passage",
             )
-            chunk_upserts = self._chunking_service.build_chunk_upserts(document, embeddings)
+            all_embeddings.extend(batch_embeddings)
+
+        # Phase 3: slice embeddings per document and upsert
+        embed_offset = 0
+        for document, document_record, chunks in new_documents:
+            doc_embeddings = all_embeddings[embed_offset:embed_offset + len(chunks)]
+            embed_offset += len(chunks)
+
+            chunk_upserts = self._chunking_service.build_chunk_upserts(document, doc_embeddings)
             inserted_chunks = await self._chunk_repository.bulk_create(
                 document_id=document_record.id,
                 chunks=chunk_upserts,

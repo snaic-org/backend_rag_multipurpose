@@ -1,0 +1,19 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["ssm:GetParameters"],
+      "Resource": [
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/POSTGRES_PASSWORD",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/POSTGRES_DSN",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/NIM_API_KEY",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/OPENAI_API_KEY",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_JWT_SECRET",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_USERNAME",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/AUTH_BOOTSTRAP_ADMIN_PASSWORD",
+        "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/QDRANT_API_KEY"
+      ]
+    }
+  ]
+}

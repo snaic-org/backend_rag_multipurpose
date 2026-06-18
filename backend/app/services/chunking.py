@@ -9,7 +9,10 @@ class ChunkingService:
     def build_chunks(self, document: NormalizedDocument) -> list[dict]:
         source_type = document.source_type.lower()
         if source_type in {"csv", "xlsx"}:
-            return [{"content": document.content, "metadata": dict(document.metadata)}]
+            parts = self._split_text(document.content)
+            if not parts:
+                parts = [document.content]
+            return [{"content": part, "metadata": dict(document.metadata)} for part in parts]
 
         if document.sections:
             chunks: list[dict] = []
