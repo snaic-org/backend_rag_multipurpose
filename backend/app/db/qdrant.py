@@ -8,6 +8,7 @@ class QdrantManager:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._client = None
+        self._initialized_collections: set[str] = set()
 
     @property
     def client(self):
@@ -29,6 +30,9 @@ class QdrantManager:
         from qdrant_client.http import models
 
         collection_name = self.collection_name(dimension)
+        if collection_name in self._initialized_collections:
+            return collection_name
+
         if not await self.client.collection_exists(collection_name):
             await self.client.create_collection(
                 collection_name=collection_name,
@@ -45,6 +49,7 @@ class QdrantManager:
                 field_schema=models.PayloadSchemaType.KEYWORD,
             )
 
+        self._initialized_collections.add(collection_name)
         return collection_name
 
     async def delete_all_collections(self) -> int:
