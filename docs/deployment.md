@@ -143,9 +143,30 @@ Depending on provider usage:
 - `NIM_API_KEY`
 - `NIM_BASE_URL` defaults to the NVIDIA integrate endpoint in code and can be overridden with `scripts/sync-provider-urls.ps1`
 - `CHAT_THINKING_ENABLED`
+- `CHAT_TEMPERATURE` - deployed at `0.35` for a more natural voice (code default is `0.0`)
 - `GEMINI_API_KEY`
 - `OLLAMA_BASE_URL`
 - `RERANK_INVOKE_URL` can be written into `backend/.env` with `scripts/sync-provider-urls.ps1`
+
+Contentful CMS ingestion (`POST /ingest/cms`):
+
+- `CONTENTFUL_SPACE_ID` - Contentful space id (stored in SSM Parameter Store for ECS)
+- `CONTENTFUL_DELIVERY_TOKEN` - read-only Content Delivery API token (stored in SSM Parameter Store for ECS)
+- `CONTENTFUL_ENVIRONMENT` - defaults to `master`
+- `CONTENTFUL_SITE_BASE_URL` - public site base for citation URLs, e.g. `https://www.snaic.net`
+
+For ECS, the two Contentful credentials are referenced as SSM secrets in
+`deploy/ecs/task-definition.json` (never committed as plaintext). Create them once and
+grant the execution role read access to them:
+
+```
+aws ssm put-parameter --region ap-southeast-1 --name "/backend-rag/CONTENTFUL_SPACE_ID"       --type SecureString --value "<space id>"
+aws ssm put-parameter --region ap-southeast-1 --name "/backend-rag/CONTENTFUL_DELIVERY_TOKEN"  --type SecureString --value "<cda token>"
+```
+
+The `ecsTaskExecutionRole` inline policy `ssm_snaicwebsite` must list both parameter
+ARNs (alongside the existing `/backend-rag/*` secrets) or the task fails to start with
+`ResourceInitializationError: unable to retrieve secrets from ssm`.
 
 Authentication-related settings:
 

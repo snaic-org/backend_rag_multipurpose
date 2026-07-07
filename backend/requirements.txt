@@ -12,3 +12,5 @@ python-docx==1.2.0
 openpyxl==3.1.5
 pytest==8.4.2
 PyJWT==2.10.1
+beautifulsoup4==4.12.3
+lxml==5.3.0

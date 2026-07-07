@@ -103,6 +103,63 @@ class IngestTextResponse(BaseModel):
     results: list[IngestFileResult]
 
 
+class WebsiteIngestRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "urls": [
+                    "https://www.singaporetech.edu.sg/",
+                    "https://www.singaporetech.edu.sg/undergraduate-programmes",
+                ],
+                "force_reingest": False,
+            }
+        },
+    )
+
+    urls: list[str] = Field(
+        min_length=1,
+        max_length=50,
+        description="One or more URLs to scrape and ingest (max 50 per request).",
+    )
+    force_reingest: bool = Field(default=False, description="Re-scrape and replace previously ingested URLs.")
+
+    @field_validator("urls")
+    @classmethod
+    def validate_urls(cls, values: list[str]) -> list[str]:
+        cleaned = []
+        for v in values:
+            v = v.strip()
+            if not v.startswith(("http://", "https://")):
+                raise ValueError(f"Each URL must start with http:// or https://. Got: {v!r}")
+            cleaned.append(v)
+        return cleaned
+
+
+class CmsIngestRequest(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "content_types": [],
+                "force_reingest": True,
+            }
+        },
+    )
+
+    content_types: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Contentful content_type ids to ingest. Leave empty to ingest all "
+            "configured defaults (projects, news, publications, team)."
+        ),
+    )
+    force_reingest: bool = Field(
+        default=True,
+        description="Re-fetch and replace entries already ingested (recommended so CMS edits propagate).",
+    )
+
+
 class ChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
     content: str

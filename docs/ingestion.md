@@ -10,17 +10,42 @@ Implemented:
 - `.docx`
 - `.csv`
 - `.xlsx`
+- website URLs (HTML scraped with BeautifulSoup4 + lxml)
+- Contentful CMS entries (Content Delivery API)
 
 Not implemented:
 
 - PDF
 - OCR
 - image parsing
+- JavaScript-rendered pages (use the CMS ingestion path instead)
 
 ## Endpoints
 
 - `POST /ingest/text`
 - `POST /ingest/files`
+- `POST /ingest/websites` - scrape and ingest 1-50 URLs; partial-success safe with per-URL errors
+- `POST /ingest/cms` - ingest published content from the Contentful Content Delivery API
+- `DELETE /admin/documents/{id}` - delete a document and all its chunks (admin)
+- `POST /admin/documents/{id}/reingest` - re-scrape and replace a website document (admin)
+- `GET /admin/documents?source_type=` - list documents, optionally filtered by source type (admin)
+
+### Website ingestion
+
+- Fetches each URL (60s timeout, follows redirects) and extracts readable text
+- Strips `script`, `style`, `nav`, `header`, `footer`, `aside`, `iframe`, `noscript`, `form`
+- Extracts heading-anchored sections; rejects error pages, non-HTML content, and pages with insufficient text
+- One failing URL does not abort the batch; each URL's outcome is reported individually
+- `force_reingest` re-scrapes and replaces a previously ingested URL
+
+### Contentful CMS ingestion
+
+- Reads from `https://cdn.contentful.com` using `CONTENTFUL_SPACE_ID` and `CONTENTFUL_DELIVERY_TOKEN`
+- Default content types: `team`, `jointCentreProjectNew` (Projects), `jointCentreNews` (News)
+- Send an empty `content_types` list to ingest all defaults, or specific content-type ids to target
+- Each entry is flattened (rich text, one-level links, nested objects such as project `techStack`); noise fields (images, `order`, `slug`, `screenshots`) are dropped
+- Team profiles are titled by member name and framed with role and member type; a per-type roster document is emitted so aggregation questions resolve in one retrieval hit
+- `force_reingest` wipes existing CMS documents first (full wipe on a full refresh, per-type wipe on a targeted refresh) so content and content-type changes do not leave duplicates
 
 ## Normalized document model
 
@@ -89,6 +114,8 @@ Depending on source type, stored metadata may include:
 - `row_start`
 - `row_end`
 - `column_headers`
+- `source_url` (website and CMS)
+- `contentful_content_type`, `contentful_entry_id`, `member_type`, `cms_roster` (CMS)
 
 ## Batch behavior
 

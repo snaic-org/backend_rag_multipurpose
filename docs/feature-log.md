@@ -578,6 +578,39 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.0 - 2026-07-08
+
+Website scraping, Contentful CMS ingestion, document management, and chat tone.
+
+Added:
+
+- `POST /ingest/websites` - scrape and ingest one or more URLs (up to 50 per request), partial-success safe with per-URL errors (timeout, unreachable host, HTTP error, non-HTML content, error page detected, insufficient content)
+- `WebsiteParser` (BeautifulSoup4 + lxml) - strips scripts/nav/header/footer, extracts heading-anchored sections, validates that a page yielded usable content
+- `POST /ingest/cms` - ingest published content directly from the Contentful Content Delivery API; recommended path for the JavaScript-rendered snaic.net pages, which cannot be reliably HTML-scraped
+- Contentful ingestion covers content types `team`, `jointCentreProjectNew` (Projects), and `jointCentreNews` (News); rich-text flattening, one-level link resolution, and nested-object flattening (e.g. project `techStack`)
+- consolidated roster documents per CMS type (team grouped by member type with leadership first; projects/news with per-entry summaries) so aggregation questions ("who are the leaders", "what projects") resolve in a single retrieval hit
+- `DELETE /admin/documents/{id}` - delete a document and all its chunks
+- `POST /admin/documents/{id}/reingest` - re-scrape and replace a website document
+- `source_type` filter on `GET /admin/documents`
+- `CHAT_TEMPERATURE` setting (deployed at `0.35`) for a more natural, less robotic voice
+
+Changed:
+
+- generation context is now framed as the assistant's own verified knowledge instead of a message labelled `Retrieved context:`, which stops the model from leaking phrases like "Based on the provided context"
+- default SNAIC system prompt rewritten with a warm, welcoming `PERSONA & TONE` section and explicit greeting behaviour, while preserving all existing accuracy, guardrail, anti-injection, and formatting rules
+- CMS person documents are titled by the member's name (not job title) and framed with a "SNAIC ... team member profile" line plus role and member type, so name/role/leadership queries retrieve reliably
+- noise fields (`profilePicture`, images, `order`, `slug`, `screenshots`) are dropped from CMS documents
+
+Fixed:
+
+- `force_reingest` on `/ingest/cms` now purges existing CMS documents before rebuilding (full wipe on a full refresh; per-type wipe on a targeted refresh), preventing stale or duplicate entries when content or content-type ids change
+
+Deployment:
+
+- new env vars `CONTENTFUL_SPACE_ID`, `CONTENTFUL_DELIVERY_TOKEN` (both via SSM Parameter Store), `CONTENTFUL_ENVIRONMENT`, `CONTENTFUL_SITE_BASE_URL`
+- `ecsTaskExecutionRole` SSM policy extended to read the two new Contentful parameters
+- new backend dependencies: `beautifulsoup4`, `lxml`
+
 ## v0.5.23 - 2026-04-09
 
 NIM prompt handling and generation context shaping simplified.

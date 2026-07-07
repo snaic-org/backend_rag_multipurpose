@@ -22,6 +22,27 @@ CHAT_DEBUG_ENABLED = True
 CHAT_BINARY_PRECOMPUTE_ENABLED = False
 EMBEDDING_CACHE_TTL_SECONDS = 3600
 SESSION_TTL_SECONDS = 86400
+
+CONTENTFUL_CDN_BASE = "https://cdn.contentful.com"
+
+# Default Contentful content types to ingest, in priority order.
+# Each maps a Contentful content_type id to a human label, the public page
+# it renders on (used as the citation URL), and whether entries have their
+# own detail page (id appended to the url).
+DEFAULT_CONTENTFUL_CONTENT_TYPES = [
+    {"content_type": "jointCentreProjectNew", "label": "Projects", "url_path": "/projects", "detail_page": True,
+     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) research project.", "roster": True},
+    {"content_type": "jointCentreNews", "label": "News", "url_path": "/news", "detail_page": True,
+     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) news item or announcement.", "roster": True},
+    {"content_type": "team", "label": "Our Team", "url_path": "/our-team", "detail_page": False,
+     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) team member profile.", "roster": True},
+]
+
+# Contentful fields that add noise rather than signal for retrieval.
+CONTENTFUL_SKIP_FIELDS = {
+    "profilepicture", "order", "image", "thumbnail", "featuredimage", "slug",
+    "heroimage", "architectureimage", "screenshots",
+}
 SESSION_STORAGE_ENABLED = True
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -134,6 +155,11 @@ class Settings(BaseSettings):
     qdrant_url: str = Field(default="http://localhost:6333")
     qdrant_api_key: str | None = Field(default=None)
     qdrant_collection_prefix: str = Field(default="rag_chunks")
+
+    contentful_space_id: str | None = Field(default=None)
+    contentful_delivery_token: str | None = Field(default=None)
+    contentful_environment: str = Field(default="master")
+    contentful_site_base_url: str = Field(default="https://www.snaic.net")
 
     openai_api_key: str | None = Field(default=None)
     nim_api_key: str | None = Field(default=None)

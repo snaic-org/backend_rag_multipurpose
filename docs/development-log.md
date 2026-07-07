@@ -108,3 +108,18 @@ When editing this area:
 
 - if debug output appears empty, check `CHAT_DEBUG_ENABLED` first
 - if retrieval looks correct in raw debug output but the answer still misses the fact, inspect the formatted retrieved-context message before blaming the model
+
+## Website + CMS ingestion and chat tone (2026-07-08)
+
+- added website scraping (`POST /ingest/websites`, `WebsiteParser` on BeautifulSoup4 + lxml) and Contentful CMS ingestion (`POST /ingest/cms`)
+- JavaScript-rendered snaic.net pages cannot be HTML-scraped (the raw HTML has ~0 usable text); the CMS path pulls the same content directly from the Contentful Content Delivery API instead
+- confirmed the real Contentful content-type ids against the live CDA: `team`, `jointCentreProjectNew`, `jointCentreNews` (the display name "JointCentre_ProjectNew" is not the api id; `projects`/`news` are older, stale types)
+- CMS entries are enriched for retrieval: people titled by name, SNAIC/role/member-type framing, noise fields dropped, and a per-type roster document so aggregation questions ("who are the leaders", "what projects") resolve in one hit
+- `force_reingest` on `/ingest/cms` now purges existing CMS docs first to avoid stale duplicates when content or content-type ids change
+
+Chat tone work:
+
+- the "Based on the provided context" leak was structural, not a prompt-strength issue: `prompt_builder.py` injected the evidence under a literal `Retrieved context:` label, which the model echoed. The label is now reframed as the assistant's own verified knowledge, which stops the leak at the source
+- the default system prompt gained a warm `PERSONA & TONE` section and greeting behaviour while keeping every accuracy, guardrail, anti-injection, and formatting rule
+- `CHAT_TEMPERATURE` deployed at `0.35`
+- tuning was done live with `scripts`-style harness calls against `/admin/system-prompt` and `/chat`; note NIM answers are deterministic at temp `0`, so single-shot A/B comparisons are reliable, but a task hiccup (seen as a 503) can briefly degrade guardrails

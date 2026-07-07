@@ -9,6 +9,7 @@ from app.models.schemas import (
     ChatActivityQueryResponse,
     ChatFeedbackResponse,
     ChunkRecord,
+    IngestFilesResponse,
     ModelCatalogResponse,
     ModelSelectionResponse,
     ModelSelectionUpdateRequest,
@@ -20,7 +21,9 @@ from app.models.schemas import (
     UserCreateRequest,
     UserResponse,
     UserUpdateRequest,
+    WebsiteIngestRequest,
 )
+from app.services.ingest_service import IngestService
 from app.services.reset_service import ResetService
 from app.services.chat_activity_service import ChatActivityService
 from app.services.chat_feedback_service import ChatFeedbackService
@@ -94,6 +97,17 @@ def _build_document_inspection_service(request: Request) -> DocumentInspectionSe
     )
 
 
+def _build_ingest_service(request: Request) -> IngestService:
+    return IngestService(
+        settings=request.app.state.settings,
+        redis_manager=request.app.state.redis,
+        qdrant_manager=request.app.state.qdrant,
+        postgres_pool=request.app.state.postgres.pool,
+        provider_registry=request.app.state.providers,
+        model_selection_service=request.app.state.model_selection_service,
+    )
+
+
 @router.delete("/reset", response_model=ResetResponse)
 async def reset_backend_state(
     request: Request,
@@ -138,9 +152,10 @@ async def update_model_selection(
 async def list_documents(
     request: Request,
     limit: int = 20,
+    source_type: str | None = Query(default=None, description="Filter by source type, e.g. 'website', 'txt', 'docx'"),
     _: AuthenticatedUser = Depends(require_admin_user),
 ) -> list[IngestedDocumentSummary]:
-    return await _build_document_inspection_service(request).list_documents(limit=limit)
+    return await _build_document_inspection_service(request).list_documents(limit=limit, source_type=source_type)
 
 
 @router.get("/documents/{document_id}", response_model=IngestedDocumentDetails)
@@ -173,6 +188,60 @@ async def get_document_raw_chunks(
         if "not found" in message.lower():
             status_code = status.HTTP_404_NOT_FOUND
         raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+@router.delete(
+    "/documents/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a document and all its chunks",
+    description="Removes the document record and every associated vector chunk. Works for any source type (file, text, or website).",
+)
+async def delete_document(
+    request: Request,
+    document_id: UUID,
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> None:
+    deleted = await _build_ingest_service(request).delete_document(document_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+
+@router.post(
+    "/documents/{document_id}/reingest",
+    response_model=IngestFilesResponse,
+    summary="Re-scrape and replace a website document",
+    description="Re-fetches the stored URL, re-extracts content, and replaces the existing chunks. Only valid for documents with source_type 'website'.",
+)
+async def reingest_document(
+    request: Request,
+    document_id: UUID,
+    current_user: AuthenticatedUser = Depends(require_admin_user),
+) -> IngestFilesResponse:
+    inspection_service = _build_document_inspection_service(request)
+    try:
+        details = await inspection_service.get_document(document_id)
+    except ValueError as exc:
+        message = str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND if "not found" in message.lower() else status.HTTP_400_BAD_REQUEST,
+            detail=message,
+        ) from exc
+
+    if details.document.source_type != "website":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Reingest is only supported for website documents, got source_type='{details.document.source_type}'",
+        )
+
+    url = details.document.url
+    if not url:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Document has no URL stored; cannot reingest",
+        )
+
+    payload = WebsiteIngestRequest(urls=[url], force_reingest=True)
+    return await _build_ingest_service(request).ingest_websites(payload, current_user=current_user)
 
 
 @router.get("/chat-activity", response_model=ChatActivityQueryResponse)

@@ -1,6 +1,6 @@
 {
   "serviceName": "backend-rag-multipurpose",
-  "cluster": "backend-rag-cluster",
+  "cluster": "snaic_website_cluster",
   "taskDefinition": "backend-rag-multipurpose",
   "desiredCount": 1,
   "launchType": "FARGATE",

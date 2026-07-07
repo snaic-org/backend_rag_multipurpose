@@ -5,6 +5,7 @@ from app.parsers.csv_parser import CsvParser
 from app.parsers.docx_parser import DocxParser
 from app.parsers.markdown_parser import MarkdownParser
 from app.parsers.text_parser import TextParser
+from app.parsers.website_parser import WebsiteParser
 from app.parsers.xlsx_parser import XlsxParser
 
 
@@ -16,6 +17,7 @@ class ParserFactory:
             "docx": DocxParser(),
             "csv": CsvParser(),
             "xlsx": XlsxParser(),
+            "website": WebsiteParser(),
         }
 
     def detect_type(self, filename: str, mime_type: str | None) -> str:

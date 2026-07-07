@@ -178,33 +178,47 @@ class DocumentRepository:
 
         return DocumentRecord.model_validate(row)
 
-    async def list_recent(self, limit: int = 20) -> list[DocumentRecord]:
-        query = """
-            SELECT
-                id,
-                content_hash,
-                title,
-                url,
-                source_type,
-                metadata,
-                original_filename,
-                mime_type,
-                created_by,
-                embedding_provider,
-                embedding_model,
-                created_at,
-                updated_at
-            FROM documents
-            ORDER BY created_at DESC
-            LIMIT %(limit)s
+    async def list_recent(self, limit: int = 20, source_type: str | None = None) -> list[DocumentRecord]:
+        base_cols = """
+            id, content_hash, title, url, source_type, metadata,
+            original_filename, mime_type, created_by, embedding_provider,
+            embedding_model, created_at, updated_at
         """
+        if source_type is not None:
+            query = f"SELECT {base_cols} FROM documents WHERE source_type = %(source_type)s ORDER BY created_at DESC LIMIT %(limit)s"
+            params: dict = {"limit": limit, "source_type": source_type}
+        else:
+            query = f"SELECT {base_cols} FROM documents ORDER BY created_at DESC LIMIT %(limit)s"
+            params = {"limit": limit}
 
         async with self._pool.connection() as connection:
             async with connection.cursor(row_factory=dict_row) as cursor:
-                await cursor.execute(query, {"limit": limit})
+                await cursor.execute(query, params)
                 rows = await cursor.fetchall()
 
         return [DocumentRecord.model_validate(row) for row in rows]
+
+    async def list_ids_by_source_type(self, source_type: str) -> list[UUID]:
+        query = "SELECT id FROM documents WHERE source_type = %(source_type)s"
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(query, {"source_type": source_type})
+                rows = await cursor.fetchall()
+
+        return [row["id"] for row in rows]
+
+    async def list_ids_by_content_type(self, content_type: str) -> list[UUID]:
+        query = """
+            SELECT id
+            FROM documents
+            WHERE metadata->>'contentful_content_type' = %(content_type)s
+        """
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(query, {"content_type": content_type})
+                rows = await cursor.fetchall()
+
+        return [row["id"] for row in rows]
 
     async def delete_by_id(self, document_id: UUID) -> bool:
         query = "DELETE FROM documents WHERE id = %(document_id)s"

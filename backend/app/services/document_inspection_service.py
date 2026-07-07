@@ -25,8 +25,8 @@ class DocumentInspectionService:
         self._document_repository = DocumentRepository(postgres_pool)
         self._chunk_repository = ChunkRepository(qdrant_manager)
 
-    async def list_documents(self, limit: int = 20) -> list[IngestedDocumentSummary]:
-        documents = await self._document_repository.list_recent(limit=limit)
+    async def list_documents(self, limit: int = 20, source_type: str | None = None) -> list[IngestedDocumentSummary]:
+        documents = await self._document_repository.list_recent(limit=limit, source_type=source_type)
         return [
             IngestedDocumentSummary(
                 document=document,

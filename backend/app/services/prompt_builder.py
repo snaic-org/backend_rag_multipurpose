@@ -142,10 +142,15 @@ class PromptBuilder:
             max_context_tokens=max_context_tokens,
             max_chunk_chars=max_chunk_chars,
         )
-        question_prompt = f"User question:\n{user_message}"
+        question_prompt = f"Question from the person you are chatting with:\n{user_message}"
         context_prompt = "\n".join(
             [
-                "Retrieved context:",
+                (
+                    "Here is accurate, verified information about SNAIC for you to use. "
+                    "Treat it as your own knowledge and answer naturally. Do NOT refer to "
+                    "it as context, information provided, documents, sources, or a knowledge "
+                    "base, and do not open with phrases like \"Based on the provided context\"."
+                ),
                 "\n\n".join(context_blocks),
             ]
         )

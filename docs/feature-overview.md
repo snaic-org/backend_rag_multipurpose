@@ -9,10 +9,17 @@ This document summarizes the current implemented capabilities of the backend RAG
 - `GET /auth/me`
 - `POST /ingest/text`
 - `POST /ingest/files`
+- `POST /ingest/websites`
+- `POST /ingest/cms`
 - `POST /chat`
 - `POST /chat/stream`
 - `POST /chat/feedback`
 - `DELETE /admin/reset`
+- `GET /admin/documents`
+- `GET /admin/documents/{id}`
+- `GET /admin/documents/{id}/raw`
+- `DELETE /admin/documents/{id}`
+- `POST /admin/documents/{id}/reingest`
 - `GET /admin/chat-activity`
 - `GET /admin/chat-feedback`
 - `GET /admin/system-prompt`

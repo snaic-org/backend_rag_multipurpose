@@ -13,7 +13,7 @@
   "containerDefinitions": [
     {
       "name": "nginx",
-      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/sniac_website/rag-nginx:latest",
+      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/snaic_website/rag-nginx:latest",
       "essential": true,
       "cpu": 64,
       "memoryReservation": 128,
@@ -52,7 +52,7 @@
     },
     {
       "name": "app",
-      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/sniac_website/rag-backend:latest",
+      "image": "961341555117.dkr.ecr.ap-southeast-1.amazonaws.com/snaic_website/rag-backend:latest",
       "essential": true,
       "cpu": 448,
       "memoryReservation": 896,
@@ -84,7 +84,10 @@
         { "name": "AUTH_REQUIRE_HTTPS", "value": "true" },
         { "name": "CHAT_DEBUG_ENABLED", "value": "false" },
         { "name": "CHAT_THINKING_ENABLED", "value": "false" },
-        { "name": "CHAT_SHOW_THINKING_BLOCK", "value": "false" }
+        { "name": "CHAT_SHOW_THINKING_BLOCK", "value": "false" },
+        { "name": "CHAT_TEMPERATURE", "value": "0.35" },
+        { "name": "CONTENTFUL_ENVIRONMENT", "value": "master" },
+        { "name": "CONTENTFUL_SITE_BASE_URL", "value": "https://www.snaic.net" }
       ],
       "secrets": [
         {
@@ -114,6 +117,14 @@
         {
           "name": "QDRANT_API_KEY",
           "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/QDRANT_API_KEY"
+        },
+        {
+          "name": "CONTENTFUL_SPACE_ID",
+          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/CONTENTFUL_SPACE_ID"
+        },
+        {
+          "name": "CONTENTFUL_DELIVERY_TOKEN",
+          "valueFrom": "arn:aws:ssm:ap-southeast-1:961341555117:parameter/backend-rag/CONTENTFUL_DELIVERY_TOKEN"
         }
       ],
       "healthCheck": {
