@@ -578,6 +578,28 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.1 - 2026-07-09
+
+Model selection, reasoning, tone, and knowledge-base hygiene.
+
+Changed:
+
+- default generation model is now `nvidia/nemotron-3-super-120b-a12b` (`nim_3super120`); added `nvidia/nemotron-3-nano-30b-a3b` (`nim_nano30`) to the catalog as a faster/terser alternative
+- `CHAT_THINKING_ENABLED` kept `false` for grounded RAG; enabling reasoning added latency and terser answers without accuracy benefit
+- `CHAT_TEMPERATURE` deployed at `0.2` for factual determinism on a public bot
+- `CHAT_MAX_RESPONSE_TOKENS` raised to `2560` so a hidden reasoning trace cannot truncate the answer if reasoning is ever enabled
+- default system prompt gained contact-form/email fallbacks and links for missing details
+
+Fixed:
+
+- removed non-SNAIC datasets that were being answered as SNAIC facts: `sit_sitescrapped_oct25.csv` (~958 rows) and `oti_chatbot_faq_oct25.xlsx` (~406 rows, source of a bogus `$16.35` "registration fee")
+- prompt now forbids stating dates, fees, intakes, or figures unless explicitly about SNAIC, and forbids describing the contact form as a way to register
+- "based on the provided context" leak fixed at the source by reframing the retrieved-evidence message as the assistant's own verified knowledge
+
+Lesson:
+
+- only ingest SNAIC-specific content into this bot's knowledge base; generic SIT scrapes/FAQs pollute answers because the model faithfully relays whatever is retrieved
+
 ## v0.6.0 - 2026-07-08
 
 Website scraping, Contentful CMS ingestion, document management, and chat tone.

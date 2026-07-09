@@ -14,7 +14,9 @@ CHAT_MAX_EXCERPTS_PER_DOCUMENT = 3
 CHAT_MIN_TOP_K = 3
 CHAT_MAX_TOP_K = 8
 CHAT_MAX_RESPONSE_CHARS = 4000
-CHAT_MAX_RESPONSE_TOKENS = 1200
+# With reasoning enabled the hidden <think> trace shares this budget with the
+# final answer, so keep enough headroom that the answer is never truncated.
+CHAT_MAX_RESPONSE_TOKENS = 2560
 CHAT_TOP_P = 1.0
 CHAT_FREQUENCY_PENALTY = 0.0
 CHAT_PRESENCE_PENALTY = 0.0
@@ -53,6 +55,11 @@ DEFAULT_GENERATION_CATALOG = [
         "profile_name": "openai_gpt41_mini",
         "provider": "openai",
         "model": "gpt-4.1-mini",
+    },
+    {
+        "profile_name": "nim_nano30",
+        "provider": "nim",
+        "model": "nvidia/nemotron-3-nano-30b-a3b",
     },
     {
         "profile_name": "nim_3super120",

@@ -940,6 +940,52 @@ Relevant files:
 - `backend/app/services/system_prompt_service.py`
 - `backend/tests/test_query.py`
 
+## Bot states non-SNAIC facts as SNAIC facts (2026-07-09)
+
+Symptom:
+
+- the chatbot answered SNAIC questions with generic SIT facts, e.g. an application fee of `$16.35 (including GST)` for "SNAIC registration", and contradictory course intake dates
+
+Cause:
+
+- non-SNAIC datasets had been ingested into the same knowledge base and were retrieved for SNAIC questions:
+  - `sit_sitescrapped_oct25.csv` (~958 rows of general SIT website scrape)
+  - `oti_chatbot_faq_oct25.xlsx` (~406 rows of SIT admissions/finance FAQ, incl. the `$16.35` application fee)
+- the model faithfully relayed retrieved text; the fault was the data, not the model
+
+Fix:
+
+- delete the polluting documents by source type / filename via the admin API (`GET /admin/documents?source_type=`, `DELETE /admin/documents/{id}`)
+- add prompt guardrails: never state dates, fees, intakes, or figures unless explicitly about SNAIC; general SIT course/admissions data is not SNAIC data
+- rule of thumb: only ingest SNAIC-specific content into this bot's knowledge base
+
+Verification:
+
+- after removal, "when does registration open?" returns "I don't have the specific details ... contact SNAIC" instead of the `$16.35` fee
+
+## Reasoning model gives terse, slow answers (2026-07-09)
+
+Symptom:
+
+- answers felt robotic and monotonous and took 4-6s each after enabling reasoning on a Nemotron 3 model
+
+Cause:
+
+- reasoning models spend expressiveness in the hidden `<think>` trace and return clipped final answers; reasoning also adds latency
+- for grounded RAG, accuracy comes from retrieval + clean data, so reasoning added cost without benefit
+
+Fix:
+
+- set `CHAT_THINKING_ENABLED=false`
+- for tone, prefer `nvidia/nemotron-3-super-120b-a12b` over the smaller `nvidia/nemotron-3-nano-30b-a3b`, which follows the warm persona less faithfully
+- note: end-to-end latency is dominated by the retrieval pipeline (multi-query + rerank), not the generation model
+
+Relevant files:
+
+- `deploy/ecs/task-definition.json`
+- `backend/app/core/config.py`
+- `backend/app/providers/nim_provider.py`
+
 ## Usage
 
 When a new setup or deployment issue appears, add:

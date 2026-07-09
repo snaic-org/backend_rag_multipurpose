@@ -98,11 +98,22 @@ NIM is implemented as a dedicated alias so the config stays explicit:
 
 Relevant NIM model IDs:
 
+- `nvidia/nemotron-3-super-120b-a12b` - active default generation model (`nim_3super120`); most articulate/warm tone, best for this RAG chatbot
+- `nvidia/nemotron-3-nano-30b-a3b` - faster/smaller generation option (`nim_nano30`); noticeably terser tone, follows the warm persona less faithfully
 - `nvidia/llama-3.3-nemotron-super-49b-v1.5`
 - `nvidia/llama-nemotron-embed-1b-v2`
 - `nvidia/llama-nemotron-rerank-1b-v2`
 
 The embed model uses a `2048`-dimensional vector space, so its Qdrant profile should declare `dimension=2048`.
+
+### Reasoning (thinking) and generation controls
+
+- Nemotron 3 models default to reasoning ON. The provider sends `chat_template_kwargs: {"enable_thinking": <CHAT_THINKING_ENABLED>}`; the Nemotron 3 NIM API honors this exact key.
+- For this grounded RAG chatbot, keep `CHAT_THINKING_ENABLED=false`. Accuracy here comes from retrieval and clean data, not model reasoning. Reasoning ON added ~2s latency and produced terser, more robotic answers with no accuracy gain on grounded questions.
+- `CHAT_SHOW_THINKING_BLOCK=false` strips any `<think>` trace from user-facing output.
+- If reasoning is ever enabled, raise `CHAT_MAX_RESPONSE_TOKENS` (the hidden trace shares that budget and can truncate the answer).
+- `CHAT_TEMPERATURE` (default `0.0`, deployed `0.2`) trades warmth for factual determinism; keep it low for a public factual bot to reduce hallucination risk.
+- Observed end-to-end chat latency is ~3-6s and is dominated by the retrieval pipeline (multi-query embeddings + rerank), not by the generation model choice.
 
 ## Gemini
 

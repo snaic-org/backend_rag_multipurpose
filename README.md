@@ -95,6 +95,13 @@ Before deploying to ECS, replace the environment-specific values in `deploy/ecs/
 
 Use [docs/deployment.md](docs/deployment.md) for the broader deployment notes and [deploy/ecs/README.md](deploy/ecs/README.md) for the step-by-step ECS instructions.
 
+### Operational notes
+
+- **Knowledge-base hygiene:** only ingest SNAIC-specific content. The bot answers strictly from the knowledge base and relays retrieved text verbatim, so generic SIT scrapes or admissions FAQs will surface as SNAIC "facts" (this caused a bogus `$16.35` registration fee). See [docs/ingestion.md](docs/ingestion.md#knowledge-base-scoping-important).
+- **Generation model:** default is `nvidia/nemotron-3-super-120b-a12b` (warmer, more articulate); `nvidia/nemotron-3-nano-30b-a3b` is a faster but terser alternative in the catalog. Keep `CHAT_THINKING_ENABLED=false` for this grounded RAG use case. See [docs/providers-and-models.md](docs/providers-and-models.md).
+- **Chat latency** (~3-6s) is dominated by the retrieval pipeline (multi-query embeddings + rerank), not the generation model.
+- **CMS ingestion:** pull SNAIC site content from Contentful via `POST /ingest/cms` rather than scraping the JavaScript-rendered pages.
+
 ## Test
 
 ```bash

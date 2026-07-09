@@ -1,5 +1,16 @@
 # Ingestion
 
+## Knowledge-base scoping (important)
+
+Only ingest **SNAIC-specific** content. The chatbot answers strictly from what has been
+ingested and faithfully relays retrieved text, so any non-SNAIC dataset in the knowledge
+base will surface as SNAIC "fact". Generic SIT website scrapes and SIT admissions/finance
+FAQs (e.g. `sit_sitescrapped_oct25.csv`, `oti_chatbot_faq_oct25.xlsx`) previously caused
+the bot to quote SIT application fees and intake dates as SNAIC registration details.
+Keep the knowledge base limited to SNAIC CMS content, the SNAIC overview/FAQ, and the
+SNAIC website. Remove stray sources with `GET /admin/documents?source_type=` +
+`DELETE /admin/documents/{id}`.
+
 ## Supported input types
 
 Implemented:
