@@ -39,7 +39,7 @@ foreach ($line in $lines) {
 }
 
 if (-not $rerankModel) {
-    $rerankModel = "nvidia/llama-nemotron-rerank-1b-v2"
+    $rerankModel = "nvidia/llama-nemotron-rerank-vl-1b-v2"
 }
 
 $normalizedRerankModel = $rerankModel.TrimStart("/")

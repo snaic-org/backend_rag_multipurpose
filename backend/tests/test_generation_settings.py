@@ -360,7 +360,7 @@ def test_model_selection_service_seeds_nim_defaults() -> None:
         default_generation_provider="nim",
         default_generation_model="nvidia/nemotron-3-super-120b-a12b",
         default_embedding_provider="nim",
-        default_embedding_model="nvidia/llama-nemotron-embed-1b-v2",
+        default_embedding_model="nvidia/nemotron-3-embed-1b",
         default_embedding_dimension=2048,
     )
 
@@ -384,7 +384,7 @@ def test_model_selection_service_accepts_llama33_nim_default() -> None:
         default_generation_provider="nim",
         default_generation_model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
         default_embedding_provider="nim",
-        default_embedding_model="nvidia/llama-nemotron-embed-1b-v2",
+        default_embedding_model="nvidia/nemotron-3-embed-1b",
         default_embedding_dimension=2048,
     )
 

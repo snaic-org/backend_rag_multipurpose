@@ -4,6 +4,76 @@ This repository now includes a pragmatic single-task ECS on Fargate deployment p
 
 Before using this guide, replace the repository-specific values from the examples with your own AWS account ID, region, cluster name, subnet IDs, security groups, ECR repositories, SSM parameter ARNs, and database password values.
 
+## Prerequisites: AWS CLI setup
+
+Every command in this guide assumes a configured AWS CLI. Install it from the [AWS CLI installer](https://aws.amazon.com/cli/), then authenticate.
+
+The region for this deployment is `ap-southeast-1`.
+
+### Option A: browser sign-in (simplest)
+
+```bash
+aws login
+```
+
+The flow is:
+
+1. It asks which region you are in. Choose `ap-southeast-1` (Singapore).
+2. It prints a link. Open it in a browser.
+3. Sign in to AWS as you normally would, including with a root account.
+
+This issues a temporary session, so there is no long-lived access key to store or revoke afterwards. This is the recommended path. Re-run `aws login` when the session expires.
+
+### Option B: access keys
+
+```bash
+aws configure
+```
+
+Answer the prompts:
+
+- `AWS Access Key ID` and `AWS Secret Access Key` from the console
+- `Default region name`: `ap-southeast-1`
+- `Default output format`: `json`
+
+Where to find the keys depends on your sign-in type:
+
+- **root user** (you sign in with an email address at `aws.amazon.com`): the keys are *not* under IAM > Users. Use the account menu in the top-right corner > `Security credentials` > `Access keys` > `Create access key`.
+- **IAM user**: IAM > Users > your user > `Security credentials` tab > `Create access key` > `Command Line Interface (CLI)`.
+
+The secret is displayed only once.
+
+### Option C: IAM Identity Center (SSO)
+
+```bash
+aws configure sso
+```
+
+Re-authenticate later with `aws sso login`.
+
+### Verify
+
+```bash
+aws sts get-caller-identity
+```
+
+The `Account` field should match the account ID used in `task-definition.json`.
+
+### Required permissions
+
+The redeploy path needs:
+
+- `ecr:GetAuthorizationToken` plus the layer upload/`PutImage` actions for image pushes
+- `ecs:RegisterTaskDefinition`, `ecs:UpdateService`, `ecs:DescribeServices`, `ecs:DescribeTaskDefinition`
+- `iam:PassRole` for both `ecsTaskExecutionRole` and `ecsTaskRole`
+- `elasticloadbalancing:*` and `route53:ChangeResourceRecordSets` only when running `redeploy-ecs.ps1` with the ALB/Route53 flags enabled
+
+A missing `iam:PassRole` is the most common first-deploy failure: `register-task-definition` returns an `AccessDenied` that does not name `PassRole`.
+
+A root session already satisfies all of the above, so this list only matters when deploying as a scoped IAM user.
+
+Root access grants unrestricted control of the account. Prefer a dedicated IAM user for routine deploys, and if you created a root *access key* (Option B) rather than using `aws login`, delete it once the deployment is done.
+
 What it deploys in one ECS task:
 
 - `nginx` reverse proxy on port `80`
@@ -19,7 +89,7 @@ Current ECS template defaults:
 - generation provider: `nim`
 - generation model: `nvidia/nemotron-3-super-120b-a12b`
 - embedding provider: `nim`
-- embedding model: `nvidia/llama-nemotron-embed-1b-v2`
+- embedding model: `nvidia/nemotron-3-embed-1b`
 - embedding dimension: `2048`
 - the selectable catalog and config defaults live in `backend/app/core/config.py`
 - the active generation and embedding profiles are seeded from `deploy/ecs/task-definition.json` on startup
@@ -453,6 +523,38 @@ If the service already exists, register a new task definition revision and updat
 aws ecs register-task-definition --cli-input-json file://deploy/ecs/task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text
 aws ecs update-service --cluster snaic_website_cluster --service backend-rag-multipurpose --task-definition <new-task-definition-arn> --force-new-deployment
 ```
+
+## Code changes require a local image rebuild
+
+ECS runs whatever is in the `:latest` image in ECR. Editing files under `backend/app/` changes nothing in AWS until the image is rebuilt locally and pushed. Updating only the environment variables in `deploy/ecs/task-definition.json` is **not** enough whenever the change also touches code.
+
+Docker Desktop must be running before any deploy that builds images.
+
+The dangerous case is a partial deploy: the build or push fails, but the task definition still registers and the service still updates. The container then runs **old code with new environment variables**. A mismatch there fails at startup rather than degrading, because `ensure_default_model_selection()` resolves `DEFAULT_EMBEDDING_*` against the catalog compiled into the image:
+
+```text
+Unknown default embedding provider/model/dimension triple 'nim/<model>/<dimension>'
+```
+
+The task then shows `TaskFailedToStart` with the `app` container at exit code `3`.
+
+Model and profile changes are the common trigger, because they span both layers: the catalog lives in `backend/app/core/config.py` while the active selection is set by env in `deploy/ecs/task-definition.json`. Change both, and ship both.
+
+Confirm the push actually landed before blaming the task definition:
+
+```bash
+aws ecr describe-images --repository-name snaic_website/rag-backend --query "sort_by(imageDetails,&imagePushedAt)[-1].[imagePushedAt,imageTags]" --output text
+```
+
+If that timestamp is not from the deploy you just ran, the image never shipped. Re-run the build and push rather than editing anything in AWS.
+
+To read the startup failure itself:
+
+```bash
+aws logs get-log-events --log-group-name /ecs/backend-rag-multipurpose --log-stream-name app/app/<task-id> --limit 50 --query "events[*].message" --output text
+```
+
+`-SkipBuild` and `-SkipPush` are only safe when the running image already contains the code you expect.
 
 ## One-command redeploy
 

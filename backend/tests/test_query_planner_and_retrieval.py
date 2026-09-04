@@ -159,7 +159,7 @@ def test_retrieval_service_uses_multi_query_union_and_source_diversity() -> None
         similarity_threshold=0.35,
         rerank_enabled=True,
         rerank_invoke_url="",
-        rerank_model="nvidia/llama-nemotron-rerank-1b-v2",
+        rerank_model="nvidia/llama-nemotron-rerank-vl-1b-v2",
         rerank_max_candidates=6,
         rerank_min_candidates=2,
         retrieval_multi_query_enabled=True,
@@ -174,7 +174,7 @@ def test_retrieval_service_uses_multi_query_union_and_source_diversity() -> None
     selection = EmbeddingSelection(
         profile_name="nim_nemotron_2048",
         provider="nim",
-        model="nvidia/llama-nemotron-embed-1b-v2",
+        model="nvidia/nemotron-3-embed-1b",
         dimension=2048,
     )
 

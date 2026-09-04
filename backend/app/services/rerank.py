@@ -6,7 +6,10 @@ import httpx
 
 from app.core.config import RERANK_BASE_URL
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.models.schemas import RetrievedChunk
+
+logger = get_logger(__name__)
 
 
 class RerankService:
@@ -36,16 +39,26 @@ class RerankService:
         elif self._requires_api_key(invoke_url):
             raise ValueError("NIM_API_KEY is required for the configured reranker")
 
-        async with httpx.AsyncClient(
-            timeout=30.0,
-        ) as client:
-            response = await client.post(
-                invoke_url,
-                headers=headers,
-                json=payload,
+        try:
+            async with httpx.AsyncClient(
+                timeout=30.0,
+            ) as client:
+                response = await client.post(
+                    invoke_url,
+                    headers=headers,
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.HTTPError as exc:
+            # Retrieval already produced usable candidates, so a reranker outage
+            # (network error, or a model retired upstream) degrades ordering
+            # rather than failing the whole chat request.
+            logger.warning(
+                "rerank_request_failed",
+                extra={"rerank_model": self._settings.rerank_model, "error": str(exc)},
             )
-            response.raise_for_status()
-            data = response.json()
+            return chunks
 
         ordered_indexes = self._append_missing_indexes(
             self._extract_order(data, len(chunks)),

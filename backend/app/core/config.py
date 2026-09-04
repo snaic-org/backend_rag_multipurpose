@@ -100,7 +100,7 @@ DEFAULT_EMBEDDING_CATALOG = [
     {
         "profile_name": "nim_nemotron_2048",
         "provider": "nim",
-        "model": "nvidia/llama-nemotron-embed-1b-v2",
+        "model": "nvidia/nemotron-3-embed-1b",
         "dimension": 2048,
     },
 ]
@@ -177,7 +177,7 @@ class Settings(BaseSettings):
 
     rerank_enabled: bool = Field(default=False)
     rerank_invoke_url: str = Field(default="")
-    rerank_model: str = Field(default="nvidia/llama-nemotron-rerank-1b-v2")
+    rerank_model: str = Field(default="nvidia/llama-nemotron-rerank-vl-1b-v2")
     rerank_max_candidates: int = Field(default=12)
     rerank_min_candidates: int = Field(default=2)
     retrieval_multi_query_enabled: bool = Field(default=True)
