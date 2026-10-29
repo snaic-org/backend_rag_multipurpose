@@ -16,6 +16,7 @@ from app.core.config import (
     DEFAULT_CONTENTFUL_CONTENT_TYPES,
 )
 from app.core.logging import get_logger
+from app.core.model_profiles import match_profiles
 from app.db.qdrant import QdrantManager
 from app.db.redis import RedisManager
 from app.db.repositories.chunks import ChunkRepository
@@ -23,6 +24,7 @@ from app.db.repositories.documents import DocumentRepository
 from app.models.schemas import (
     AuthenticatedUser,
     CmsIngestRequest,
+    DocumentRecord,
     IngestFileResult,
     IngestFilesResponse,
     IngestTextRequest,
@@ -220,38 +222,17 @@ class IngestService:
         documents_inserted = 0
         chunks_inserted = 0
 
-        # Phase 1: dedup check and chunk prep for all documents
-        new_documents: list[tuple] = []
+        # Phase 1: dedup check and chunk prep. Nothing is written yet.
+        pending: list[tuple[NormalizedDocument, str, DocumentRecord | None, list[dict]]] = []
         for document in parsed_file.documents:
             content_hash = self._hash_document(document.content)
-            if force_reingest:
-                existing = await self._document_repository.get_by_content_hash(
-                    content_hash=content_hash,
-                    embedding_provider=embedding_provider,
-                    embedding_model=embedding_model,
-                )
-                if existing is not None:
-                    await self._chunk_repository.delete_for_document(existing.id, embedding_dimension)
-                    await self._document_repository.delete_by_id(existing.id)
-
-            document_record, created = await self._document_repository.create_or_get_by_content_hash(
-                document=document,
+            existing = await self._document_repository.get_by_content_hash(
+                content_hash=content_hash,
                 embedding_provider=embedding_provider,
                 embedding_model=embedding_model,
-                content_hash=content_hash,
-                created_by=created_by,
             )
-            if not created:
-                results.append(
-                    IngestFileResult(
-                        filename=parsed_file.filename,
-                        detected_type=parsed_file.detected_type,
-                        success=True,
-                        chunks_created=0,
-                        deduplicated=True,
-                        document_id=document_record.id,
-                    )
-                )
+            if existing is not None and not force_reingest:
+                results.append(self._deduplicated_result(parsed_file, existing.id))
                 continue
 
             chunks = self._chunking_service.build_chunks(document)
@@ -267,13 +248,14 @@ class IngestService:
                 )
                 continue
 
-            new_documents.append((document, document_record, chunks))
+            pending.append((document, content_hash, existing, chunks))
 
-        if not new_documents:
+        if not pending:
             return {"results": results, "documents_inserted": documents_inserted, "chunks_inserted": chunks_inserted}
 
-        # Phase 2: batch embed all chunks in groups to stay within provider limits
-        all_texts = [chunk["content"] for _, _, chunks in new_documents for chunk in chunks]
+        # Phase 2: embed everything before touching storage, so a provider failure
+        # leaves no half-written documents (which would later dedup to zero chunks).
+        all_texts = [chunk["content"] for _, _, _, chunks in pending for chunk in chunks]
         all_embeddings: list[list[float]] = []
         for i in range(0, len(all_texts), INGEST_EMBEDDING_BATCH_SIZE):
             batch = all_texts[i:i + INGEST_EMBEDDING_BATCH_SIZE]
@@ -285,21 +267,40 @@ class IngestService:
             )
             all_embeddings.extend(batch_embeddings)
 
-        # Phase 3: slice embeddings per document and upsert
+        # Phase 3: replace (on force_reingest), insert the document row, upsert its chunks.
         embed_offset = 0
-        for document, document_record, chunks in new_documents:
+        for document, content_hash, existing, chunks in pending:
             doc_embeddings = all_embeddings[embed_offset:embed_offset + len(chunks)]
             embed_offset += len(chunks)
 
-            chunk_upserts = self._chunking_service.build_chunk_upserts(document, doc_embeddings)
-            inserted_chunks = await self._chunk_repository.bulk_create(
-                document_id=document_record.id,
-                chunks=chunk_upserts,
+            if existing is not None:
+                await self._delete_document_and_chunks(existing.id, embedding_dimension)
+
+            document_record, created = await self._document_repository.create_or_get_by_content_hash(
+                document=document,
                 embedding_provider=embedding_provider,
                 embedding_model=embedding_model,
-                embedding_profile=embedding_profile,
-                embedding_dimension=embedding_dimension,
+                content_hash=content_hash,
+                created_by=created_by,
             )
+            if not created:
+                # A concurrent ingest stored the same content first.
+                results.append(self._deduplicated_result(parsed_file, document_record.id))
+                continue
+
+            chunk_upserts = self._chunking_service.build_chunk_upserts(document, chunks, doc_embeddings)
+            try:
+                inserted_chunks = await self._chunk_repository.bulk_create(
+                    document_id=document_record.id,
+                    chunks=chunk_upserts,
+                    embedding_provider=embedding_provider,
+                    embedding_model=embedding_model,
+                    embedding_profile=embedding_profile,
+                    embedding_dimension=embedding_dimension,
+                )
+            except Exception:
+                await self._document_repository.delete_by_id(document_record.id)
+                raise
 
             documents_inserted += 1
             chunks_inserted += len(inserted_chunks)
@@ -318,6 +319,28 @@ class IngestService:
             "documents_inserted": documents_inserted,
             "chunks_inserted": chunks_inserted,
         }
+
+    def _deduplicated_result(self, parsed_file: ParsedFile, document_id: UUID) -> IngestFileResult:
+        return IngestFileResult(
+            filename=parsed_file.filename,
+            detected_type=parsed_file.detected_type,
+            success=True,
+            chunks_created=0,
+            deduplicated=True,
+            document_id=document_id,
+        )
+
+    async def _delete_document_and_chunks(self, document_id: UUID, embedding_dimension: int) -> None:
+        await self._chunk_repository.delete_for_document(document_id, embedding_dimension)
+        await self._document_repository.delete_by_id(document_id)
+
+    async def _delete_documents(self, document_ids: list[UUID]) -> int:
+        """Delete documents and their chunks, each from the collection it was embedded into."""
+        deleted = 0
+        for document_id in document_ids:
+            if await self.delete_document(document_id):
+                deleted += 1
+        return deleted
 
     def _hash_document(self, content: str) -> str:
         normalized = " ".join(content.split())
@@ -433,6 +456,14 @@ class IngestService:
         except Exception as exc:
             return _fail(f"Failed to embed and store content: {exc}")
 
+        if force_reingest:
+            # A changed page has a new content hash, so the earlier copy is not
+            # replaced by the hash match in _persist_documents; drop it by URL.
+            current_ids = {result.document_id for result in persisted["results"] if result.document_id}
+            if current_ids:
+                earlier_ids = await self._document_repository.list_ids_by_url(url, source_type="website")
+                await self._delete_documents([doc_id for doc_id in earlier_ids if doc_id not in current_ids])
+
         return persisted
 
     async def ingest_cms(
@@ -462,51 +493,28 @@ class IngestService:
         all_results: list[IngestFileResult] = []
         total_chunks = 0
 
-        # Clean up before a forced re-ingest so stale/duplicate/wrong-type CMS docs
-        # do not linger. A full refresh (no specific content_types requested) wipes
-        # ALL existing CMS docs for a pristine rebuild. A targeted re-ingest only
-        # clears the specific content types being refreshed.
-        purged = 0
-        if payload.force_reingest:
-            if not payload.content_types:
-                cms_ids = await self._document_repository.list_ids_by_source_type("cms")
-                for doc_id in cms_ids:
-                    await self._chunk_repository.delete_for_document(doc_id, selection.dimension)
-                    await self._document_repository.delete_by_id(doc_id)
-                purged = len(cms_ids)
-                logger.info("cms_full_refresh_purged_documents count=%d", purged)
-
+        # Fetch and build every content type first. Nothing is deleted until the new
+        # content is stored, so a Contentful or embedding failure never empties the
+        # knowledge base.
+        fetched: list[tuple[dict, list[NormalizedDocument]]] = []
+        failed_content_types: list[str] = []
         async with httpx.AsyncClient(timeout=60.0) as client:
             for cfg in configs:
                 content_type = cfg["content_type"]
-                label = cfg["label"]
-
-                # For a targeted re-ingest, clear just this content type up front so
-                # entries whose text changed are replaced rather than duplicated.
-                if payload.force_reingest and payload.content_types:
-                    await self._delete_cms_documents(content_type, selection.dimension)
-
                 try:
                     entries, includes = await self._fetch_contentful_entries(
                         client, space, env, token, content_type,
                     )
                 except httpx.HTTPStatusError as exc:
-                    all_results.append(IngestFileResult(
-                        filename=f"contentful:{content_type}",
-                        detected_type="cms",
-                        success=False,
-                        chunks_created=0,
-                        error=f"Contentful returned HTTP {exc.response.status_code}. Check space id, token, and content type id.",
+                    all_results.append(self._cms_failure(
+                        content_type,
+                        f"Contentful returned HTTP {exc.response.status_code}. Check space id, token, and content type id.",
                     ))
+                    failed_content_types.append(content_type)
                     continue
                 except Exception as exc:
-                    all_results.append(IngestFileResult(
-                        filename=f"contentful:{content_type}",
-                        detected_type="cms",
-                        success=False,
-                        chunks_created=0,
-                        error=f"Failed to fetch from Contentful: {exc}",
-                    ))
+                    all_results.append(self._cms_failure(content_type, f"Failed to fetch from Contentful: {exc}"))
+                    failed_content_types.append(content_type)
                     continue
 
                 documents: list[NormalizedDocument] = []
@@ -524,30 +532,51 @@ class IngestService:
                         documents.append(roster)
 
                 if not documents:
-                    all_results.append(IngestFileResult(
-                        filename=f"contentful:{content_type}",
-                        detected_type="cms",
-                        success=False,
-                        chunks_created=0,
-                        error="No entries with usable text content were found for this content type.",
+                    all_results.append(self._cms_failure(
+                        content_type,
+                        "No entries with usable text content were found for this content type.",
                     ))
+                    failed_content_types.append(content_type)
                     continue
 
-                persisted = await self._persist_documents(
-                    parsed_file=ParsedFile(
-                        filename=f"{label} ({content_type})",
-                        detected_type="cms",
-                        documents=documents,
-                    ),
-                    embedding_provider=selection.provider,
-                    embedding_model=selection.model,
-                    embedding_profile=selection.profile_name,
-                    embedding_dimension=selection.dimension,
-                    force_reingest=payload.force_reingest,
-                    created_by=current_user.username,
-                )
-                all_results.extend(persisted["results"])
-                total_chunks += persisted["chunks_inserted"]
+                fetched.append((cfg, documents))
+
+        current_ids: set[UUID] = set()
+        for cfg, documents in fetched:
+            persisted = await self._persist_documents(
+                parsed_file=ParsedFile(
+                    filename=f"{cfg['label']} ({cfg['content_type']})",
+                    detected_type="cms",
+                    documents=documents,
+                ),
+                embedding_provider=selection.provider,
+                embedding_model=selection.model,
+                embedding_profile=selection.profile_name,
+                embedding_dimension=selection.dimension,
+                force_reingest=payload.force_reingest,
+                created_by=current_user.username,
+            )
+            all_results.extend(persisted["results"])
+            total_chunks += persisted["chunks_inserted"]
+            current_ids.update(result.document_id for result in persisted["results"] if result.document_id)
+
+        # On a forced re-ingest, remove CMS documents that the refresh did not
+        # reproduce (edited or deleted entries, retired content types). A full
+        # refresh covers every CMS document except those of content types whose
+        # fetch failed; a targeted one covers only the requested types.
+        if payload.force_reingest:
+            if payload.content_types:
+                candidate_ids: set[UUID] = set()
+                for cfg, _ in fetched:
+                    candidate_ids.update(await self._document_repository.list_ids_by_content_type(cfg["content_type"]))
+            else:
+                candidate_ids = set(await self._document_repository.list_ids_by_source_type("cms"))
+                for content_type in failed_content_types:
+                    candidate_ids.difference_update(
+                        await self._document_repository.list_ids_by_content_type(content_type)
+                    )
+            removed = await self._delete_documents(sorted(candidate_ids - current_ids))
+            logger.info("cms_refresh_removed_stale_documents count=%d", removed)
 
         return IngestFilesResponse(
             total_files=len(all_results),
@@ -559,12 +588,14 @@ class IngestService:
             results=all_results,
         )
 
-    async def _delete_cms_documents(self, content_type: str, embedding_dimension: int) -> int:
-        doc_ids = await self._document_repository.list_ids_by_content_type(content_type)
-        for doc_id in doc_ids:
-            await self._chunk_repository.delete_for_document(doc_id, embedding_dimension)
-            await self._document_repository.delete_by_id(doc_id)
-        return len(doc_ids)
+    def _cms_failure(self, content_type: str, error: str) -> IngestFileResult:
+        return IngestFileResult(
+            filename=f"contentful:{content_type}",
+            detected_type="cms",
+            success=False,
+            chunks_created=0,
+            error=error,
+        )
 
     def _resolve_cms_content_types(self, requested: list[str]) -> list[dict]:
         if not requested:
@@ -843,12 +874,23 @@ class IngestService:
         if doc is None:
             return False
 
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        selection = self._embedding_service.resolve_selection(
-            None, None, None, default_profile_name=default_embedding_profile,
+        # Chunks live in the collection of the profile the document was embedded
+        # with, which may differ from the currently selected profile.
+        matches = match_profiles(
+            self._settings.embedding_profiles,
+            provider=doc.embedding_provider,
+            model=doc.embedding_model,
         )
-
-        await self._chunk_repository.delete_for_document(document_id, selection.dimension)
+        if matches:
+            dimension = self._settings.embedding_profiles[matches[0]].dimension
+            await self._chunk_repository.delete_for_document(document_id, dimension)
+        else:
+            logger.warning(
+                "document_delete_unknown_embedding_profile id=%s provider=%s model=%s",
+                document_id,
+                doc.embedding_provider,
+                doc.embedding_model,
+            )
         await self._document_repository.delete_by_id(document_id)
         return True
 

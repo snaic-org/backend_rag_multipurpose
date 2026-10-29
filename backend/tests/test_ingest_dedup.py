@@ -96,7 +96,7 @@ class ForceChunkingService:
     def build_chunks(self, document: NormalizedDocument) -> list[dict]:
         return [{"content": document.content, "metadata": {"title": document.title}}]
 
-    def build_chunk_upserts(self, document: NormalizedDocument, embeddings: list[list[float]]):
+    def build_chunk_upserts(self, document: NormalizedDocument, chunks: list[dict], embeddings: list[list[float]]):
         return [
             SimpleNamespace(
                 chunk_index=0,

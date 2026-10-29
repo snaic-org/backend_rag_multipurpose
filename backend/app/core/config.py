@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.core.model_profiles import find_profile
+
 ProviderName = Literal["openai", "gemini", "ollama", "nim"]
 
 CHAT_REPEATED_PROMPT_LOOKBACK = 5
@@ -285,50 +287,32 @@ class Settings(BaseSettings):
 
     @property
     def default_generation_profile(self) -> str:
-        provider = self._require_default_generation_provider()
-        model = self._require_default_generation_model()
-        return _resolve_generation_profile_name(
+        if self.default_generation_provider is None or self.default_generation_model is None:
+            raise ValueError("DEFAULT_GENERATION_PROVIDER and DEFAULT_GENERATION_MODEL are required")
+        return find_profile(
             self.generation_profiles,
-            provider,
-            model,
+            "default generation provider/model pair",
+            provider=self.default_generation_provider,
+            model=self.default_generation_model,
         )
 
     @property
     def default_embedding_profile(self) -> str:
-        provider = self._require_default_embedding_provider()
-        model = self._require_default_embedding_model()
-        dimension = self._require_default_embedding_dimension()
-        return _resolve_embedding_profile_name(
+        if (
+            self.default_embedding_provider is None
+            or self.default_embedding_model is None
+            or self.default_embedding_dimension is None
+        ):
+            raise ValueError(
+                "DEFAULT_EMBEDDING_PROVIDER, DEFAULT_EMBEDDING_MODEL and DEFAULT_EMBEDDING_DIMENSION are required"
+            )
+        return find_profile(
             self.embedding_profiles,
-            provider,
-            model,
-            dimension,
+            "default embedding provider/model/dimension triple",
+            provider=self.default_embedding_provider,
+            model=self.default_embedding_model,
+            dimension=self.default_embedding_dimension,
         )
-
-    def _require_default_generation_provider(self) -> ProviderName:
-        if self.default_generation_provider is None:
-            raise ValueError("DEFAULT_GENERATION_PROVIDER is required")
-        return self.default_generation_provider
-
-    def _require_default_generation_model(self) -> str:
-        if self.default_generation_model is None:
-            raise ValueError("DEFAULT_GENERATION_MODEL is required")
-        return self.default_generation_model
-
-    def _require_default_embedding_provider(self) -> ProviderName:
-        if self.default_embedding_provider is None:
-            raise ValueError("DEFAULT_EMBEDDING_PROVIDER is required")
-        return self.default_embedding_provider
-
-    def _require_default_embedding_model(self) -> str:
-        if self.default_embedding_model is None:
-            raise ValueError("DEFAULT_EMBEDDING_MODEL is required")
-        return self.default_embedding_model
-
-    def _require_default_embedding_dimension(self) -> int:
-        if self.default_embedding_dimension is None:
-            raise ValueError("DEFAULT_EMBEDDING_DIMENSION is required")
-        return self.default_embedding_dimension
 
 
 @lru_cache
@@ -355,44 +339,3 @@ def _default_embedding_profiles() -> dict[str, EmbeddingProfileSpec]:
         )
         for item in DEFAULT_EMBEDDING_CATALOG
     }
-
-
-def _resolve_generation_profile_name(
-    catalog: dict[str, GenerationProfileSpec],
-    provider: ProviderName,
-    model: str,
-) -> str:
-    matches = [
-        name
-        for name, spec in catalog.items()
-        if spec.provider == provider and spec.model == model
-    ]
-    if not matches:
-        raise ValueError(f"Unknown default generation provider/model pair '{provider}/{model}'")
-    if len(matches) > 1:
-        raise ValueError(
-            f"Multiple generation profiles match the default provider/model pair '{provider}/{model}'"
-        )
-    return matches[0]
-
-
-def _resolve_embedding_profile_name(
-    catalog: dict[str, EmbeddingProfileSpec],
-    provider: ProviderName,
-    model: str,
-    dimension: int,
-) -> str:
-    matches = [
-        name
-        for name, spec in catalog.items()
-        if spec.provider == provider and spec.model == model and spec.dimension == dimension
-    ]
-    if not matches:
-        raise ValueError(
-            f"Unknown default embedding provider/model/dimension triple '{provider}/{model}/{dimension}'"
-        )
-    if len(matches) > 1:
-        raise ValueError(
-            "Multiple embedding profiles match the default provider/model/dimension triple"
-        )
-    return matches[0]
