@@ -39,8 +39,8 @@ def test_prompt_builder_includes_grounding_and_citations() -> None:
     assert "- Do not end responses with emoji or celebratory symbols." in system_content
     assert prompt.messages[1].role == "assistant"
     assert prompt.messages[1].content == "Conversation history:\nHi"
-    assert prompt.messages[2].content == "User question:\nWhat services do we offer?"
-    assert prompt.messages[3].content.startswith("Retrieved context:\n")
+    assert prompt.messages[2].content == "Question from the person you are chatting with:\nWhat services do we offer?"
+    assert prompt.messages[3].content.startswith("Here is accurate, verified information about SNAIC")
     assert "We offer AI chatbot implementation for SME customers." in prompt.messages[3].content
     assert prompt.citations[0].title == "Service Catalog"
 

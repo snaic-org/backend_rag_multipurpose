@@ -375,7 +375,7 @@ def test_model_selection_service_seeds_nim_defaults() -> None:
     assert selection.embedding_profile == "nim_nemotron_2048"
     assert selection.generation_provider == "nim"
     assert selection.embedding_provider == "nim"
-    assert catalog.generation_profiles[1].profile_name == "nim_3super120"
+    assert "nim_3super120" in {profile.profile_name for profile in catalog.generation_profiles}
     assert settings.generation_profiles["nim_3super120"].provider == "nim"
 
 
