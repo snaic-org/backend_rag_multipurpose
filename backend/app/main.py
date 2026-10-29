@@ -16,6 +16,7 @@ from app.services.auth_service import AuthService
 from app.services.chat_activity_service import ChatActivityService
 from app.services.chat_feedback_service import ChatFeedbackService
 from app.services.chat_service import ChatService
+from app.services.cms_sync import sync_cms_if_outdated
 from app.services.document_inspection_service import DocumentInspectionService
 from app.services.ingest_service import IngestService
 from app.services.model_health_service import ModelHealthService
@@ -94,12 +95,22 @@ async def lifespan(app: FastAPI):
         redis_manager=redis,
     )
 
+    # Runs in the background so the service is healthy while CMS content is
+    # re-indexed; chat keeps using the existing content meanwhile.
+    cms_sync_task = asyncio.create_task(sync_cms_if_outdated(settings, redis.client, app.state.ingest_service))
+
     logger.info("application_startup_complete")
 
     try:
         yield
     finally:
         # Stop background work first, then close every resource even if one fails.
+        if not cms_sync_task.done():
+            cms_sync_task.cancel()
+            try:
+                await cms_sync_task
+            except asyncio.CancelledError:
+                pass
         for close in (
             model_health_service.aclose,
             close_shared_http_clients,

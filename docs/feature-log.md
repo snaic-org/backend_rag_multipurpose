@@ -578,6 +578,22 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.7.1 - 2026-10-29
+
+Friendlier, more helpful chatbot answers. The HTTP API contract is unchanged.
+
+Changed:
+
+- new built-in system prompt: a warm, conversational SNAIC Bot that reads typos generously, resolves follow-ups ("list them by group", "their progress") from the conversation, shares what it knows when it only has part of an answer, offers related topics instead of a flat "I don't have details", and suggests the contact form only when staff are needed (not on every answer)
+- short follow-ups are retrieved with the previous exchange when they refer back to it (up to 8 words, now also "each", "both", "all"), and any short message in a conversation is also searched together with the previous question
+- project tags are indexed by name (Healthcare, Large Language Models (LLM)) instead of codes (HC, LLM)
+- the projects directory lists each project's status, industries and technologies, and groups projects by industry, technology and status with counts; each part is a section that fits one chunk
+- the no-results reply now offers topics to ask about
+
+Added:
+
+- `services/cms_sync.py`: when `contentful.CMS_INDEX_VERSION` changes, the server re-ingests all CMS content once on startup, in the background, under a Redis lock; a failed run is retried on the next startup
+
 ## v0.7.0 - 2026-10-29
 
 Codebase review: bug fixes, security hardening, performance and structure. The HTTP API contract (paths, request and response schemas, status codes) is unchanged.
