@@ -83,6 +83,15 @@ class ModelHealthService:
             return
         self._cached_at = float("-inf")
 
+    async def aclose(self) -> None:
+        """Cancel a background refresh still running at shutdown."""
+        if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_task.cancel()
+            try:
+                await self._refresh_task
+            except asyncio.CancelledError:
+                pass
+
     async def _refresh(self) -> None:
         self._cached = await self._run_probes()
         self._cached_at = time.monotonic()

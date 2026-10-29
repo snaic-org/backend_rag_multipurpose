@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import Settings
+from app.core.http_client import shared_http_client
+from app.core.model_profiles import match_profiles
 from app.core.logging import get_logger
 from app.models.schemas import EmbeddingSelection, ProviderName
 from app.services.cache_service import CacheService
@@ -50,7 +52,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         if self._settings.openai_api_key:
             headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
 
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=OPENAI_API_BASE_URL,
             timeout=30.0,
         ) as client:
@@ -95,7 +97,7 @@ class NimEmbeddingProvider(EmbeddingProvider):
             payload_with_input_type["input_type"] = input_type
             payload_with_input_type["truncate"] = "NONE"
 
-        async with httpx.AsyncClient(base_url=self._settings.nim_base_url, timeout=30.0) as client:
+        async with shared_http_client(base_url=self._settings.nim_base_url, timeout=30.0) as client:
             data = await self._request_with_retry(
                 client=client,
                 headers=headers,
@@ -184,11 +186,11 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
             raise ValueError("GEMINI_API_KEY is required for Gemini embeddings")
 
         embeddings: list[list[float]] = []
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with shared_http_client(timeout=30.0) as client:
             for text in texts:
                 response = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent",
-                    params={"key": self._settings.gemini_api_key},
+                    headers={"x-goog-api-key": self._settings.gemini_api_key},
                     json={"content": {"parts": [{"text": text}]}},
                 )
                 response.raise_for_status()
@@ -210,7 +212,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         input_type: str | None = None,
     ) -> list[list[float]]:
         embeddings: list[list[float]] = []
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=self._settings.ollama_base_url,
             timeout=60.0,
         ) as client:
@@ -332,19 +334,9 @@ class EmbeddingService:
     def _find_profile_name(self, provider: str | None, model: str | None) -> str:
         if provider is None and model is None:
             return self._settings.default_embedding_profile
-
-        matches: list[str] = []
-        for profile_name, profile in self._settings.embedding_profiles.items():
-            if provider is not None and profile.provider != provider:
-                continue
-            if model is not None and profile.model != model:
-                continue
-            matches.append(profile_name)
-
+        matches = match_profiles(self._settings.embedding_profiles, provider=provider, model=model)
         if not matches:
-            raise ValueError(
-                "No configured embedding profile matches the requested provider/model pair"
-            )
+            raise ValueError("No configured embedding profile matches the requested provider/model pair")
         if len(matches) > 1:
             raise ValueError(
                 "Multiple embedding profiles match the requested provider/model pair. "

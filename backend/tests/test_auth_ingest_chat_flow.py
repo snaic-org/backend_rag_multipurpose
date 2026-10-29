@@ -5,48 +5,9 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import asyncio
-import sys
-import types
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
+import pytest
 
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
-
-psycopg_module = types.ModuleType("psycopg")
-psycopg_rows_module = types.ModuleType("psycopg.rows")
-psycopg_rows_module.dict_row = object
-psycopg_types_module = types.ModuleType("psycopg.types")
-psycopg_types_json_module = types.ModuleType("psycopg.types.json")
-psycopg_types_json_module.Jsonb = object
-psycopg_module.rows = psycopg_rows_module
-psycopg_module.types = psycopg_types_module
-sys.modules.setdefault("psycopg", psycopg_module)
-sys.modules.setdefault("psycopg.rows", psycopg_rows_module)
-sys.modules.setdefault("psycopg.types", psycopg_types_module)
-sys.modules.setdefault("psycopg.types.json", psycopg_types_json_module)
-
-docx_module = types.ModuleType("docx")
-docx_module.Document = object
-sys.modules.setdefault("docx", docx_module)
-
-openpyxl_module = types.ModuleType("openpyxl")
-openpyxl_module.load_workbook = lambda *args, **kwargs: None
-sys.modules.setdefault("openpyxl", openpyxl_module)
-
-multipart_module = types.ModuleType("multipart")
-multipart_module.__version__ = "0.0.0"
-multipart_submodule = types.ModuleType("multipart.multipart")
-multipart_submodule.parse_options_header = lambda *args, **kwargs: (b"", {})
-multipart_module.multipart = multipart_submodule
-sys.modules.setdefault("multipart", multipart_module)
-sys.modules.setdefault("multipart.multipart", multipart_submodule)
 
 import jwt
 import httpx
@@ -368,13 +329,13 @@ class _RecordingModelHealthService:
         self.recheck_requests += 1
 
 
-def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int]:
+def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int, str]:
     app = build_app()
     model_health = _RecordingModelHealthService()
     app.state.model_health_service = model_health
     monkeypatch.setattr(chat_api, "_build_chat_service", lambda request: _FailingChatService(exc))
 
-    async def run_flow() -> int:
+    async def run_flow() -> tuple[int, str]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             token_response = await client.post(
@@ -387,24 +348,59 @@ def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int]:
                 headers={"Authorization": f"Bearer {token}"},
                 json={"message": "What is SNAIC?"},
             )
-            return chat_response.status_code
+            return chat_response.status_code, chat_response.json()["detail"]
 
-    status_code = asyncio.run(run_flow())
-    return status_code, model_health.recheck_requests
+    status_code, detail = asyncio.run(run_flow())
+    return status_code, model_health.recheck_requests, detail
 
 
 def test_chat_upstream_model_error_requests_model_health_recheck(monkeypatch) -> None:
     request = httpx.Request("POST", "https://integrate.api.nvidia.com/v1/chat/completions")
-    exc = httpx.HTTPStatusError("404", request=request, response=httpx.Response(404, request=request))
+    exc = httpx.HTTPStatusError(
+        "Client error '404 Not Found' for url 'https://integrate.api.nvidia.com/v1/chat/completions'",
+        request=request,
+        response=httpx.Response(404, request=request),
+    )
 
-    status_code, recheck_requests = _chat_with_failure(monkeypatch, exc)
+    status_code, recheck_requests, detail = _chat_with_failure(monkeypatch, exc)
 
     assert status_code == 502
     assert recheck_requests == 1
+    assert "nvidia.com" not in detail
+    assert detail == "The AI service is temporarily unavailable. Please try again shortly."
 
 
 def test_chat_guardrail_rejection_does_not_request_model_health_recheck(monkeypatch) -> None:
-    status_code, recheck_requests = _chat_with_failure(monkeypatch, ValueError("Prompt too long"))
+    status_code, recheck_requests, detail = _chat_with_failure(monkeypatch, ValueError("Prompt too long"))
 
     assert status_code == 400
     assert recheck_requests == 0
+    assert detail == "Prompt too long"
+
+
+def test_chat_internal_error_hides_details_but_keeps_status(monkeypatch) -> None:
+    exc = RuntimeError("NIM embeddings request failed with status 503: account mGI7 internal error")
+
+    status_code, _, detail = _chat_with_failure(monkeypatch, exc)
+
+    assert status_code == 503
+    assert "mGI7" not in detail
+    assert detail == "Chat is temporarily unavailable. Please try again shortly."
+
+
+def test_login_checks_a_password_hash_even_for_unknown_users() -> None:
+    from app.services.auth_service import AuthService
+
+    class EmptyRepository:
+        async def get_user_by_username(self, username):
+            return None
+
+    service = AuthService(SimpleNamespace(), postgres_pool=None)
+    service._repository = EmptyRepository()
+    verified: list[str] = []
+    service._verify_password = lambda password, stored_hash: verified.append(stored_hash) or False
+
+    with pytest.raises(ValueError, match="Invalid username or password"):
+        asyncio.run(service.issue_access_token("nobody", "guess"))
+
+    assert len(verified) == 1 and verified[0].startswith("scrypt$")

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from app.api.errors import raise_value_error
 from app.core.security import require_admin_user
 from app.models.schemas import (
     AuthenticatedUser,
@@ -62,11 +63,7 @@ def _parse_activity_datetime(value: str | None, *, end_of_day: bool) -> datetime
 
 
 def _build_reset_service(request: Request) -> ResetService:
-    return ResetService(
-        postgres_pool=request.app.state.postgres.pool,
-        qdrant_manager=request.app.state.qdrant,
-        redis_manager=request.app.state.redis,
-    )
+    return request.app.state.reset_service
 
 
 def _build_auth_service(request: Request):
@@ -90,22 +87,11 @@ def _build_chat_feedback_service(request: Request) -> ChatFeedbackService:
 
 
 def _build_document_inspection_service(request: Request) -> DocumentInspectionService:
-    return DocumentInspectionService(
-        settings=request.app.state.settings,
-        postgres_pool=request.app.state.postgres.pool,
-        qdrant_manager=request.app.state.qdrant,
-    )
+    return request.app.state.document_inspection_service
 
 
 def _build_ingest_service(request: Request) -> IngestService:
-    return IngestService(
-        settings=request.app.state.settings,
-        redis_manager=request.app.state.redis,
-        qdrant_manager=request.app.state.qdrant,
-        postgres_pool=request.app.state.postgres.pool,
-        provider_registry=request.app.state.providers,
-        model_selection_service=request.app.state.model_selection_service,
-    )
+    return request.app.state.ingest_service
 
 
 @router.delete("/reset", response_model=ResetResponse)
@@ -167,11 +153,7 @@ async def get_document(
     try:
         return await _build_document_inspection_service(request).get_document(document_id)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.get("/documents/{document_id}/raw", response_model=list[ChunkRecord])
@@ -183,11 +165,7 @@ async def get_document_raw_chunks(
     try:
         return await _build_document_inspection_service(request).get_document_chunks(document_id)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.delete(
@@ -221,11 +199,7 @@ async def reingest_document(
     try:
         details = await inspection_service.get_document(document_id)
     except ValueError as exc:
-        message = str(exc)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND if "not found" in message.lower() else status.HTTP_400_BAD_REQUEST,
-            detail=message,
-        ) from exc
+        raise_value_error(exc)
 
     if details.document.source_type != "website":
         raise HTTPException(
@@ -380,11 +354,7 @@ async def update_user(
     try:
         return await _build_auth_service(request).update_user(user_id, payload, current_user)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -396,8 +366,4 @@ async def delete_user(
     try:
         await _build_auth_service(request).delete_user(user_id, current_user)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)

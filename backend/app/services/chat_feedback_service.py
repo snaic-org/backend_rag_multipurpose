@@ -17,13 +17,11 @@ class ChatFeedbackService:
         self._repository = ChatFeedbackRepository(postgres_pool)
         self._activity_repository = ChatActivityRepository(postgres_pool)
 
-    async def ensure_table(self) -> None:
-        await self._repository.ensure_table()
-
     async def submit_feedback(
         self,
         payload: ChatFeedbackRequest,
         current_user: AuthenticatedUser,
+        caller_session_id: str | None = None,
     ) -> ChatFeedbackResponse:
         record = await self._repository.create(
             user_id=current_user.id,
@@ -32,7 +30,12 @@ class ChatFeedbackService:
             rating=payload.rating,
             comments=payload.comments,
         )
-        activities = await self._activity_repository.list_by_session_ids([record.session_id])
+        # The transcript is only echoed back to the session's own client (or an
+        # admin); otherwise anyone could read another visitor's chat by sending
+        # that session id.
+        activities: list[ChatActivityRecord] = []
+        if current_user.is_admin or caller_session_id == record.session_id:
+            activities = await self._activity_repository.list_by_session_ids([record.session_id])
         return self._to_feedback_response(record, activities)
 
     async def list_feedback(

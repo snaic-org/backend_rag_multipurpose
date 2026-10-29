@@ -4,7 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-ProviderName = Literal["openai", "gemini", "ollama", "nim"]
+from app.core.config import ProviderName
+
 SupportedFileSourceType = Literal["txt", "md", "docx", "csv", "xlsx"]
 
 
@@ -91,14 +92,6 @@ class IngestFileResult(BaseModel):
     deduplicated: bool = False
     error: str | None = None
     document_id: UUID | None = None
-
-
-class IngestSummary(BaseModel):
-    documents_inserted: int
-    chunks_inserted: int
-    embedding_provider: ProviderName
-    embedding_model: str
-    failures: list[str] = Field(default_factory=list)
 
 
 class IngestFilesResponse(BaseModel):

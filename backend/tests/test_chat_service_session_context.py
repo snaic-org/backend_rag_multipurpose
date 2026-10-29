@@ -1,29 +1,5 @@
-import sys
-import types
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
 
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
-
-psycopg_module = types.ModuleType("psycopg")
-psycopg_rows_module = types.ModuleType("psycopg.rows")
-psycopg_rows_module.dict_row = object
-psycopg_types_module = types.ModuleType("psycopg.types")
-psycopg_types_json_module = types.ModuleType("psycopg.types.json")
-psycopg_types_json_module.Jsonb = object
-psycopg_module.rows = psycopg_rows_module
-psycopg_module.types = psycopg_types_module
-sys.modules.setdefault("psycopg", psycopg_module)
-sys.modules.setdefault("psycopg.rows", psycopg_rows_module)
-sys.modules.setdefault("psycopg.types", psycopg_types_module)
-sys.modules.setdefault("psycopg.types.json", psycopg_types_json_module)
 
 from app.models.schemas import ChatMessage
 from app.services.chat_service import ChatService
@@ -78,3 +54,30 @@ def test_chat_service_strips_user_question_preamble_from_final_answer() -> None:
     )
 
     assert answer == "Project scoping defines the project goals, scope, timeline, and expected outcomes."
+
+
+def test_short_standalone_question_is_not_treated_as_follow_up() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="List the projects"),
+        ChatMessage(role="assistant", content="1. Project A\n2. Project B"),
+    ]
+
+    assert service._build_retrieval_message("Where is SNAIC located?", history) == "Where is SNAIC located?"
+    assert "user follow-up: Tell me more" in service._build_retrieval_message("Tell me more", history)
+    assert "user follow-up: Why?" in service._build_retrieval_message("Why?", history)
+
+
+def test_follow_up_retrieval_query_caps_long_history() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="old question " * 50),
+        ChatMessage(role="assistant", content="old answer " * 50),
+        ChatMessage(role="user", content="List the projects"),
+        ChatMessage(role="assistant", content="x" * 5000),
+    ]
+
+    retrieval_message = service._build_retrieval_message("tell me more about it", history)
+
+    assert "old question" not in retrieval_message
+    assert len(retrieval_message) < 1700

@@ -18,12 +18,16 @@ class XlsxParser(FileParser):
         shared_metadata: dict | None = None,
         tags: list[str] | None = None,
     ) -> ParsedFile:
-        workbook = load_workbook(filename=BytesIO(content), data_only=True)
+        # read_only streams rows instead of building the whole workbook in memory.
+        workbook = load_workbook(filename=BytesIO(content), data_only=True, read_only=True)
         base_metadata = dict(shared_metadata or {})
         base_metadata["tags"] = tags or []
         documents: list[NormalizedDocument] = []
 
         for sheet in workbook.worksheets:
+            # Read-only mode trusts the sheet's stored <dimension>, which some
+            # exporters write wrongly; recompute it so no rows or columns are lost.
+            sheet.reset_dimensions()
             rows = list(sheet.iter_rows(values_only=True))
             if not rows:
                 continue
@@ -72,6 +76,7 @@ class XlsxParser(FileParser):
                     )
                 )
 
+        workbook.close()
         if not documents:
             raise ValueError("xlsx file has no readable sheets or rows")
 

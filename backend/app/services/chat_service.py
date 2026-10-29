@@ -1,5 +1,9 @@
+import re
+from dataclasses import dataclass
+
 from app.core.config import (
     CHAT_MAX_CONTEXT_CHUNK_CHARS,
+    EMBEDDING_CACHE_TTL_SECONDS,
     SESSION_STORAGE_ENABLED,
     SESSION_TTL_SECONDS,
     Settings,
@@ -12,18 +16,31 @@ from app.models.schemas import (
     ChatServiceResult,
     ChatStreamState,
     GenerationSelection,
+    ModelSelectionResponse,
 )
+from app.providers.common import contains_thinking_block, strip_thinking_blocks
 from app.providers.registry import ProviderRegistry
 from app.services.guardrails import GuardrailService
 from app.services.embeddings import EmbeddingService
 from app.services.assistant_copy import SAFE_FALLBACK_TEXT
+from app.services.cache_service import CacheService
 from app.services.model_selection_service import ModelSelectionService
 from app.services.prompt_builder import PromptBuilder
 from app.services.query_planner import QueryPlannerService
 from app.services.system_prompt_service import SystemPromptService
 from app.services.retrieval import RetrievalService
 from app.services.session_service import SessionService
-import re
+
+# Words that make a short message depend on the previous exchange.
+_REFERENCE_WORDS = frozenset(
+    {
+        "it", "its", "that", "this", "these", "those", "them", "they", "their",
+        "he", "she", "him", "his", "her", "more", "else", "another", "other",
+        "one", "ones", "same", "previous", "above", "first", "second", "third",
+        "fourth", "fifth", "last", "next",
+    }
+)
+_FOLLOW_UP_CONTEXT_CHARS = 1500
 
 
 class ChatService:
@@ -38,7 +55,10 @@ class ChatService:
     ) -> None:
         self._settings = settings
         self._providers = provider_registry
-        self._embedding_service = EmbeddingService(settings)
+        self._embedding_service = EmbeddingService(
+            settings,
+            cache_service=CacheService(redis_manager.client, ttl_seconds=EMBEDDING_CACHE_TTL_SECONDS),
+        )
         self._retrieval_service = RetrievalService(settings, qdrant_manager, redis_manager)
         self._prompt_builder = PromptBuilder()
         self._query_planner = QueryPlannerService(settings)
@@ -214,8 +234,9 @@ class ChatService:
     ) -> "_PreparedChatContext":
         await self._guardrails.enforce_request_budget(rate_limit_key)
 
-        generation = await self._resolve_generation_selection()
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
+        model_selection = await self._model_selection_service.get_model_selection()
+        generation = self._resolve_generation_selection(model_selection)
+        default_embedding_profile = model_selection.embedding_profile
         session_id = self._resolve_session_id(session_id)
         session_messages = await self._session_service.get_messages(session_id)
         history = session_messages
@@ -320,11 +341,12 @@ class ChatService:
         if not self._is_contextual_follow_up(user_message):
             return user_message
 
-        recent_history = history[-4:]
+        # The last exchange is what a follow-up refers to; cap it so a long earlier
+        # answer does not drown out the new question in the embedding.
+        recent_history = [message for message in history[-2:] if message.content.strip()]
         history_text = "\n".join(
-            f"{message.role}: {message.content}"
+            f"{message.role}: {message.content.strip()[:_FOLLOW_UP_CONTEXT_CHARS]}"
             for message in recent_history
-            if message.content.strip()
         )
         if not history_text:
             return user_message
@@ -332,7 +354,12 @@ class ChatService:
 
     def _is_contextual_follow_up(self, user_message: str) -> bool:
         normalized = user_message.strip().lower()
-        if len(normalized.split()) <= 5:
+        words = re.findall(r"[a-z0-9']+", normalized)
+        if len(words) <= 2:
+            return True
+        # A short message is only a follow-up when it refers back to something;
+        # "Where is SNAIC located?" is short but stands on its own.
+        if len(words) <= 5 and any(word in _REFERENCE_WORDS for word in words):
             return True
         follow_up_patterns = (
             r"\b(tell|explain|describe)\s+me\s+(more\s+)?about\s+(\d+|it|that|this|them)\b",
@@ -342,75 +369,37 @@ class ChatService:
         )
         return any(re.search(pattern, normalized) for pattern in follow_up_patterns)
 
-    async def _resolve_generation_selection(self) -> GenerationSelection:
-        default_profile = await self._model_selection_service.get_generation_profile_name()
-        default_generation = self._settings.generation_profiles.get(default_profile)
-        if default_generation is None:
-            raise ValueError(f"Unknown generation profile '{default_profile}'")
-        resolved_provider = default_generation.provider
-        resolved_model = default_generation.model
-
-        if resolved_provider not in self._providers.supported_provider_names():
-            raise ValueError(f"Unsupported generation provider '{resolved_provider}'")
-
-        return GenerationSelection(provider=resolved_provider, model=resolved_model)
+    def _resolve_generation_selection(self, model_selection: ModelSelectionResponse) -> GenerationSelection:
+        if model_selection.generation_provider not in self._providers.supported_provider_names():
+            raise ValueError(f"Unsupported generation provider '{model_selection.generation_provider}'")
+        return GenerationSelection(
+            provider=model_selection.generation_provider,
+            model=model_selection.generation_model,
+        )
 
     def _format_answer(self, text: str | None, thinking: str | None) -> str:
         text = text or ""
         if self._settings.chat_show_thinking_block:
-            if thinking and not self._contains_thinking_block(text):
+            if thinking and not contains_thinking_block(text):
                 return f"<thinking>\n{thinking}\n</thinking>\n\n{text}".strip()
             return text
 
-        return self._strip_thinking_blocks(text)
-
-    def _contains_thinking_block(self, text: str | None) -> bool:
-        if not text:
-            return False
-        lowered = text.lower()
-        return "<think>" in lowered or "<thinking>" in lowered
-
-    def _strip_thinking_blocks(self, text: str | None) -> str:
-        if not text:
-            return ""
-        stripped = re.sub(
-            r"<(?P<tag>think|thinking)>.*?</(?P=tag)>",
-            "",
-            text,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+        return strip_thinking_blocks(text)
 
 
+@dataclass
 class _PreparedChatContext:
-    def __init__(
-        self,
-        provider: str,
-        model: str,
-        embedding_profile: str,
-        embedding_provider: str,
-        embedding_model: str,
-        prompt_messages: list[ChatMessage],
-        retrieved_chunks: list,
-        thinking: str | None,
-        citations: list,
-        used_fallback: bool,
-        fallback_text: str,
-        session_id: str | None,
-        user_message: str,
-        message_history: list[ChatMessage],
-    ) -> None:
-        self.provider = provider
-        self.model = model
-        self.embedding_profile = embedding_profile
-        self.embedding_provider = embedding_provider
-        self.embedding_model = embedding_model
-        self.prompt_messages = prompt_messages
-        self.retrieved_chunks = retrieved_chunks
-        self.thinking = thinking
-        self.citations = citations
-        self.used_fallback = used_fallback
-        self.fallback_text = fallback_text
-        self.session_id = session_id
-        self.user_message = user_message
-        self.message_history = message_history
+    provider: str
+    model: str
+    embedding_profile: str
+    embedding_provider: str
+    embedding_model: str
+    prompt_messages: list[ChatMessage]
+    retrieved_chunks: list
+    thinking: str | None
+    citations: list
+    used_fallback: bool
+    fallback_text: str
+    session_id: str | None
+    user_message: str
+    message_history: list[ChatMessage]

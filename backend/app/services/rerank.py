@@ -6,6 +6,7 @@ import httpx
 
 from app.core.config import RERANK_BASE_URL
 from app.core.config import Settings
+from app.core.http_client import shared_http_client
 from app.core.logging import get_logger
 from app.models.schemas import RetrievedChunk
 
@@ -64,7 +65,7 @@ class RerankService:
         elif self._requires_api_key(invoke_url):
             raise ValueError("NIM_API_KEY is required for the configured reranker")
 
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             timeout=30.0,
         ) as client:
             response = await client.post(

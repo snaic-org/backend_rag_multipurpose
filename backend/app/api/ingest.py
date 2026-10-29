@@ -15,14 +15,7 @@ router = APIRouter()
 
 
 def _build_ingest_service(request: Request) -> IngestService:
-    return IngestService(
-        settings=request.app.state.settings,
-        redis_manager=request.app.state.redis,
-        qdrant_manager=request.app.state.qdrant,
-        postgres_pool=request.app.state.postgres.pool,
-        provider_registry=request.app.state.providers,
-        model_selection_service=request.app.state.model_selection_service,
-    )
+    return request.app.state.ingest_service
 
 
 @router.post("/text", response_model=IngestTextResponse)

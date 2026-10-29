@@ -42,9 +42,10 @@ class ChunkingService:
     def build_chunk_upserts(
         self,
         document: NormalizedDocument,
+        chunks: list[dict],
         embeddings: list[list[float]],
     ) -> list[ChunkUpsert]:
-        chunks = self.build_chunks(document)
+        """Pair chunks from build_chunks with their embeddings."""
         if len(chunks) != len(embeddings):
             raise ValueError("chunk and embedding counts do not match")
 

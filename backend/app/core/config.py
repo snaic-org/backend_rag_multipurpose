@@ -7,7 +7,11 @@ from pydantic import BaseModel, Field
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from app.core.model_profiles import find_profile
+
 ProviderName = Literal["openai", "gemini", "ollama", "nim"]
+
+_PLACEHOLDER_SECRET = "change-me-immediately"
 
 CHAT_REPEATED_PROMPT_LOOKBACK = 5
 CHAT_MAX_CONTEXT_CHUNK_CHARS = 1800
@@ -21,31 +25,10 @@ CHAT_MAX_RESPONSE_TOKENS = 2560
 CHAT_TOP_P = 1.0
 CHAT_FREQUENCY_PENALTY = 0.0
 CHAT_PRESENCE_PENALTY = 0.0
-CHAT_DEBUG_ENABLED = True
-CHAT_BINARY_PRECOMPUTE_ENABLED = False
+CHAT_DEBUG_ENABLED = False
 EMBEDDING_CACHE_TTL_SECONDS = 3600
 SESSION_TTL_SECONDS = 86400
 
-CONTENTFUL_CDN_BASE = "https://cdn.contentful.com"
-
-# Default Contentful content types to ingest, in priority order.
-# Each maps a Contentful content_type id to a human label, the public page
-# it renders on (used as the citation URL), and whether entries have their
-# own detail page (id appended to the url).
-DEFAULT_CONTENTFUL_CONTENT_TYPES = [
-    {"content_type": "jointCentreProjectNew", "label": "Projects", "url_path": "/projects", "detail_page": True,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) research project.", "roster": True},
-    {"content_type": "jointCentreNews", "label": "News", "url_path": "/news", "detail_page": True,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) news item or announcement.", "roster": True},
-    {"content_type": "team", "label": "Our Team", "url_path": "/our-team", "detail_page": False,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) team member profile.", "roster": True},
-]
-
-# Contentful fields that add noise rather than signal for retrieval.
-CONTENTFUL_SKIP_FIELDS = {
-    "profilepicture", "order", "image", "thumbnail", "featuredimage", "slug",
-    "heroimage", "architectureimage", "screenshots",
-}
 SESSION_STORAGE_ENABLED = True
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -135,19 +118,17 @@ class Settings(BaseSettings):
             "Contact: shioktech@gmail.com"
         )
     )
-    app_host: str = Field(default="0.0.0.0")
-    app_port: int = Field(default=8000)
     log_level: str = Field(default="INFO")
     # NoDecode: let the validator below split comma-separated values instead of
     # pydantic-settings requiring a JSON list.
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     auth_enabled: bool = Field(default=True)
-    auth_jwt_secret: str = Field(default="change-me-immediately")
+    auth_jwt_secret: str = Field(default=_PLACEHOLDER_SECRET)
     auth_jwt_algorithm: str = Field(default="HS256")
     auth_access_token_ttl_seconds: int = Field(default=3600)
     auth_bootstrap_admin_username: str = Field(default="admin")
-    auth_bootstrap_admin_password: str = Field(default="change-me-immediately")
+    auth_bootstrap_admin_password: str = Field(default=_PLACEHOLDER_SECRET)
     auth_require_https: bool = Field(default=False)
 
     postgres_dsn: str | None = Field(default=None)
@@ -170,6 +151,9 @@ class Settings(BaseSettings):
     contentful_delivery_token: str | None = Field(default=None)
     contentful_environment: str = Field(default="master")
     contentful_site_base_url: str = Field(default="https://www.snaic.net")
+    # Website ingestion refuses private/internal addresses (SSRF protection);
+    # enable only to ingest intranet sites deliberately.
+    website_ingest_allow_private_hosts: bool = Field(default=False)
 
     openai_api_key: str | None = Field(default=None)
     nim_api_key: str | None = Field(default=None)
@@ -202,7 +186,6 @@ class Settings(BaseSettings):
     )
     chunk_size: int = Field(default=1000)
     chunk_overlap: int = Field(default=150)
-    structured_rows_per_chunk: int = Field(default=10)
     similarity_threshold: float = Field(default=0.35)
     max_session_messages: int = Field(default=12)
 
@@ -239,30 +222,15 @@ class Settings(BaseSettings):
             return [str(origin).strip().rstrip("/") for origin in value if str(origin).strip()]
         return value
 
-    @field_validator("default_generation_provider", mode="before")
+    @field_validator(
+        "default_generation_provider",
+        "default_generation_model",
+        "default_embedding_provider",
+        "default_embedding_model",
+        mode="before",
+    )
     @classmethod
-    def normalize_default_generation_provider(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_generation_model", mode="before")
-    @classmethod
-    def normalize_default_generation_model(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_embedding_provider", mode="before")
-    @classmethod
-    def normalize_default_embedding_provider(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_embedding_model", mode="before")
-    @classmethod
-    def normalize_default_embedding_model(cls, value: object) -> object:
+    def strip_default_model_settings(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip()
         return value
@@ -283,52 +251,49 @@ class Settings(BaseSettings):
         )
         return self
 
+    def insecure_setting_warnings(self) -> list[str]:
+        """Settings that are unsafe outside local development."""
+        warnings: list[str] = []
+        if not self.auth_enabled:
+            warnings.append("AUTH_ENABLED=false: every caller is treated as an admin")
+        if self.auth_enabled and (
+            self.auth_jwt_secret == _PLACEHOLDER_SECRET or len(self.auth_jwt_secret) < 32
+        ):
+            warnings.append("AUTH_JWT_SECRET is the placeholder or shorter than 32 characters")
+        if self.auth_enabled and self.auth_bootstrap_admin_password == _PLACEHOLDER_SECRET:
+            warnings.append("AUTH_BOOTSTRAP_ADMIN_PASSWORD is still the placeholder value")
+        if self.chat_debug_enabled:
+            warnings.append("CHAT_DEBUG_ENABLED=true: chat responses expose prompts, retrieved chunks and history")
+        return warnings
+
     @property
     def default_generation_profile(self) -> str:
-        provider = self._require_default_generation_provider()
-        model = self._require_default_generation_model()
-        return _resolve_generation_profile_name(
+        if self.default_generation_provider is None or self.default_generation_model is None:
+            raise ValueError("DEFAULT_GENERATION_PROVIDER and DEFAULT_GENERATION_MODEL are required")
+        return find_profile(
             self.generation_profiles,
-            provider,
-            model,
+            "default generation provider/model pair",
+            provider=self.default_generation_provider,
+            model=self.default_generation_model,
         )
 
     @property
     def default_embedding_profile(self) -> str:
-        provider = self._require_default_embedding_provider()
-        model = self._require_default_embedding_model()
-        dimension = self._require_default_embedding_dimension()
-        return _resolve_embedding_profile_name(
+        if (
+            self.default_embedding_provider is None
+            or self.default_embedding_model is None
+            or self.default_embedding_dimension is None
+        ):
+            raise ValueError(
+                "DEFAULT_EMBEDDING_PROVIDER, DEFAULT_EMBEDDING_MODEL and DEFAULT_EMBEDDING_DIMENSION are required"
+            )
+        return find_profile(
             self.embedding_profiles,
-            provider,
-            model,
-            dimension,
+            "default embedding provider/model/dimension triple",
+            provider=self.default_embedding_provider,
+            model=self.default_embedding_model,
+            dimension=self.default_embedding_dimension,
         )
-
-    def _require_default_generation_provider(self) -> ProviderName:
-        if self.default_generation_provider is None:
-            raise ValueError("DEFAULT_GENERATION_PROVIDER is required")
-        return self.default_generation_provider
-
-    def _require_default_generation_model(self) -> str:
-        if self.default_generation_model is None:
-            raise ValueError("DEFAULT_GENERATION_MODEL is required")
-        return self.default_generation_model
-
-    def _require_default_embedding_provider(self) -> ProviderName:
-        if self.default_embedding_provider is None:
-            raise ValueError("DEFAULT_EMBEDDING_PROVIDER is required")
-        return self.default_embedding_provider
-
-    def _require_default_embedding_model(self) -> str:
-        if self.default_embedding_model is None:
-            raise ValueError("DEFAULT_EMBEDDING_MODEL is required")
-        return self.default_embedding_model
-
-    def _require_default_embedding_dimension(self) -> int:
-        if self.default_embedding_dimension is None:
-            raise ValueError("DEFAULT_EMBEDDING_DIMENSION is required")
-        return self.default_embedding_dimension
 
 
 @lru_cache
@@ -355,44 +320,3 @@ def _default_embedding_profiles() -> dict[str, EmbeddingProfileSpec]:
         )
         for item in DEFAULT_EMBEDDING_CATALOG
     }
-
-
-def _resolve_generation_profile_name(
-    catalog: dict[str, GenerationProfileSpec],
-    provider: ProviderName,
-    model: str,
-) -> str:
-    matches = [
-        name
-        for name, spec in catalog.items()
-        if spec.provider == provider and spec.model == model
-    ]
-    if not matches:
-        raise ValueError(f"Unknown default generation provider/model pair '{provider}/{model}'")
-    if len(matches) > 1:
-        raise ValueError(
-            f"Multiple generation profiles match the default provider/model pair '{provider}/{model}'"
-        )
-    return matches[0]
-
-
-def _resolve_embedding_profile_name(
-    catalog: dict[str, EmbeddingProfileSpec],
-    provider: ProviderName,
-    model: str,
-    dimension: int,
-) -> str:
-    matches = [
-        name
-        for name, spec in catalog.items()
-        if spec.provider == provider and spec.model == model and spec.dimension == dimension
-    ]
-    if not matches:
-        raise ValueError(
-            f"Unknown default embedding provider/model/dimension triple '{provider}/{model}/{dimension}'"
-        )
-    if len(matches) > 1:
-        raise ValueError(
-            "Multiple embedding profiles match the default provider/model/dimension triple"
-        )
-    return matches[0]

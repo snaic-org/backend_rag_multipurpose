@@ -11,8 +11,20 @@ from app.core.config import (
     CHAT_TOP_P,
     Settings,
 )
+from app.core.http_client import shared_http_client
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
+from app.providers.common import (
+    bearer_headers,
+    extract_inline_thinking,
+    raise_for_status,
+    should_retry_without_thinking,
+    strip_thinking_delta,
+    is_thinking_enabled,
+)
+
+
+_THINKING_ERROR_TOKENS = ("detailed thinking", "thinking", "reasoning", "think")
 
 
 class NimProvider(ProviderAdapter):
@@ -61,11 +73,9 @@ class NimProvider(ProviderAdapter):
     ) -> ChatCompletionResult:
         if not self._settings.nim_base_url.strip():
             raise ValueError("NIM_BASE_URL is required for NIM chat")
-        if self._requires_api_key() and not self._settings.nim_api_key:
-            raise ValueError("NIM_API_KEY is required for NIM chat")
 
-        headers = self._build_headers()
-        thinking_enabled = self._thinking_enabled()
+        headers = bearer_headers(self._settings.nim_api_key)
+        thinking_enabled = is_thinking_enabled(self._settings)
         data = await self._post_chat(messages, model, headers=headers, thinking_enabled=thinking_enabled)
         if data is None and thinking_enabled:
             data = await self._post_chat(messages, model, headers=headers, thinking_enabled=False)
@@ -82,11 +92,9 @@ class NimProvider(ProviderAdapter):
     ) -> AsyncIterator[str]:
         if not self._settings.nim_base_url.strip():
             raise ValueError("NIM_BASE_URL is required for NIM chat")
-        if self._requires_api_key() and not self._settings.nim_api_key:
-            raise ValueError("NIM_API_KEY is required for NIM chat")
 
-        headers = self._build_headers()
-        thinking_enabled = self._thinking_enabled()
+        headers = bearer_headers(self._settings.nim_api_key)
+        thinking_enabled = is_thinking_enabled(self._settings)
         try:
             async for delta in self._stream_chat(messages, model, headers=headers, thinking_enabled=thinking_enabled):
                 yield delta
@@ -102,10 +110,6 @@ class NimProvider(ProviderAdapter):
         host = urlparse(self._settings.nim_base_url).netloc.lower()
         return host.endswith("api.nvidia.com")
 
-    def _requires_api_key(self) -> bool:
-        host = urlparse(self._settings.nim_base_url).netloc.lower()
-        return "api.openai.com" in host
-
     def _extract_text_and_thinking(self, data: dict) -> tuple[str, str | None]:
         choices = data.get("choices", [])
         if not choices:
@@ -117,20 +121,11 @@ class NimProvider(ProviderAdapter):
         if thinking is not None:
             return text, thinking
 
-        extracted = self._extract_inline_thinking(text)
+        extracted = extract_inline_thinking(text)
         if extracted is not None:
             return text, extracted
 
         return text, None
-
-    def _build_headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
-        if self._settings.nim_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
-        return headers
-
-    def _build_messages(self, messages: list[ChatMessage], *, thinking_enabled: bool) -> list[dict]:
-        return [message.model_dump() for message in messages]
 
     async def _post_chat(
         self,
@@ -141,7 +136,7 @@ class NimProvider(ProviderAdapter):
         thinking_enabled: bool,
     ) -> dict | None:
         try:
-            async with httpx.AsyncClient(
+            async with shared_http_client(
                 base_url=self._settings.nim_base_url,
                 timeout=60.0,
             ) as client:
@@ -165,7 +160,7 @@ class NimProvider(ProviderAdapter):
         headers: dict[str, str],
         thinking_enabled: bool,
     ) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=self._settings.nim_base_url,
             timeout=60.0,
         ) as client:
@@ -175,7 +170,7 @@ class NimProvider(ProviderAdapter):
                 headers=headers,
                 json=self._build_payload(messages, model, thinking_enabled=thinking_enabled, stream=True),
             ) as response:
-                response.raise_for_status()
+                await raise_for_status(response)
 
                 in_thinking = False
                 async for line in response.aiter_lines():
@@ -196,7 +191,7 @@ class NimProvider(ProviderAdapter):
                         if self._settings.chat_show_thinking_block:
                             yield delta
                         else:
-                            clean_delta, in_thinking = self._strip_thinking_blocks(delta, in_thinking)
+                            clean_delta, in_thinking = strip_thinking_delta(delta, in_thinking)
                             if clean_delta:
                                 yield clean_delta
 
@@ -210,7 +205,7 @@ class NimProvider(ProviderAdapter):
     ) -> dict:
         return {
             "model": model,
-            "messages": self._build_messages(messages, thinking_enabled=thinking_enabled),
+            "messages": [message.model_dump() for message in messages],
             "stream": stream,
             "temperature": self._settings.chat_temperature,
             "top_p": CHAT_TOP_P,
@@ -222,77 +217,5 @@ class NimProvider(ProviderAdapter):
             },
         }
 
-    def _extract_inline_thinking(self, text: str) -> str | None:
-        lowered = text.lower()
-        start = lowered.find("<think>")
-        start_alt = lowered.find("<thinking>")
-        if start == -1 and start_alt == -1:
-            return None
-
-        if start_alt == -1 or (start != -1 and start < start_alt):
-            open_tag = "<think>"
-            close_tag = "</think>"
-            start_index = start
-        else:
-            open_tag = "<thinking>"
-            close_tag = "</thinking>"
-            start_index = start_alt
-
-        end = lowered.find(close_tag, start_index + len(open_tag))
-        if end == -1:
-            return None
-
-        return text[start_index + len(open_tag) : end].strip() or None
-
-    def _strip_thinking_blocks(self, text: str, in_thinking: bool) -> tuple[str, bool]:
-        output: list[str] = []
-        remaining = text
-
-        while remaining:
-            if in_thinking:
-                end = remaining.find("</think>")
-                end_alt = remaining.find("</thinking>")
-                if end == -1 and end_alt == -1:
-                    return "".join(output), True
-                if end_alt == -1 or (end != -1 and end < end_alt):
-                    remaining = remaining[end + len("</think>") :]
-                else:
-                    remaining = remaining[end_alt + len("</thinking>") :]
-                in_thinking = False
-                continue
-
-            start = remaining.find("<think>")
-            start_alt = remaining.find("<thinking>")
-            if start == -1 and start_alt == -1:
-                output.append(remaining)
-                return "".join(output), False
-
-            if start_alt == -1 or (start != -1 and start < start_alt):
-                output.append(remaining[:start])
-                remaining = remaining[start + len("<think>") :]
-            else:
-                output.append(remaining[:start_alt])
-                remaining = remaining[start_alt + len("<thinking>") :]
-            in_thinking = True
-
-        return "".join(output), in_thinking
-
-    def _thinking_enabled(self) -> bool:
-        return bool(getattr(self._settings, "chat_thinking_enabled", False))
-
     def _should_retry_without_thinking(self, exc: httpx.HTTPStatusError) -> bool:
-        if not self._thinking_enabled():
-            return False
-        status_code = getattr(exc.response, "status_code", None)
-        if status_code not in {400, 404, 422}:
-            return False
-        detail = " ".join(
-            part
-            for part in [
-                str(exc),
-                getattr(exc.response, "text", ""),
-                getattr(exc.response, "reason_phrase", ""),
-            ]
-            if part
-        ).lower()
-        return any(token in detail for token in ("detailed thinking", "thinking", "reasoning", "think"))
+        return should_retry_without_thinking(self._settings, exc, _THINKING_ERROR_TOKENS)

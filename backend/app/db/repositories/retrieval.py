@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from app.db.qdrant import QdrantManager
+from app.db.qdrant import TEXT_INDEXED_FIELDS, QdrantManager
 from app.models.schemas import RetrievedChunk
+from app.services.text_terms import significant_terms
 
 
 class RetrievalRepository:
@@ -35,15 +36,35 @@ class RetrievalRepository:
 
     async def search_keyword_chunks(
         self,
-        query_text: str,
+        query_texts: list[str],
         limit: int,
         embedding_provider: str,
         embedding_model: str,
         embedding_profile: str,
         embedding_dimension: int,
-    ) -> list[RetrievedChunk]:
+    ) -> list[list[RetrievedChunk]]:
+        """Keyword-ranked chunks for each query text, from a single scroll.
+
+        One scroll serves every query variant (instead of one 1000-point download
+        per variant). When the collection has a full-text index, Qdrant first
+        drops chunks sharing no significant word with any query.
+        """
+        normalized_queries = [self._normalize_query_text(text) for text in query_texts]
+        if not any(normalized_queries):
+            return [[] for _ in query_texts]
+
         collection_name = await self._qdrant.ensure_collection(embedding_dimension)
         query_filter = self._profile_filter(embedding_profile, embedding_provider, embedding_model)
+        terms = sorted({term for text in normalized_queries for term in significant_terms(text)})
+        if terms and self._qdrant.has_text_index(collection_name):
+            from qdrant_client.http import models
+
+            query_filter.should = [
+                models.FieldCondition(key=field, match=models.MatchText(text=term))
+                for field in TEXT_INDEXED_FIELDS
+                for term in terms
+            ]
+
         points, _ = await self._qdrant.client.scroll(
             collection_name=collection_name,
             scroll_filter=query_filter,
@@ -51,19 +72,24 @@ class RetrievalRepository:
             with_vectors=False,
             limit=1000,
         )
+        blobs = [
+            (point, f"{(point.payload or {}).get('content', '')} {(point.payload or {}).get('title', '')}".lower())
+            for point in points
+        ]
 
-        normalized_query = self._normalize_query_text(query_text)
+        ranked_per_query: list[list[RetrievedChunk]] = []
+        for normalized_query in normalized_queries:
+            ranked_per_query.append(self._rank_by_keywords(normalized_query, blobs, limit))
+        return ranked_per_query
+
+    def _rank_by_keywords(self, normalized_query: str, blobs, limit: int) -> list[RetrievedChunk]:
+        if not normalized_query:
+            return []
         search_terms = [term for term in normalized_query.lower().split(" ") if term]
-
         scored: list[RetrievedChunk] = []
-        for point in points:
-            payload = point.payload or {}
-            text_blob = f"{payload.get('content', '')} {payload.get('title', '')}".lower()
-            if not normalized_query:
-                continue
+        for point, text_blob in blobs:
             if normalized_query.lower() not in text_blob and not any(term in text_blob for term in search_terms):
                 continue
-
             score = self._keyword_score(normalized_query, text_blob)
             scored.append(self._point_to_retrieved_chunk(point, similarity_score=score))
 

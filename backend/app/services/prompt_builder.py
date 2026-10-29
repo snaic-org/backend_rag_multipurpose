@@ -1,7 +1,6 @@
-import re
-
 from app.core.config import get_settings
 from app.models.schemas import ChatCitation, ChatMessage, PromptContext, RetrievedChunk
+from app.services.text_terms import significant_terms
 
 
 DEFAULT_SYSTEM_PROMPT = """
@@ -79,36 +78,11 @@ Warm, clear, and professional. No empathy theatrics, no apologies, no boundary-s
 """
 
 
-class PromptBuilder:
-    _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-    _STOPWORDS = {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "for",
-        "from",
-        "how",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "the",
-        "to",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "with",
-    }
+_ROLE_LABELS = {"user": "User", "assistant": "Assistant"}
+_HEADER_PREFIXES = ("title:", "source:", "published at:")
 
+
+class PromptBuilder:
     def __init__(self) -> None:
         self._settings = get_settings()
 
@@ -159,8 +133,10 @@ class PromptBuilder:
         messages = []
         messages.append(ChatMessage(role="system", content=system_prompt))
         history_content = "\n".join(
-            message.content for message in chat_history[-max_history_messages:] 
-            if message.content.strip())
+            f"{_ROLE_LABELS.get(message.role, message.role)}: {message.content}"
+            for message in chat_history[-max_history_messages:]
+            if message.content.strip()
+        )
         if history_content:
             messages.append(ChatMessage(role="assistant", content=f"Conversation history:\n{history_content}"))
         messages.append(ChatMessage(role="user", content=question_prompt))
@@ -254,14 +230,7 @@ class PromptBuilder:
         return context_blocks
 
     def _extract_query_anchor_terms(self, user_message: str) -> list[str]:
-        terms: list[str] = []
-        for token in self._TOKEN_PATTERN.findall(user_message.lower()):
-            if len(token) < 4:
-                continue
-            if token in self._STOPWORDS:
-                continue
-            terms.append(token)
-        return terms
+        return significant_terms(user_message, min_length=4)
 
     def _anchor_match_score(self, content: str, anchor_terms: list[str]) -> int:
         if not anchor_terms:
@@ -304,31 +273,15 @@ class PromptBuilder:
         return excerpt
 
     def _extract_structured_fields(self, content: str) -> dict[str, str]:
+        # Strip only the header block at the top of a chunk ("Title: ..." from the
+        # chunker, plus "Source:" / "Published at:" in article-style documents).
+        # Matching lines further down are real content (CMS fields such as a
+        # person's "Title: Director", CSV columns) and must stay.
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
         title = ""
-        source = ""
-        published_at = ""
-        body_lines: list[str] = []
-
-        for raw_line in content.splitlines():
-            line = raw_line.strip()
-            if not line:
-                continue
-            lowered = line.lower()
-            if lowered.startswith("title:"):
-                title = line.split(":", 1)[1].strip()
-                continue
-            if lowered.startswith("source:"):
-                source = line.split(":", 1)[1].strip()
-                continue
-            if lowered.startswith("published at:"):
-                published_at = line.split(":", 1)[1].strip()
-                continue
-            body_lines.append(line)
-
-        body = "\n".join(body_lines).strip() or content.strip()
-        return {
-            "title": title,
-            "source": source,
-            "published_at": published_at,
-            "body": body,
-        }
+        while lines and lines[0].lower().startswith(_HEADER_PREFIXES):
+            key, value = lines.pop(0).split(":", 1)
+            if key.lower() == "title" and not title:
+                title = value.strip()
+        body = "\n".join(lines).strip() or content.strip()
+        return {"title": title, "body": body}

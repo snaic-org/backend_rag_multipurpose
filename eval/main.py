@@ -321,6 +321,13 @@ def save_metric_results(df: pd.DataFrame) -> None:
 
 
 def extract_retrieved_contexts(chat_payload: dict) -> list[str]:
+    if "retrieved_chunks" not in chat_payload:
+        # Only the debug response shape carries retrieved chunks; without them
+        # every context metric would silently score zero.
+        raise RuntimeError(
+            "The backend returned the public chat response without retrieved_chunks. "
+            "Run the evaluation against a backend with CHAT_DEBUG_ENABLED=true."
+        )
     contexts = []
     for chunk in chat_payload.get("retrieved_chunks", []):
         content = str(chunk.get("content", "")).strip()

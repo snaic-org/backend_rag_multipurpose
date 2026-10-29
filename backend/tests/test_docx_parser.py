@@ -1,12 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-import types
 
-docx_module = types.ModuleType("docx")
-docx_module.Document = object
-sys.modules.setdefault("docx", docx_module)
 
 from app.parsers.docx_parser import DocxParser
 

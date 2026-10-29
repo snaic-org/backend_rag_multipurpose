@@ -1,5 +1,3 @@
-import sys
-import types
 import asyncio
 from types import SimpleNamespace
 
@@ -7,12 +5,6 @@ import pytest
 
 from app.core.config import CHAT_MAX_RESPONSE_CHARS
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
 
 from app.services.guardrails import GuardrailService
 
@@ -86,3 +78,24 @@ def test_guardrails_daily_quota_blocks_second_request() -> None:
 
     with pytest.raises(ValueError, match="daily quota"):
         asyncio.run(guardrails.enforce_request_budget("ip:127.0.0.1"))
+
+
+def test_truncate_response_keeps_line_breaks() -> None:
+    guardrails = GuardrailService(build_settings(), FakeRedis())
+    answer = "\n".join(f"{index}. Step number {index} of the process." for index in range(1, 400))
+
+    truncated = guardrails.truncate_response(answer)
+
+    assert len(truncated) <= CHAT_MAX_RESPONSE_CHARS
+    assert truncated.count("\n") > 50
+    assert truncated.startswith("1. Step number 1 of the process.\n2. ")
+
+
+def test_short_follow_ups_can_repeat_but_long_repeats_are_blocked() -> None:
+    guardrails = GuardrailService(build_settings(), FakeRedis())
+
+    assert guardrails.validate_user_message("tell me more", ["tell me more", "tell me more"]) == "tell me more"
+
+    long_question = "What are the service details for plan A?"
+    with pytest.raises(ValueError, match="Repeated"):
+        guardrails.validate_user_message(long_question, [long_question, long_question])

@@ -2,19 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-import sys
-import types
 
-psycopg_module = types.ModuleType("psycopg")
-psycopg_rows_module = types.ModuleType("psycopg.rows")
-psycopg_rows_module.dict_row = object
-psycopg_module.rows = psycopg_rows_module
-sys.modules.setdefault("psycopg", psycopg_module)
-sys.modules.setdefault("psycopg.rows", psycopg_rows_module)
-
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
 
 from app.models.schemas import SystemPromptRecord
 from app.services.prompt_builder import DEFAULT_SYSTEM_PROMPT
@@ -77,10 +65,6 @@ class FakePromptRepository:
     def __init__(self, prompt: str | None) -> None:
         self._prompt = prompt
         self.updates: list[str] = []
-        self.ensure_calls = 0
-
-    async def ensure_system_prompt_table(self, default_prompt: str) -> None:
-        self.ensure_calls += 1
 
     async def get_system_prompt(self) -> SystemPromptRecord | None:
         if self._prompt is None:
@@ -109,7 +93,6 @@ def test_system_prompt_service_updates_managed_legacy_prompt() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())
@@ -123,7 +106,6 @@ def test_system_prompt_service_overwrites_custom_prompt_on_startup() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())
@@ -137,7 +119,6 @@ def test_system_prompt_service_initializes_missing_prompt() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())

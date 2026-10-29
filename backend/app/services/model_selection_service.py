@@ -19,14 +19,7 @@ class ModelSelectionService:
     async def ensure_default_model_selection(self) -> None:
         generation_profile = self._resolve_default_generation_profile_name()
         embedding_profile = self._resolve_default_embedding_profile_name()
-        await self._repository.ensure_model_selection_table(
-            generation_profile,
-            embedding_profile,
-        )
-        await self._repository.ensure_default_model_selection(
-            generation_profile,
-            embedding_profile,
-        )
+        await self._repository.seed_default_model_selection(generation_profile, embedding_profile)
         await self._replace_retired_profiles(generation_profile, embedding_profile)
 
     async def _replace_retired_profiles(
@@ -155,46 +148,7 @@ class ModelSelectionService:
         )
 
     def _resolve_default_generation_profile_name(self) -> str:
-        return self._resolve_profile_name(
-            self._settings.generation_profiles,
-            self._settings.default_generation_provider,
-            self._settings.default_generation_model,
-        )
+        return self._settings.default_generation_profile
 
     def _resolve_default_embedding_profile_name(self) -> str:
-        return self._resolve_embedding_profile_name(
-            self._settings.embedding_profiles,
-            self._settings.default_embedding_provider,
-            self._settings.default_embedding_model,
-            self._settings.default_embedding_dimension,
-        )
-
-    def _resolve_profile_name(self, catalog, provider, model) -> str:
-        matches = [
-            name
-            for name, spec in catalog.items()
-            if spec.provider == provider and spec.model == model
-        ]
-        if not matches:
-            raise ValueError(f"Unknown default generation provider/model pair '{provider}/{model}'")
-        if len(matches) > 1:
-            raise ValueError(
-                f"Multiple generation profiles match the default provider/model pair '{provider}/{model}'"
-            )
-        return matches[0]
-
-    def _resolve_embedding_profile_name(self, catalog, provider, model, dimension) -> str:
-        matches = [
-            name
-            for name, spec in catalog.items()
-            if spec.provider == provider and spec.model == model and spec.dimension == dimension
-        ]
-        if not matches:
-            raise ValueError(
-                f"Unknown default embedding provider/model/dimension triple '{provider}/{model}/{dimension}'"
-            )
-        if len(matches) > 1:
-            raise ValueError(
-                "Multiple embedding profiles match the default provider/model/dimension triple"
-            )
-        return matches[0]
+        return self._settings.default_embedding_profile

@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Columns added after the first release; no-ops on current databases.
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS content_hash TEXT;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'system';
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_content_hash_profile
     ON documents (content_hash, embedding_provider, embedding_model)
     WHERE content_hash IS NOT NULL;
@@ -77,6 +81,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_client_ip
     ON chat_activity_logs (client_ip, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_status
     ON chat_activity_logs (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_session_id
+    ON chat_activity_logs (session_id, created_at);
 
 CREATE TABLE IF NOT EXISTS chat_feedback (
     id BIGSERIAL PRIMARY KEY,

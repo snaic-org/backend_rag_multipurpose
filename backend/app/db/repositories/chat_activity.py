@@ -9,47 +9,6 @@ class ChatActivityRepository:
     def __init__(self, pool: AsyncConnectionPool) -> None:
         self._pool = pool
 
-    async def ensure_table(self) -> None:
-        queries = [
-            """
-            CREATE TABLE IF NOT EXISTS chat_activity_logs (
-                id BIGSERIAL PRIMARY KEY,
-                user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-                username TEXT NOT NULL,
-                auth_type TEXT NOT NULL,
-                request_path TEXT NOT NULL,
-                client_ip TEXT,
-                forwarded_for JSONB NOT NULL DEFAULT '[]'::jsonb,
-                user_agent TEXT,
-                session_id TEXT,
-                request_message TEXT NOT NULL,
-                response_answer TEXT,
-                provider TEXT,
-                model TEXT,
-                embedding_profile TEXT,
-                embedding_provider TEXT,
-                embedding_model TEXT,
-                used_fallback BOOLEAN NOT NULL DEFAULT FALSE,
-                citations_count INTEGER NOT NULL DEFAULT 0,
-                retrieved_chunks_count INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL,
-                error_message TEXT,
-                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_created_at ON chat_activity_logs (created_at DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_user_id ON chat_activity_logs (user_id, created_at DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_client_ip ON chat_activity_logs (client_ip, created_at DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_status ON chat_activity_logs (status, created_at DESC)",
-        ]
-
-        async with self._pool.connection() as connection:
-            async with connection.cursor() as cursor:
-                for query in queries:
-                    await cursor.execute(query)
-            await connection.commit()
-
     async def create(self, payload: ChatActivityWrite) -> ChatActivityRecord:
         query = """
             INSERT INTO chat_activity_logs (

@@ -2,27 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-import sys
-import types
 from types import SimpleNamespace
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
-
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
-
-psycopg_module = types.ModuleType("psycopg")
-psycopg_rows_module = types.ModuleType("psycopg.rows")
-psycopg_rows_module.dict_row = object
-psycopg_module.rows = psycopg_rows_module
-sys.modules.setdefault("psycopg", psycopg_module)
-sys.modules.setdefault("psycopg.rows", psycopg_rows_module)
 
 from app.models.schemas import ChatMessage
 from app.core.config import Settings
@@ -92,20 +73,7 @@ class _FakeModelSelectionRepository:
         self.generation_profiles = list(generation_profiles)
         self.embedding_profiles = list(embedding_profiles)
 
-    async def ensure_model_selection_table(
-        self,
-        default_generation_profile: str,
-        default_embedding_profile: str,
-    ) -> None:
-        if self.record is None:
-            self.record = ModelSelectionRecord(
-                id=1,
-                generation_profile=default_generation_profile,
-                embedding_profile=default_embedding_profile,
-                updated_at=datetime.now(timezone.utc),
-            )
-
-    async def ensure_default_model_selection(
+    async def seed_default_model_selection(
         self,
         default_generation_profile: str,
         default_embedding_profile: str,
@@ -234,6 +202,10 @@ def test_gemini_payload_uses_env_generation_settings(monkeypatch) -> None:
     assert generation_config["candidateCount"] == 1
     assert generation_config["thinkingConfig"]["thinkingBudget"] == -1
     assert generation_config["thinkingConfig"]["includeThoughts"] is True
+    # The key travels in a header, never in the URL (where it would leak into
+    # error messages and logs).
+    assert captured["post"]["headers"] == {"x-goog-api-key": "test-gemini-key"}
+    assert captured["post"]["params"] is None
 
 
 def test_ollama_payload_uses_env_generation_settings(monkeypatch) -> None:

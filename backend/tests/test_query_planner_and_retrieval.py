@@ -1,21 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-import types
 from types import SimpleNamespace
 from uuid import uuid4
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
-
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
 
 from app.core.config import Settings
 from app.models.schemas import EmbeddingSelection, RetrievedChunk
@@ -33,6 +21,9 @@ class _FakeCache:
     async def set_json(self, _key: str, _payload) -> None:
         return None
 
+    async def get_counter(self, _key: str) -> int:
+        return 0
+
 
 class _FakeRepository:
     def __init__(self, semantic_map: dict[float, list[RetrievedChunk]]) -> None:
@@ -43,8 +34,8 @@ class _FakeRepository:
         self.semantic_calls.append(embedding[0])
         return self.semantic_map.get(embedding[0], [])[:limit]
 
-    async def search_keyword_chunks(self, **_kwargs) -> list[RetrievedChunk]:
-        return []
+    async def search_keyword_chunks(self, *, query_texts: list[str], **_kwargs) -> list[list[RetrievedChunk]]:
+        return [[] for _ in query_texts]
 
     async def search_best_available_chunks(self, **_kwargs) -> list[RetrievedChunk]:
         return []
@@ -191,3 +182,32 @@ def test_retrieval_service_uses_multi_query_union_and_source_diversity() -> None
 
     assert service._repository.semantic_calls == [1.0, 2.0, 3.0]
     assert [chunk.title for chunk in results] == ["primary-a", "secondary", "tertiary"]
+
+
+def test_retrieval_cache_key_changes_when_corpus_changes() -> None:
+    import asyncio
+
+    from app.services.cache_service import CORPUS_VERSION_KEY, CacheService
+
+    class Redis:
+        def __init__(self) -> None:
+            self.values: dict[str, str] = {}
+
+        async def get(self, key):
+            return self.values.get(key)
+
+        async def incr(self, key):
+            self.values[key] = str(int(self.values.get(key, 0)) + 1)
+
+    cache = CacheService(Redis(), ttl_seconds=60)
+
+    async def run():
+        before = await cache.get_counter(CORPUS_VERSION_KEY)
+        await cache.increment(CORPUS_VERSION_KEY)
+        return before, await cache.get_counter(CORPUS_VERSION_KEY)
+
+    before, after = asyncio.run(run())
+    assert (before, after) == (0, 1)
+    assert cache.make_key("retrieval", {"corpus_version": before}) != cache.make_key(
+        "retrieval", {"corpus_version": after}
+    )

@@ -10,40 +10,6 @@ class AuthRepository:
     def __init__(self, pool: AsyncConnectionPool) -> None:
         self._pool = pool
 
-    async def ensure_auth_tables(self) -> None:
-        queries = [
-            """
-            CREATE TABLE IF NOT EXISTS app_users (
-                id UUID PRIMARY KEY,
-                username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                is_admin BOOLEAN NOT NULL DEFAULT FALSE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-            """,
-            """
-            ALTER TABLE documents
-            ADD COLUMN IF NOT EXISTS content_hash TEXT
-            """,
-            """
-            ALTER TABLE documents
-            ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT 'system'
-            """,
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_content_hash_profile
-            ON documents (content_hash, embedding_provider, embedding_model)
-            WHERE content_hash IS NOT NULL
-            """,
-        ]
-
-        async with self._pool.connection() as connection:
-            async with connection.cursor() as cursor:
-                for query in queries:
-                    await cursor.execute(query)
-            await connection.commit()
-
     async def get_user_by_username(self, username: str) -> UserRecord | None:
         query = """
             SELECT

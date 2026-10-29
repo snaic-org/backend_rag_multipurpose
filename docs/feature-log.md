@@ -578,6 +578,38 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.7.0 - 2026-10-29
+
+Codebase review: bug fixes, security hardening, performance and structure. The HTTP API contract (paths, request and response schemas, status codes) is unchanged.
+
+Fixed:
+
+- ingestion embeds before writing, so a provider failure no longer leaves orphan documents that later dedup to zero chunks; a failed chunk upsert removes its document row
+- website re-ingest replaces earlier copies of a URL even when the page changed; CMS refresh no longer deletes content before Contentful answers
+- deleting a document removes its chunks from the collection it was embedded into
+- `/admin/reset` no longer breaks chat and ingest until a restart (stale Qdrant collection cache)
+- short standalone questions are no longer treated as follow-ups; long answers keep their line breaks when truncated; "tell me more" can be repeated
+- conversation history in the prompt is labelled User/Assistant; CMS fields starting with `Title:`/`Source:` are no longer stripped from context
+- the stream "retry without thinking" fallback works (streamed error bodies are read first)
+- retrieval cache entries are invalidated when documents are added or removed
+
+Security:
+
+- website ingestion blocks private/internal addresses and checks every redirect (SSRF); page, upload and unzip size caps
+- chat and health errors no longer return upstream bodies, URLs or database details
+- `/chat/feedback` returns a transcript only to the session's own client or an admin
+- login hashing runs off the event loop with equal timing for unknown users
+- Gemini API keys move from URLs to headers; `CHAT_DEBUG_ENABLED` defaults to false; startup warns about placeholder secrets; the container runs as a non-root user
+
+Performance:
+
+- pooled HTTP connections to model APIs; concurrent Qdrant searches; one keyword scroll per chat instead of one per query variant; model selection read once per chat; query embeddings cached; request services built once at startup
+
+Structure:
+
+- shared modules: `core/model_profiles.py`, `core/http_client.py`, `core/url_safety.py`, `providers/common.py`, `services/contentful.py`, `services/text_terms.py`, `api/errors.py`
+- `schema.sql` is the only table definition; dead settings, constants and schema models removed; tests no longer stub real packages
+
 ## v0.6.5 - 2026-10-29
 
 Probe NVIDIA once a day without slowing alerts.

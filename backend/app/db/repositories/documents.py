@@ -220,6 +220,15 @@ class DocumentRepository:
 
         return [row["id"] for row in rows]
 
+    async def list_ids_by_url(self, url: str, source_type: str) -> list[UUID]:
+        query = "SELECT id FROM documents WHERE url = %(url)s AND source_type = %(source_type)s"
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(query, {"url": url, "source_type": source_type})
+                rows = await cursor.fetchall()
+
+        return [row["id"] for row in rows]
+
     async def delete_by_id(self, document_id: UUID) -> bool:
         query = "DELETE FROM documents WHERE id = %(document_id)s"
 

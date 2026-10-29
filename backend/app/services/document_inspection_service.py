@@ -3,6 +3,7 @@ from uuid import UUID
 from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import Settings
+from app.core.model_profiles import match_profiles
 from app.db.qdrant import QdrantManager
 from app.db.repositories.chunks import ChunkRepository
 from app.db.repositories.documents import DocumentRepository
@@ -63,16 +64,18 @@ class DocumentInspectionService:
         return chunks
 
     def _resolve_embedding_profile(self, document: DocumentRecord) -> str | None:
-        for profile_name, spec in self._settings.embedding_profiles.items():
-            if spec.provider == document.embedding_provider and spec.model == document.embedding_model:
-                return profile_name
-        return None
+        matches = match_profiles(
+            self._settings.embedding_profiles,
+            provider=document.embedding_provider,
+            model=document.embedding_model,
+        )
+        return matches[0] if matches else None
 
     def _resolve_embedding_dimension(self, document: DocumentRecord) -> int:
-        for spec in self._settings.embedding_profiles.values():
-            if spec.provider == document.embedding_provider and spec.model == document.embedding_model:
-                return spec.dimension
-        raise ValueError("embedding profile not found for document")
+        profile_name = self._resolve_embedding_profile(document)
+        if profile_name is None:
+            raise ValueError("embedding profile not found for document")
+        return self._settings.embedding_profiles[profile_name].dimension
 
     def _reconstruct_full_text(self, chunks: list[ChunkRecord]) -> str:
         if not chunks:
