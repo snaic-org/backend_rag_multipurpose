@@ -54,7 +54,7 @@ class OllamaProvider(ProviderAdapter):
         except httpx.HTTPError as exc:
             return ProviderHealth(
                 ok=False,
-                detail=f"ollama_unreachable: {exc}",
+                detail=f"ollama_unreachable: {type(exc).__name__}",
                 enabled=True,
                 provider=self.provider_name,
                 capabilities=self.capabilities,

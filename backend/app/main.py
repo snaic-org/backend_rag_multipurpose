@@ -24,6 +24,8 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     configure_logging(settings.log_level)
     logger = get_logger(__name__)
+    for warning in settings.insecure_setting_warnings():
+        logger.warning("insecure_setting: %s", warning)
 
     postgres = PostgresManager(settings)
     redis = RedisManager(settings)

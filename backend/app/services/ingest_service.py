@@ -1,8 +1,7 @@
+import asyncio
 import hashlib
 from pathlib import Path
 from uuid import UUID
-
-INGEST_EMBEDDING_BATCH_SIZE = 50
 
 import httpx
 from fastapi import UploadFile
@@ -17,6 +16,7 @@ from app.core.config import (
 )
 from app.core.logging import get_logger
 from app.core.model_profiles import match_profiles
+from app.core.url_safety import UnsafeUrlError, ensure_public_url
 from app.db.qdrant import QdrantManager
 from app.db.redis import RedisManager
 from app.db.repositories.chunks import ChunkRepository
@@ -33,6 +33,7 @@ from app.models.schemas import (
     ParsedFile,
     WebsiteIngestRequest,
 )
+from app.parsers.base import ensure_safe_archive
 from app.parsers.factory import ParserFactory
 from app.providers.registry import ProviderRegistry
 from app.services.model_selection_service import ModelSelectionService
@@ -41,6 +42,18 @@ from app.services.chunking import ChunkingService
 from app.services.embeddings import EmbeddingService
 
 logger = get_logger(__name__)
+
+INGEST_EMBEDDING_BATCH_SIZE = 50
+INGEST_MAX_FILE_BYTES = 25 * 1024 * 1024
+ARCHIVE_FILE_TYPES = {"docx", "xlsx"}
+WEBSITE_MAX_BYTES = 10 * 1024 * 1024
+WEBSITE_MAX_REDIRECTS = 5
+WEBSITE_FETCH_DEADLINE_SECONDS = 90
+WEBSITE_USER_AGENT = "Mozilla/5.0 (compatible; RAGBot/1.0)"
+
+
+class _PageTooLargeError(Exception):
+    pass
 
 
 def _contentful_richtext_to_text(node) -> str:
@@ -147,12 +160,18 @@ class IngestService:
 
         for upload in files:
             try:
-                content = await upload.read()
+                content = await upload.read(INGEST_MAX_FILE_BYTES + 1)
+                if len(content) > INGEST_MAX_FILE_BYTES:
+                    raise ValueError(
+                        f"file is larger than {INGEST_MAX_FILE_BYTES // (1024 * 1024)} MB and was not ingested"
+                    )
                 if not content or not content.strip():
                     raise ValueError("empty file")
 
                 filename = upload.filename or "upload"
                 detected_type = self._parser_factory.detect_type(filename, upload.content_type)
+                if detected_type in ARCHIVE_FILE_TYPES:
+                    ensure_safe_archive(content, detected_type)
                 parser = self._parser_factory.get_parser(detected_type)
                 parsed_file = await parser.parse(
                     filename=filename,
@@ -378,6 +397,26 @@ class IngestService:
             results=all_results,
         )
 
+    async def _fetch_page(self, url: str) -> tuple[bytes, str | None]:
+        """GET a public web page: every redirect hop is re-checked against
+        internal addresses (SSRF) and the body is capped at WEBSITE_MAX_BYTES."""
+        allow_private = self._settings.website_ingest_allow_private_hosts
+        async with httpx.AsyncClient(follow_redirects=False, timeout=60.0) as client:
+            for _ in range(WEBSITE_MAX_REDIRECTS + 1):
+                await ensure_public_url(url, allow_private_hosts=allow_private)
+                async with client.stream("GET", url, headers={"User-Agent": WEBSITE_USER_AGENT}) as response:
+                    if response.is_redirect:
+                        url = str(response.url.join(response.headers["location"]))
+                        continue
+                    response.raise_for_status()
+                    body = bytearray()
+                    async for piece in response.aiter_bytes():
+                        body.extend(piece)
+                        if len(body) > WEBSITE_MAX_BYTES:
+                            raise _PageTooLargeError
+                    return bytes(body), response.headers.get("content-type")
+        raise httpx.TooManyRedirects("Too many redirects", request=None)
+
     async def _ingest_single_url(
         self,
         url: str,
@@ -399,13 +438,13 @@ class IngestService:
             }
 
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
-                response = await client.get(
-                    url,
-                    headers={"User-Agent": "Mozilla/5.0 (compatible; RAGBot/1.0)"},
-                )
-                response.raise_for_status()
-        except httpx.TimeoutException:
+            page_content, content_type = await asyncio.wait_for(
+                self._fetch_page(url),
+                timeout=WEBSITE_FETCH_DEADLINE_SECONDS,
+            )
+        except UnsafeUrlError as exc:
+            return _fail(str(exc))
+        except (httpx.TimeoutException, asyncio.TimeoutError):
             return _fail("Request timed out after 60 seconds. The site may be slow or unreachable.")
         except httpx.TooManyRedirects:
             return _fail("Too many redirects. Check the URL is correct and not in a redirect loop.")
@@ -415,6 +454,8 @@ class IngestService:
             return _fail(f"HTTP {exc.response.status_code}: site returned an error response.")
         except httpx.InvalidURL:
             return _fail("Invalid URL format.")
+        except _PageTooLargeError:
+            return _fail(f"Page is larger than {WEBSITE_MAX_BYTES // (1024 * 1024)} MB and was not ingested.")
         except Exception as exc:
             return _fail(f"Unexpected fetch error: {exc}")
 
@@ -428,8 +469,8 @@ class IngestService:
         try:
             parsed_file = await parser.parse(
                 filename=url,
-                content=response.content,
-                mime_type=response.headers.get("content-type"),
+                content=page_content,
+                mime_type=content_type,
                 shared_metadata=shared_metadata,
             )
         except ValueError as exc:

@@ -109,6 +109,7 @@ Use [docs/deployment.md](docs/deployment.md) for the broader deployment notes an
 ## Test
 
 ```bash
+pip install -r backend/requirements-dev.txt
 $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
 python -m pytest backend/tests
 ```

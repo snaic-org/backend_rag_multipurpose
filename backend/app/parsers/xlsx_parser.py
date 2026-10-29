@@ -18,7 +18,8 @@ class XlsxParser(FileParser):
         shared_metadata: dict | None = None,
         tags: list[str] | None = None,
     ) -> ParsedFile:
-        workbook = load_workbook(filename=BytesIO(content), data_only=True)
+        # read_only streams rows instead of building the whole workbook in memory.
+        workbook = load_workbook(filename=BytesIO(content), data_only=True, read_only=True)
         base_metadata = dict(shared_metadata or {})
         base_metadata["tags"] = tags or []
         documents: list[NormalizedDocument] = []
@@ -72,6 +73,7 @@ class XlsxParser(FileParser):
                     )
                 )
 
+        workbook.close()
         if not documents:
             raise ValueError("xlsx file has no readable sheets or rows")
 

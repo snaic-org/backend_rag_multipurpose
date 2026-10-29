@@ -70,7 +70,7 @@ class QdrantManager:
             await self.client.get_collections()
             return DependencyHealth(ok=True, detail="connected")
         except Exception as exc:  # pragma: no cover - defensive branch
-            return DependencyHealth(ok=False, detail=f"qdrant_error: {exc}")
+            return DependencyHealth(ok=False, detail=f"qdrant_error: {type(exc).__name__}")
 
     async def close(self) -> None:
         if self._client is None:

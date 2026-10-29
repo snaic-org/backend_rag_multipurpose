@@ -33,7 +33,7 @@ class RedisManager:
             pong = await self._client.ping()
             return DependencyHealth(ok=bool(pong), detail="connected")
         except Exception as exc:
-            return DependencyHealth(ok=False, detail=f"redis_unreachable: {exc}")
+            return DependencyHealth(ok=False, detail=f"redis_unreachable: {type(exc).__name__}")
 
     async def delete_by_prefixes(self, prefixes: list[str]) -> int:
         """

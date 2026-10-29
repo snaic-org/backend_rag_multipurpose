@@ -41,9 +41,9 @@ class PostgresManager:
                     row = await cursor.fetchone()
             return DependencyHealth(ok=bool(row and row["ok"] == 1), detail="connected")
         except OperationalError as exc:
-            return DependencyHealth(ok=False, detail=f"postgres_unreachable: {exc}")
+            return DependencyHealth(ok=False, detail=f"postgres_unreachable: {type(exc).__name__}")
         except Exception as exc:  # pragma: no cover - defensive branch
-            return DependencyHealth(ok=False, detail=f"postgres_error: {exc}")
+            return DependencyHealth(ok=False, detail=f"postgres_error: {type(exc).__name__}")
 
     async def wait_until_ready(self, retries: int = 5, delay_seconds: float = 2.0) -> None:
         last_detail = "postgres_unreachable: unknown"

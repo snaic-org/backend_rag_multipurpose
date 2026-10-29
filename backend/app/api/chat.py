@@ -89,6 +89,7 @@ class _NullChatFeedbackService:
         self,
         payload: ChatFeedbackRequest,
         current_user: AuthenticatedUser,
+        caller_session_id: str | None = None,
     ) -> ChatFeedbackResponse:
         raise RuntimeError("chat feedback service is unavailable")
 
@@ -160,6 +161,10 @@ def _build_chat_feedback_service(request: Request) -> ChatFeedbackService:
     return getattr(request.app.state, "feedback_service", _NullChatFeedbackService())
 
 
+_UPSTREAM_UNAVAILABLE_DETAIL = "The AI service is temporarily unavailable. Please try again shortly."
+_INTERNAL_ERROR_DETAIL = "Chat is temporarily unavailable. Please try again shortly."
+
+
 def _raise_chat_http_error(exc: Exception) -> None:
     message = str(exc)
     status_code = status.HTTP_400_BAD_REQUEST
@@ -182,7 +187,15 @@ def _raise_chat_http_error(exc: Exception) -> None:
     elif "unreachable" in message.lower() or "failed with status 5" in message.lower():
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
-    raise HTTPException(status_code=status_code, detail=message) from exc
+    # ValueErrors carry messages meant for the user (guardrails, quotas, config).
+    # Anything else can embed upstream bodies, URLs or database hosts, so the
+    # client gets a generic message and the details go to the log.
+    if isinstance(exc, ValueError):
+        detail = message
+    else:
+        logger.warning("chat_request_failed status=%s error=%r", status_code, exc)
+        detail = _UPSTREAM_UNAVAILABLE_DETAIL if isinstance(exc, httpx.HTTPError) else _INTERNAL_ERROR_DETAIL
+    raise HTTPException(status_code=status_code, detail=detail) from exc
 
 
 def _request_model_recheck(request: Request, exc: Exception) -> None:
@@ -196,7 +209,11 @@ def _request_model_recheck(request: Request, exc: Exception) -> None:
 
 
 def _raise_feedback_http_error(exc: Exception) -> None:
-    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    logger.warning("chat_feedback_failed error=%r", exc)
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Feedback could not be saved. Please try again shortly.",
+    ) from exc
 
 
 def _sse(event: str, data: dict) -> str:
@@ -630,6 +647,10 @@ async def submit_chat_feedback(
 ) -> ChatFeedbackResponse:
     service = _build_chat_feedback_service(request)
     try:
-        return await service.submit_feedback(payload, current_user)
+        return await service.submit_feedback(
+            payload,
+            current_user,
+            caller_session_id=_resolve_chat_session_id(request),
+        )
     except Exception as exc:
         _raise_feedback_http_error(exc)

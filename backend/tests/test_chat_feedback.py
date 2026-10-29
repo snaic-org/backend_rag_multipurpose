@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from uuid import UUID
 
 import asyncio
@@ -38,7 +39,7 @@ from fastapi import FastAPI
 from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
-from app.models.schemas import AccessTokenResponse, AuthenticatedUser, ChatFeedbackResponse
+from app.models.schemas import AccessTokenResponse, AuthenticatedUser, ChatFeedbackRequest, ChatFeedbackResponse
 
 
 class StubSettings:
@@ -103,7 +104,7 @@ class FakeFeedbackService:
         self._next_id = 1
         self._items: list[ChatFeedbackResponse] = []
 
-    async def submit_feedback(self, payload, current_user: AuthenticatedUser) -> ChatFeedbackResponse:
+    async def submit_feedback(self, payload, current_user: AuthenticatedUser, caller_session_id=None) -> ChatFeedbackResponse:
         response = ChatFeedbackResponse(
             id=self._next_id,
             session_id=payload.session_id,
@@ -243,3 +244,27 @@ def test_submit_chat_feedback_validates_rating_range() -> None:
             assert response.status_code == 422, response.text
 
     asyncio.run(run_flow())
+
+
+def test_feedback_transcript_is_only_returned_to_the_sessions_own_client() -> None:
+    from app.services.chat_feedback_service import ChatFeedbackService
+
+    class Repository:
+        async def create(self, **fields):
+            return SimpleNamespace(id=1, created_at=datetime.now(timezone.utc), **fields)
+
+    class ActivityRepository:
+        async def list_by_session_ids(self, session_ids):
+            return [SimpleNamespace(session_id=session_ids[0], request_message="my secret", response_answer="ok")]
+
+    service = ChatFeedbackService.__new__(ChatFeedbackService)
+    service._repository = Repository()
+    service._activity_repository = ActivityRepository()
+    visitor = AuthenticatedUser(id=UUID("11111111-1111-1111-1111-111111111111"), username="widget", is_admin=False, auth_type="bearer")
+    payload = ChatFeedbackRequest(session_id="victim-session", rating=5)
+
+    other = asyncio.run(service.submit_feedback(payload, visitor, caller_session_id="attacker-session"))
+    own = asyncio.run(service.submit_feedback(payload, visitor, caller_session_id="victim-session"))
+
+    assert other.full_chat_text == ""
+    assert "my secret" in own.full_chat_text

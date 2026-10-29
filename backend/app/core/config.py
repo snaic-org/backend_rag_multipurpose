@@ -11,6 +11,8 @@ from app.core.model_profiles import find_profile
 
 ProviderName = Literal["openai", "gemini", "ollama", "nim"]
 
+_PLACEHOLDER_SECRET = "change-me-immediately"
+
 CHAT_REPEATED_PROMPT_LOOKBACK = 5
 CHAT_MAX_CONTEXT_CHUNK_CHARS = 1800
 CHAT_MAX_EXCERPTS_PER_DOCUMENT = 3
@@ -23,7 +25,7 @@ CHAT_MAX_RESPONSE_TOKENS = 2560
 CHAT_TOP_P = 1.0
 CHAT_FREQUENCY_PENALTY = 0.0
 CHAT_PRESENCE_PENALTY = 0.0
-CHAT_DEBUG_ENABLED = True
+CHAT_DEBUG_ENABLED = False
 CHAT_BINARY_PRECOMPUTE_ENABLED = False
 EMBEDDING_CACHE_TTL_SECONDS = 3600
 SESSION_TTL_SECONDS = 86400
@@ -145,11 +147,11 @@ class Settings(BaseSettings):
     cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     auth_enabled: bool = Field(default=True)
-    auth_jwt_secret: str = Field(default="change-me-immediately")
+    auth_jwt_secret: str = Field(default=_PLACEHOLDER_SECRET)
     auth_jwt_algorithm: str = Field(default="HS256")
     auth_access_token_ttl_seconds: int = Field(default=3600)
     auth_bootstrap_admin_username: str = Field(default="admin")
-    auth_bootstrap_admin_password: str = Field(default="change-me-immediately")
+    auth_bootstrap_admin_password: str = Field(default=_PLACEHOLDER_SECRET)
     auth_require_https: bool = Field(default=False)
 
     postgres_dsn: str | None = Field(default=None)
@@ -172,6 +174,9 @@ class Settings(BaseSettings):
     contentful_delivery_token: str | None = Field(default=None)
     contentful_environment: str = Field(default="master")
     contentful_site_base_url: str = Field(default="https://www.snaic.net")
+    # Website ingestion refuses private/internal addresses (SSRF protection);
+    # enable only to ingest intranet sites deliberately.
+    website_ingest_allow_private_hosts: bool = Field(default=False)
 
     openai_api_key: str | None = Field(default=None)
     nim_api_key: str | None = Field(default=None)
@@ -284,6 +289,21 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{encoded_db}"
         )
         return self
+
+    def insecure_setting_warnings(self) -> list[str]:
+        """Settings that are unsafe outside local development."""
+        warnings: list[str] = []
+        if not self.auth_enabled:
+            warnings.append("AUTH_ENABLED=false: every caller is treated as an admin")
+        if self.auth_enabled and (
+            self.auth_jwt_secret == _PLACEHOLDER_SECRET or len(self.auth_jwt_secret) < 32
+        ):
+            warnings.append("AUTH_JWT_SECRET is the placeholder or shorter than 32 characters")
+        if self.auth_enabled and self.auth_bootstrap_admin_password == _PLACEHOLDER_SECRET:
+            warnings.append("AUTH_BOOTSTRAP_ADMIN_PASSWORD is still the placeholder value")
+        if self.chat_debug_enabled:
+            warnings.append("CHAT_DEBUG_ENABLED=true: chat responses expose prompts, retrieved chunks and history")
+        return warnings
 
     @property
     def default_generation_profile(self) -> str:

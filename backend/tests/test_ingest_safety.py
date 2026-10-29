@@ -182,11 +182,10 @@ def test_website_reingest_replaces_changed_page_by_url(monkeypatch) -> None:
     old = service._document_repository.add(content_hash="old", url="https://www.snaic.net/a", source_type="website")
     other = service._document_repository.add(content_hash="x", url="https://www.snaic.net/b", source_type="website")
 
-    async def fake_get(self, url, headers):
-        request = __import__("httpx").Request("GET", url)
-        return __import__("httpx").Response(200, request=request, content=b"<html></html>")
+    async def fake_fetch(url):
+        return b"<html></html>", "text/html"
 
-    monkeypatch.setattr("httpx.AsyncClient.get", fake_get)
+    monkeypatch.setattr(service, "_fetch_page", fake_fetch)
 
     class Parser:
         async def parse(self, filename, content, mime_type, shared_metadata):

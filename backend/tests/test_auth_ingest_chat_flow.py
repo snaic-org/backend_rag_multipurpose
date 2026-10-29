@@ -8,6 +8,8 @@ import asyncio
 import sys
 import types
 
+import pytest
+
 redis_module = types.ModuleType("redis")
 redis_asyncio_module = types.ModuleType("redis.asyncio")
 redis_asyncio_module.Redis = object
@@ -368,13 +370,13 @@ class _RecordingModelHealthService:
         self.recheck_requests += 1
 
 
-def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int]:
+def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int, str]:
     app = build_app()
     model_health = _RecordingModelHealthService()
     app.state.model_health_service = model_health
     monkeypatch.setattr(chat_api, "_build_chat_service", lambda request: _FailingChatService(exc))
 
-    async def run_flow() -> int:
+    async def run_flow() -> tuple[int, str]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             token_response = await client.post(
@@ -387,24 +389,59 @@ def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int]:
                 headers={"Authorization": f"Bearer {token}"},
                 json={"message": "What is SNAIC?"},
             )
-            return chat_response.status_code
+            return chat_response.status_code, chat_response.json()["detail"]
 
-    status_code = asyncio.run(run_flow())
-    return status_code, model_health.recheck_requests
+    status_code, detail = asyncio.run(run_flow())
+    return status_code, model_health.recheck_requests, detail
 
 
 def test_chat_upstream_model_error_requests_model_health_recheck(monkeypatch) -> None:
     request = httpx.Request("POST", "https://integrate.api.nvidia.com/v1/chat/completions")
-    exc = httpx.HTTPStatusError("404", request=request, response=httpx.Response(404, request=request))
+    exc = httpx.HTTPStatusError(
+        "Client error '404 Not Found' for url 'https://integrate.api.nvidia.com/v1/chat/completions'",
+        request=request,
+        response=httpx.Response(404, request=request),
+    )
 
-    status_code, recheck_requests = _chat_with_failure(monkeypatch, exc)
+    status_code, recheck_requests, detail = _chat_with_failure(monkeypatch, exc)
 
     assert status_code == 502
     assert recheck_requests == 1
+    assert "nvidia.com" not in detail
+    assert detail == "The AI service is temporarily unavailable. Please try again shortly."
 
 
 def test_chat_guardrail_rejection_does_not_request_model_health_recheck(monkeypatch) -> None:
-    status_code, recheck_requests = _chat_with_failure(monkeypatch, ValueError("Prompt too long"))
+    status_code, recheck_requests, detail = _chat_with_failure(monkeypatch, ValueError("Prompt too long"))
 
     assert status_code == 400
     assert recheck_requests == 0
+    assert detail == "Prompt too long"
+
+
+def test_chat_internal_error_hides_details_but_keeps_status(monkeypatch) -> None:
+    exc = RuntimeError("NIM embeddings request failed with status 503: account mGI7 internal error")
+
+    status_code, _, detail = _chat_with_failure(monkeypatch, exc)
+
+    assert status_code == 503
+    assert "mGI7" not in detail
+    assert detail == "Chat is temporarily unavailable. Please try again shortly."
+
+
+def test_login_checks_a_password_hash_even_for_unknown_users() -> None:
+    from app.services.auth_service import AuthService
+
+    class EmptyRepository:
+        async def get_user_by_username(self, username):
+            return None
+
+    service = AuthService(SimpleNamespace(), postgres_pool=None)
+    service._repository = EmptyRepository()
+    verified: list[str] = []
+    service._verify_password = lambda password, stored_hash: verified.append(stored_hash) or False
+
+    with pytest.raises(ValueError, match="Invalid username or password"):
+        asyncio.run(service.issue_access_token("nobody", "guess"))
+
+    assert len(verified) == 1 and verified[0].startswith("scrypt$")

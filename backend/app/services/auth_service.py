@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -24,6 +25,7 @@ class AuthService:
     def __init__(self, settings: Settings, postgres_pool: AsyncConnectionPool) -> None:
         self._settings = settings
         self._repository = AuthRepository(postgres_pool)
+        self._dummy_password_hash: str | None = None
 
     async def ensure_bootstrap_admin(self) -> None:
         if not self._settings.auth_enabled:
@@ -43,9 +45,12 @@ class AuthService:
     ) -> AccessTokenResponse:
         user = await self._repository.get_user_by_username(username)
         if user is None or not user.is_active:
+            # Spend the same scrypt time as a real check so response timing does
+            # not reveal which usernames exist.
+            await asyncio.to_thread(self._verify_against_dummy_hash, password)
             raise ValueError("Invalid username or password")
 
-        if not self._verify_password(password, user.password_hash):
+        if not await asyncio.to_thread(self._verify_password, password, user.password_hash):
             raise ValueError("Invalid username or password")
 
         expires_at = datetime.now(timezone.utc) + timedelta(
@@ -95,7 +100,7 @@ class AuthService:
 
         user = await self._repository.create_user(
             username=payload.username,
-            password_hash=self._hash_password(payload.password),
+            password_hash=await asyncio.to_thread(self._hash_password, payload.password),
             is_active=payload.is_active,
             is_admin=payload.is_admin,
         )
@@ -133,7 +138,7 @@ class AuthService:
         if payload.username is not None:
             updates["username"] = payload.username
         if payload.password is not None:
-            updates["password_hash"] = self._hash_password(payload.password)
+            updates["password_hash"] = await asyncio.to_thread(self._hash_password, payload.password)
         if payload.is_active is not None:
             updates["is_active"] = payload.is_active
         if payload.is_admin is not None:
@@ -168,6 +173,11 @@ class AuthService:
             is_admin=user.is_admin,
             auth_type=auth_type,
         )
+
+    def _verify_against_dummy_hash(self, password: str) -> None:
+        if self._dummy_password_hash is None:
+            self._dummy_password_hash = self._hash_password(secrets.token_urlsafe(16))
+        self._verify_password(password, self._dummy_password_hash)
 
     def _hash_password(self, password: str) -> str:
         salt = secrets.token_bytes(16)
