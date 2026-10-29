@@ -5,6 +5,7 @@ This document summarizes the current implemented capabilities of the backend RAG
 ## API endpoints
 
 - `GET /health`
+- `GET /health/models` (calls the active models; `503` when one fails)
 - `POST /auth/token`
 - `GET /auth/me`
 - `POST /ingest/text`

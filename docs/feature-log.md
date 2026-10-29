@@ -578,6 +578,28 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.3 - 2026-10-29
+
+CORS for the SNAIC website, real model health checks, and email alerts.
+
+Added:
+
+- `GET /health/models`: calls the active generation, embedding, and rerank models, returns `503` when any fails, caches results for `HEALTH_MODEL_PROBE_TTL_SECONDS` (default `300`) and refreshes expired results in the background so it answers fast, and logs full upstream errors as `model_health_probe_failed` while the public response only names the failure class
+- `scripts/setup-health-alerts.ps1`: Route 53 health checks on `/health/models` and `/health`, CloudWatch alarms, and an SNS email subscription that notifies `aicentre@singaporetech.edu.sg` on failure and recovery
+- `scripts/redeploy-ecs.ps1` checks `/health/models` after a deploy and warns if a model is not answering
+
+Changed:
+
+- `/health` `status` now reflects only datastores and the providers the active model selection uses; providers report `in_use`, so unconfigured OpenAI/Gemini/Ollama no longer make production permanently `degraded`
+- the NIM provider health check fails when the hosted NVIDIA API is configured without `NIM_API_KEY`
+- reranking request code is shared between chat and the health probe
+- `/health` runs its datastore and provider checks concurrently
+
+Fixed:
+
+- ECS sets `CORS_ALLOWED_ORIGINS=https://www.snaic.net,https://snaic.net`; browser preflight requests previously got `405`
+- comma-separated `CORS_ALLOWED_ORIGINS` values no longer crash startup; JSON lists still work and trailing slashes are stripped
+
 ## v0.6.2 - 2026-10-29
 
 Replace retired NVIDIA NIM generation models.

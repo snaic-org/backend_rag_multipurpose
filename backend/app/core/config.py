@@ -1,10 +1,11 @@
+import json
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import quote
 
 from pydantic import BaseModel, Field
 from pydantic import field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ProviderName = Literal["openai", "gemini", "ollama", "nim"]
 
@@ -137,7 +138,9 @@ class Settings(BaseSettings):
     app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
     log_level: str = Field(default="INFO")
-    cors_allowed_origins: list[str] = Field(default_factory=list)
+    # NoDecode: let the validator below split comma-separated values instead of
+    # pydantic-settings requiring a JSON list.
+    cors_allowed_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
 
     auth_enabled: bool = Field(default=True)
     auth_jwt_secret: str = Field(default="change-me-immediately")
@@ -218,6 +221,8 @@ class Settings(BaseSettings):
     chat_thinking_enabled: bool = Field(default=False)
     chat_show_thinking_block: bool = Field(default=False)
     retrieval_cache_ttl_seconds: int = Field(default=120)
+    health_model_probe_ttl_seconds: int = Field(default=300, ge=0)
+    health_model_probe_timeout_seconds: float = Field(default=20.0, gt=0)
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -227,8 +232,11 @@ class Settings(BaseSettings):
             if not stripped:
                 return []
             if stripped.startswith("["):
-                return value
-            return [origin.strip() for origin in stripped.split(",") if origin.strip()]
+                value = json.loads(stripped)
+            else:
+                value = stripped.split(",")
+        if isinstance(value, list):
+            return [str(origin).strip().rstrip("/") for origin in value if str(origin).strip()]
         return value
 
     @field_validator("default_generation_provider", mode="before")

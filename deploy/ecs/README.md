@@ -652,14 +652,41 @@ client
 - The ECS task template seeds NIM as the initial generation and embedding default, but the catalog still includes OpenAI and Ollama profiles in code if you switch them later through the admin API.
 - Chat activity and chat feedback are stored in the task-local PostgreSQL container, so replacing the task can clear admin monitoring history.
 - Public chat response details are controlled by `CHAT_DEBUG_ENABLED`; leave it disabled unless the endpoint is restricted to trusted operators.
+- Browser access is controlled by `CORS_ALLOWED_ORIGINS` (comma-separated, currently `https://www.snaic.net,https://snaic.net`). Add the origin of any other site or local dev server that calls the API from a browser; without it, browsers block the request at the preflight (`OPTIONS`) step.
 - If you want Fargate to be production-ready, the next step is: app + nginx on Fargate, PostgreSQL on RDS, Redis on ElastiCache.
 - Chat persona wording lives in `backend/app/services/prompt_builder.py`, so any tone change requires rebuilding and pushing the `rag-backend` image, then registering a new task definition revision and updating the ECS service.
+
+## Health monitoring and email alerts
+
+`GET /health` stays the container health check because it never calls paid upstream APIs and always returns `200`; a model outage must not make ECS restart a healthy task. `GET /health/models` is the readiness check for monitoring: it calls the active models and returns `503` when one fails. `scripts/redeploy-ecs.ps1` calls it after every deploy and warns if it fails.
+
+To email `aicentre@singaporetech.edu.sg` when production deteriorates and again when it recovers, run once:
+
+```powershell
+.\scripts\setup-health-alerts.ps1
+```
+
+It creates (or reuses on re-run):
+
+- a Route 53 HTTPS health check on `https://multiragapi.snaic.net/health/models` (unhealthy on `503` or no answer)
+- a Route 53 HTTPS string-match health check on `/health` (unhealthy unless the body contains `"status":"ok"`)
+- an SNS topic `backend-rag-health-alerts` with an email subscription
+- one CloudWatch alarm per health check that notifies the topic on `ALARM` and `OK`
+
+Notes:
+
+- after the first run, someone must click **Confirm subscription** in the AWS email sent to the alert address; no alerts are delivered until then
+- Route 53 health check metrics exist only in `us-east-1`, so the alarms and SNS topic live there
+- checks run from 3 regions every 30s; an outage alerts in about 3-4 minutes. A failing model can take up to `HEALTH_MODEL_PROBE_TTL_SECONDS` longer to show, because model probe results are cached
+- override `-AlertEmail`, `-DomainName`, or `-CheckerRegions` as needed
+- required permissions: `route53:ListHealthChecks`, `route53:CreateHealthCheck`, `route53:ChangeTagsForResource`, `sns:CreateTopic`, `sns:Subscribe`, `sns:ListSubscriptionsByTopic`, `cloudwatch:PutMetricAlarm`
+- cost is roughly USD 1-2 per month (two HTTPS health checks, one with string matching, plus two alarms)
 
 ## Post-deploy verification
 
 After a new task revision is live, verify:
 
-1. `GET /health` returns `200`
+1. `GET /health` returns `200` with `"status":"ok"`, and `GET /health/models` returns `200`
 2. `POST /chat` returns `200` with only `answer`, compact `citations`, and `session_id` when `CHAT_DEBUG_ENABLED=false`
 3. `POST /chat/stream` still streams answer chunks and a compact final payload
 4. `GET /admin/chat-activity` returns `200`

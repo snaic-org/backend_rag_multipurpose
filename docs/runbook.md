@@ -61,9 +61,13 @@ docker compose -f backend/docker-compose.yml -f backend/docker-compose.ollama.ym
 
 ```bash
 curl http://localhost:9010/health
+curl -i http://localhost:9010/health/models
 ```
 
 This goes through `nginx` first and then reaches the app container.
+
+- `/health` is the cheap liveness check used by container health checks and always returns `200`. Its `status` is `degraded` only when PostgreSQL, Redis, Qdrant, or a provider the active model selection uses is unhealthy; unused providers are listed with `in_use: false`.
+- `/health/models` actually calls the active generation, embedding, and (when `RERANK_ENABLED=true`) rerank models. It returns `503` when one fails, for example after NVIDIA retires a hosted model. Results are cached for `HEALTH_MODEL_PROBE_TTL_SECONDS` (default `300`), so `cached: true` means the result is from an earlier probe. After the cache expires, the previous result is returned immediately while one background probe refreshes it, so the endpoint answers within the 2-second limit of uptime checkers such as Route 53; only the first call after startup waits for a live probe. Full upstream errors are logged as `model_health_probe_failed`; the public response only names the failure class.
 
 ## Get a bearer token
 

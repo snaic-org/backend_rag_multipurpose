@@ -46,3 +46,18 @@ def test_nim_provider_payload_uses_chat_template_kwargs_without_injected_hint() 
 
     assert payload["messages"] == [{"role": "system", "content": "follow these rules"}]
     assert payload["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+def test_nim_healthcheck_requires_api_key_for_hosted_api() -> None:
+    import asyncio
+
+    from app.core.config import Settings
+
+    hosted = asyncio.run(NimProvider(Settings(nim_api_key=None)).healthcheck())
+    assert hosted.ok is False
+    assert hosted.detail == "missing NIM_API_KEY"
+
+    self_hosted = asyncio.run(
+        NimProvider(Settings(nim_api_key=None, nim_base_url="http://nim.internal:8000/v1")).healthcheck()
+    )
+    assert self_hosted.ok is True

@@ -83,6 +83,8 @@
         { "name": "AUTH_ENABLED", "value": "true" },
         { "name": "AUTH_REQUIRE_HTTPS", "value": "true" },
         { "name": "CHAT_DEBUG_ENABLED", "value": "false" },
+        { "name": "CORS_ALLOWED_ORIGINS", "value": "https://www.snaic.net,https://snaic.net" },
+        { "name": "HEALTH_MODEL_PROBE_TTL_SECONDS", "value": "300" },
         { "name": "CHAT_THINKING_ENABLED", "value": "false" },
         { "name": "CHAT_SHOW_THINKING_BLOCK", "value": "false" },
         { "name": "CHAT_TEMPERATURE", "value": "0.2" },

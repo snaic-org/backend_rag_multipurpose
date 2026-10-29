@@ -18,6 +18,7 @@ class ProviderHealth(DependencyHealth):
     provider: str
     capabilities: list[str] = Field(default_factory=list)
     configuration_present: bool = True
+    in_use: bool = True
 
 
 class HealthCheckResponse(BaseModel):
@@ -27,6 +28,21 @@ class HealthCheckResponse(BaseModel):
     redis: DependencyHealth
     qdrant: DependencyHealth
     providers: dict[str, ProviderHealth]
+
+
+class ModelProbeResult(DependencyHealth):
+    provider: str | None = None
+    model: str | None = None
+    latency_ms: int | None = None
+
+
+class ModelHealthResponse(BaseModel):
+    status: str
+    generation: ModelProbeResult
+    embedding: ModelProbeResult
+    rerank: ModelProbeResult | None = None
+    checked_at: datetime
+    cached: bool = False
 
 
 class NormalizedDocument(BaseModel):

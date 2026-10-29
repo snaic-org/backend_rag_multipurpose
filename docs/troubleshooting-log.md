@@ -1006,12 +1006,36 @@ Fix:
 
 Diagnosis tip:
 
-- call `https://integrate.api.nvidia.com/v1/chat/completions` directly with the production `NIM_API_KEY` and the configured model; a `404` or `410` there confirms the model is gone
+- open `https://multiragapi.snaic.net/health/models`; a `503` with `upstream HTTP 404` or `410` on `generation` confirms the model is gone (added in v0.6.3, which also emails `aicentre@singaporetech.edu.sg` via `scripts/setup-health-alerts.ps1`)
+- or call `https://integrate.api.nvidia.com/v1/chat/completions` directly with the production `NIM_API_KEY` and the configured model
 
 Relevant files:
 
 - `backend/app/core/config.py`
 - `backend/app/services/model_selection_service.py`
+- `deploy/ecs/task-definition.json`
+
+## Browser calls blocked by CORS / startup fails after setting CORS_ALLOWED_ORIGINS (2026-10-29)
+
+Symptom:
+
+- `OPTIONS` preflight requests from `https://www.snaic.net` returned `405`, so browsers blocked chat calls
+- setting `CORS_ALLOWED_ORIGINS=https://a.com,https://b.com` crashed startup with `SettingsError: error parsing value for field "cors_allowed_origins"`
+
+Cause:
+
+- `CORS_ALLOWED_ORIGINS` was never set in the ECS task, so the CORS middleware was not installed
+- pydantic-settings parses list fields from env as JSON before field validators run, so a comma-separated value failed before the comma-splitting validator could see it
+
+Fix:
+
+- the field is annotated with `NoDecode`; the validator accepts comma-separated or JSON-list values and strips trailing slashes (browsers never send one in `Origin`)
+- ECS now sets `CORS_ALLOWED_ORIGINS=https://www.snaic.net,https://snaic.net`
+
+Relevant files:
+
+- `backend/app/core/config.py`
+- `backend/app/core/cors.py`
 - `deploy/ecs/task-definition.json`
 
 ## Usage
