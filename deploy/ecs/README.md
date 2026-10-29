@@ -703,7 +703,8 @@ Notes:
 - checks run from 3 regions every 30s; an outage alerts in about 3-4 minutes. A failing model can take up to `HEALTH_MODEL_PROBE_TTL_SECONDS` longer to show, because model probe results are cached
 - override `-AlertEmail`, `-DomainName`, or `-CheckerRegions` as needed
 - required permissions: `route53:ListHealthChecks`, `route53:CreateHealthCheck`, `route53:ChangeTagsForResource`, `sns:CreateTopic`, `sns:Subscribe`, `sns:ListSubscriptionsByTopic`, `cloudwatch:PutMetricAlarm`
-- cost is roughly USD 1-2 per month (two HTTPS health checks, one with string matching, plus two alarms)
+- cost is roughly USD 4 per month: Route 53 bills each health check (USD 0.50) plus USD 1.00 per optional feature, so `/health/models` (HTTPS) is about USD 1.50 and `/health` (HTTPS + string matching) about USD 2.50; up to about USD 6.75 if the endpoint is billed as non-AWS. The two alarms fall within the CloudWatch free tier and SNS email is free for the first 1,000 messages a month
+- `/health/models` probes the models about once per `HEALTH_MODEL_PROBE_TTL_SECONDS` while Route 53 polls (about 8,600 small calls a month to each model at the default 300s); raise the TTL if your NVIDIA plan has a usage quota
 
 ## Post-deploy verification
 
