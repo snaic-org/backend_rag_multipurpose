@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from app.db.qdrant import QdrantManager
+from app.db.qdrant import TEXT_INDEXED_FIELDS, QdrantManager
 from app.models.schemas import RetrievedChunk
 from app.services.text_terms import significant_terms
 
@@ -60,7 +60,9 @@ class RetrievalRepository:
             from qdrant_client.http import models
 
             query_filter.should = [
-                models.FieldCondition(key="content", match=models.MatchText(text=term)) for term in terms
+                models.FieldCondition(key=field, match=models.MatchText(text=term))
+                for field in TEXT_INDEXED_FIELDS
+                for term in terms
             ]
 
         points, _ = await self._qdrant.client.scroll(

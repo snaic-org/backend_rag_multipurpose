@@ -6,7 +6,7 @@ import httpx
 
 from app.core.config import Settings
 from app.core.http_client import shared_http_client
-from app.core.model_profiles import find_profile
+from app.core.model_profiles import match_profiles
 from app.core.logging import get_logger
 from app.models.schemas import EmbeddingSelection, ProviderName
 from app.services.cache_service import CacheService
@@ -334,9 +334,12 @@ class EmbeddingService:
     def _find_profile_name(self, provider: str | None, model: str | None) -> str:
         if provider is None and model is None:
             return self._settings.default_embedding_profile
-        return find_profile(
-            self._settings.embedding_profiles,
-            "embedding provider/model pair",
-            provider=provider,
-            model=model,
-        )
+        matches = match_profiles(self._settings.embedding_profiles, provider=provider, model=model)
+        if not matches:
+            raise ValueError("No configured embedding profile matches the requested provider/model pair")
+        if len(matches) > 1:
+            raise ValueError(
+                "Multiple embedding profiles match the requested provider/model pair. "
+                "Specify embedding_profile explicitly."
+            )
+        return matches[0]

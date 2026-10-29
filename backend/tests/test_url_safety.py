@@ -120,3 +120,40 @@ def test_streaming_xlsx_parser_reads_rows() -> None:
     assert len(parsed.documents) == 1
     assert "Name: AI Fundamentals" in parsed.documents[0].content
     assert "Sheet: Programmes" in parsed.documents[0].content
+
+
+def test_xlsx_with_wrong_stored_dimension_keeps_all_rows() -> None:
+    import io
+    import re
+    import zipfile
+
+    from openpyxl import Workbook
+
+    from app.parsers.xlsx_parser import XlsxParser
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(["Name", "Duration", "Level"])
+    sheet.append(["AI 101", "3 days", "Beginner"])
+    sheet.append(["ML 201", "5 days", "Advanced"])
+    saved = io.BytesIO()
+    workbook.save(saved)
+
+    # Some exporters write a wrong <dimension>; openpyxl read-only mode trusts it.
+    source = zipfile.ZipFile(io.BytesIO(saved.getvalue()))
+    rewritten = io.BytesIO()
+    with zipfile.ZipFile(rewritten, "w") as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == "xl/worksheets/sheet1.xml":
+                data = re.sub(rb'<dimension ref="[^"]+"/>', b'<dimension ref="A1"/>', data)
+            target.writestr(item, data)
+
+    parsed = asyncio.run(XlsxParser().parse("courses.xlsx", rewritten.getvalue(), None))
+
+    assert len(parsed.documents) == 2
+    assert "Level: Advanced" in parsed.documents[1].content
+
+
+def test_intranet_ports_are_allowed_when_private_hosts_are_enabled() -> None:
+    asyncio.run(ensure_public_url("http://10.0.1.25:8080/wiki", allow_private_hosts=True))

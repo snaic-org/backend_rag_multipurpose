@@ -237,3 +237,19 @@ def test_model_health_rechecks_failed_result_sooner_than_ttl() -> None:
 
     assert first.status == "degraded"
     assert recovered.status == "ok"
+
+
+def test_model_health_aclose_cancels_background_refresh() -> None:
+    provider = FakeProvider("ok")
+    service = _service(provider, settings=_settings(health_model_probe_ttl_seconds=0))
+
+    async def run():
+        await service.check()
+        provider.behaviour = "slow"
+        await service.check()  # starts a slow background refresh
+        await service.aclose()
+        return service._refresh_task
+
+    task = asyncio.run(run())
+
+    assert task.cancelled()

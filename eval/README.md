@@ -27,6 +27,8 @@ python eval\create_domain_test.py
 
 ## Evaluation Runtime (DeepEval)
 
+The backend under evaluation must run with `CHAT_DEBUG_ENABLED=true` (it defaults to `false`): the retrieval metrics read `retrieved_chunks`, which only the debug response includes. `eval/main.py` stops with an error otherwise. Never enable it on the public deployment.
+
 `eval/main.py` runs end-to-end evaluation:
 
 - login to backend

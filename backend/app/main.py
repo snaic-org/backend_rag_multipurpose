@@ -99,10 +99,18 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await qdrant.close()
-        await redis.close()
-        await postgres.close()
-        await close_shared_http_clients()
+        # Stop background work first, then close every resource even if one fails.
+        for close in (
+            model_health_service.aclose,
+            close_shared_http_clients,
+            qdrant.close,
+            redis.close,
+            postgres.close,
+        ):
+            try:
+                await close()
+            except Exception as exc:  # pragma: no cover - defensive shutdown path
+                logger.warning("shutdown_step_failed step=%s error=%r", close.__qualname__, exc)
         logger.info("application_shutdown_complete")
 
 

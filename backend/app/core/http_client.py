@@ -19,7 +19,13 @@ async def shared_http_client(*, base_url: str = "", timeout: float = 60.0) -> As
     key = (base_url, timeout)
     client = _clients.get(key)
     if client is None or getattr(client, "is_closed", False):
-        client = httpx.AsyncClient(base_url=base_url, timeout=timeout)
+        client = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=timeout,
+            # Per-call clients had no shared cap; keep it that way so concurrent
+            # chats never queue behind each other for a connection.
+            limits=httpx.Limits(max_connections=None, max_keepalive_connections=20),
+        )
         _clients[key] = client
     yield client
 

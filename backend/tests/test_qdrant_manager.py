@@ -38,3 +38,25 @@ def test_collection_is_recreated_after_reset() -> None:
     asyncio.run(run())
 
     assert client.collections == {"rag_chunks_2048"}
+
+
+def test_concurrent_first_searches_create_the_collection_once() -> None:
+    manager = QdrantManager(Settings())
+    client = FakeQdrantClient()
+    creations: list[str] = []
+    original_create = client.create_collection
+
+    async def counting_create(collection_name: str, vectors_config) -> None:
+        await asyncio.sleep(0)  # let the other searches run in between
+        creations.append(collection_name)
+        await original_create(collection_name, vectors_config)
+
+    client.create_collection = counting_create
+    manager._client = client
+
+    async def run() -> None:
+        await asyncio.gather(*(manager.ensure_collection(2048) for _ in range(5)))
+
+    asyncio.run(run())
+
+    assert creations == ["rag_chunks_2048"]

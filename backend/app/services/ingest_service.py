@@ -290,6 +290,8 @@ class IngestService:
                     embedding_dimension=embedding_dimension,
                 )
             except Exception:
+                # The upsert may have reached Qdrant even if the call failed.
+                await self._chunk_repository.delete_for_document(document_record.id, embedding_dimension)
                 await self._document_repository.delete_by_id(document_record.id)
                 raise
 

@@ -71,8 +71,12 @@ def test_text_index_filters_candidates_by_significant_terms() -> None:
     asyncio.run(repository.search_keyword_chunks(query_texts=["Who is the SNAIC director?"], limit=5, **PROFILE))
 
     should = qdrant.client.scroll_filters[0].should
-    assert sorted(condition.match.text for condition in should) == ["director", "snaic"]
-    assert all(condition.key == "content" for condition in should)
+    assert sorted((condition.key, condition.match.text) for condition in should) == [
+        ("content", "director"),
+        ("content", "snaic"),
+        ("title", "director"),
+        ("title", "snaic"),
+    ]
 
 
 def test_blank_queries_skip_qdrant() -> None:

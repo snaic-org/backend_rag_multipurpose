@@ -31,10 +31,10 @@ async def ensure_public_url(url: str, *, allow_private_hosts: bool = False) -> N
         port = parts.port
     except ValueError as exc:
         raise UnsafeUrlError("URL has an invalid port.") from exc
-    if port not in _ALLOWED_PORTS:
-        raise UnsafeUrlError("Only the standard web ports (80 and 443) can be ingested.")
     if allow_private_hosts:
         return
+    if port not in _ALLOWED_PORTS:
+        raise UnsafeUrlError("Only the standard web ports (80 and 443) can be ingested.")
 
     try:
         infos = await asyncio.get_running_loop().getaddrinfo(host, port or 443, type=socket.SOCK_STREAM)

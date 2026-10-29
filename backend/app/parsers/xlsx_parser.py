@@ -25,6 +25,9 @@ class XlsxParser(FileParser):
         documents: list[NormalizedDocument] = []
 
         for sheet in workbook.worksheets:
+            # Read-only mode trusts the sheet's stored <dimension>, which some
+            # exporters write wrongly; recompute it so no rows or columns are lost.
+            sheet.reset_dimensions()
             rows = list(sheet.iter_rows(values_only=True))
             if not rows:
                 continue
