@@ -355,14 +355,18 @@ def test_chat_service_formats_thinking_block_based_on_setting() -> None:
     assert service._format_answer("final", "reasoning") == "<thinking>\nreasoning\n</thinking>\n\nfinal"
 
 
-def test_model_selection_service_seeds_nim_defaults() -> None:
-    settings = Settings(
+def _nim_settings(generation_model: str = "nvidia/nemotron-3.5-super-vl-120b-a12b") -> Settings:
+    return Settings(
         default_generation_provider="nim",
-        default_generation_model="nvidia/nemotron-3-super-120b-a12b",
+        default_generation_model=generation_model,
         default_embedding_provider="nim",
         default_embedding_model="nvidia/nemotron-3-embed-1b",
         default_embedding_dimension=2048,
     )
+
+
+def test_model_selection_service_seeds_nim_defaults() -> None:
+    settings = _nim_settings()
 
     service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())
     service._repository = _FakeModelSelectionRepository()  # type: ignore[attr-defined]
@@ -371,22 +375,16 @@ def test_model_selection_service_seeds_nim_defaults() -> None:
     selection = asyncio.run(service.get_model_selection())
     catalog = asyncio.run(service.get_catalog())
 
-    assert selection.generation_profile == "nim_3super120"
+    assert selection.generation_profile == "nim_35super120"
     assert selection.embedding_profile == "nim_nemotron_2048"
     assert selection.generation_provider == "nim"
     assert selection.embedding_provider == "nim"
-    assert catalog.generation_profiles[1].profile_name == "nim_3super120"
-    assert settings.generation_profiles["nim_3super120"].provider == "nim"
+    assert "nim_35super120" in [profile.profile_name for profile in catalog.generation_profiles]
+    assert settings.generation_profiles["nim_35super120"].provider == "nim"
 
 
-def test_model_selection_service_accepts_llama33_nim_default() -> None:
-    settings = Settings(
-        default_generation_provider="nim",
-        default_generation_model="nvidia/llama-3.3-nemotron-super-49b-v1.5",
-        default_embedding_provider="nim",
-        default_embedding_model="nvidia/nemotron-3-embed-1b",
-        default_embedding_dimension=2048,
-    )
+def test_model_selection_service_accepts_lightning_nim_default() -> None:
+    settings = _nim_settings("nvidia/nemotron-3.5-lightning-30b-a3b")
 
     service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())
     service._repository = _FakeModelSelectionRepository()  # type: ignore[attr-defined]
@@ -394,10 +392,49 @@ def test_model_selection_service_accepts_llama33_nim_default() -> None:
     asyncio.run(service.ensure_default_model_selection())
     selection = asyncio.run(service.get_model_selection())
 
-    assert selection.generation_profile == "nim_llama33_super49b"
+    assert selection.generation_profile == "nim_35lightning30"
     assert selection.generation_provider == "nim"
-    assert selection.generation_model == "nvidia/llama-3.3-nemotron-super-49b-v1.5"
-    assert settings.generation_profiles["nim_llama33_super49b"].provider == "nim"
+    assert selection.generation_model == "nvidia/nemotron-3.5-lightning-30b-a3b"
+
+
+def test_model_selection_service_replaces_retired_stored_profile() -> None:
+    settings = _nim_settings()
+
+    service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())
+    repository = _FakeModelSelectionRepository()
+    repository.record = ModelSelectionRecord(
+        id=1,
+        generation_profile="nim_3super120",
+        embedding_profile="nim_nemotron_2048",
+        updated_at=datetime.now(timezone.utc),
+    )
+    service._repository = repository  # type: ignore[attr-defined]
+
+    asyncio.run(service.ensure_default_model_selection())
+    selection = asyncio.run(service.get_model_selection())
+
+    assert selection.generation_profile == "nim_35super120"
+    assert selection.generation_model == "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    assert selection.embedding_profile == "nim_nemotron_2048"
+
+
+def test_model_selection_service_keeps_valid_stored_profile() -> None:
+    settings = _nim_settings()
+
+    service = ModelSelectionService(settings, postgres_pool=SimpleNamespace())
+    repository = _FakeModelSelectionRepository()
+    repository.record = ModelSelectionRecord(
+        id=1,
+        generation_profile="nim_3ultra550",
+        embedding_profile="nim_nemotron_2048",
+        updated_at=datetime.now(timezone.utc),
+    )
+    service._repository = repository  # type: ignore[attr-defined]
+
+    asyncio.run(service.ensure_default_model_selection())
+    selection = asyncio.run(service.get_model_selection())
+
+    assert selection.generation_profile == "nim_3ultra550"
 
 
 def test_guardrails_truncate_response_ends_cleanly() -> None:

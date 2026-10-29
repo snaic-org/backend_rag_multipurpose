@@ -986,6 +986,34 @@ Relevant files:
 - `backend/app/core/config.py`
 - `backend/app/providers/nim_provider.py`
 
+## Chat returns 502 after NVIDIA retires a model (2026-10-29)
+
+Symptom:
+
+- `/health` reports postgres, redis, qdrant, and nim as ok, but `/chat` and `/chat/stream` fail with `502 Bad Gateway`
+- questions with no retrieved chunks still get the fallback answer, because they never call the generation model
+
+Cause:
+
+- the hosted NIM API stopped serving the default generation model: `nvidia/nemotron-3-super-120b-a12b` returned `404 Function ... Not found for account`, and the catalog alternatives returned `410 Gone` (end of life)
+- the NIM healthcheck only checks configuration, so `/health` cannot detect a retired model
+- `_raise_chat_http_error` maps an upstream 4xx to `502`
+
+Fix:
+
+- switch the default to a live model (`nvidia/nemotron-3.5-super-vl-120b-a12b`) in `backend/app/core/config.py`, `backend/.env.example`, and `deploy/ecs/task-definition.json`, then rebuild and redeploy
+- startup now replaces a stored selection whose profile was removed from the catalog, so no manual `PUT /admin/model-selection` is needed after the redeploy
+
+Diagnosis tip:
+
+- call `https://integrate.api.nvidia.com/v1/chat/completions` directly with the production `NIM_API_KEY` and the configured model; a `404` or `410` there confirms the model is gone
+
+Relevant files:
+
+- `backend/app/core/config.py`
+- `backend/app/services/model_selection_service.py`
+- `deploy/ecs/task-definition.json`
+
 ## Usage
 
 When a new setup or deployment issue appears, add:

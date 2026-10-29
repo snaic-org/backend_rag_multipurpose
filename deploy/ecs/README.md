@@ -87,7 +87,7 @@ This keeps the current local Compose architecture inside one ECS task.
 Current ECS template defaults:
 
 - generation provider: `nim`
-- generation model: `nvidia/nemotron-3-super-120b-a12b`
+- generation model: `nvidia/nemotron-3.5-super-vl-120b-a12b`
 - embedding provider: `nim`
 - embedding model: `nvidia/nemotron-3-embed-1b`
 - embedding dimension: `2048`

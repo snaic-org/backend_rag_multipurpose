@@ -627,7 +627,7 @@ class ModelCatalogResponse(BaseModel):
 
 class ModelSelectionUpdateRequest(BaseModel):
     generation_profile: str = Field(
-        examples=["openai_gpt41_mini", "nim_3super120"]
+        examples=["openai_gpt41_mini", "nim_35super120"]
     )
     embedding_profile: str = Field(
         examples=["openai_small_1536", "nim_nemotron_2048"]

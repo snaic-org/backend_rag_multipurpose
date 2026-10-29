@@ -578,6 +578,25 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.2 - 2026-10-29
+
+Replace retired NVIDIA NIM generation models.
+
+Fixed:
+
+- production chat failed with `502` on every grounded answer because the default generation model `nvidia/nemotron-3-super-120b-a12b` started returning `404 Not found for account` from the hosted NIM API; the catalog alternatives `nemotron-3-nano-30b-a3b` and `llama-3.3-nemotron-super-49b-v1.5` had already reached end of life (`410 Gone`)
+- a stored model selection that names a profile no longer in the catalog is now replaced with the configured default at startup, instead of failing startup and every chat request with `Unknown generation profile`
+
+Changed:
+
+- default generation model is now `nvidia/nemotron-3.5-super-vl-120b-a12b` (`nim_35super120`)
+- generation catalog now offers `nim_35super120`, `nim_35lightning30` (`nvidia/nemotron-3.5-lightning-30b-a3b`), and `nim_3ultra550` (`nvidia/nemotron-3-ultra-550b-a55b`); retired profiles `nim_3super120`, `nim_nano30`, and `nim_llama33_super49b` were removed
+
+Selection notes:
+
+- candidates were compared on the production system prompt with grounded, yes/no, missing-detail, out-of-scope, and prompt-injection questions
+- Super 3.5 answered all correctly in ~1s; Lightning 3.5 asserted a sector not in the knowledge base; Ultra contradicted itself on a yes/no question and took up to 10s
+
 ## v0.6.1 - 2026-07-09
 
 Model selection, reasoning, tone, and knowledge-base hygiene.

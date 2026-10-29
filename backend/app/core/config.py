@@ -57,19 +57,19 @@ DEFAULT_GENERATION_CATALOG = [
         "model": "gpt-4.1-mini",
     },
     {
-        "profile_name": "nim_nano30",
+        "profile_name": "nim_35super120",
         "provider": "nim",
-        "model": "nvidia/nemotron-3-nano-30b-a3b",
+        "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
     },
     {
-        "profile_name": "nim_3super120",
+        "profile_name": "nim_35lightning30",
         "provider": "nim",
-        "model": "nvidia/nemotron-3-super-120b-a12b",
+        "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
     },
     {
-        "profile_name": "nim_llama33_super49b",
+        "profile_name": "nim_3ultra550",
         "provider": "nim",
-        "model": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+        "model": "nvidia/nemotron-3-ultra-550b-a55b",
     },
     {
         "profile_name": "ollama_llama32",

@@ -150,7 +150,7 @@ class FakeDocumentInspectionService:
             ),
         ]
 
-    async def list_documents(self, limit: int = 20) -> list[IngestedDocumentSummary]:
+    async def list_documents(self, limit: int = 20, source_type: str | None = None) -> list[IngestedDocumentSummary]:
         return [IngestedDocumentSummary(document=self._document, embedding_profile="openai_small_1536")]
 
     async def get_document(self, document_id: UUID) -> IngestedDocumentDetails:

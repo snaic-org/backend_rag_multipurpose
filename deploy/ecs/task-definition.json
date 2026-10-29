@@ -74,7 +74,7 @@
         { "name": "REDIS_URL", "value": "rediss://master.backend-rag-redis.rrge6k.apse1.cache.amazonaws.com:6379/0" },
         { "name": "QDRANT_URL", "value": "https://c4e09575-63ef-4fb6-8015-0064275666ed.us-west-1-0.aws.cloud.qdrant.io" },
         { "name": "DEFAULT_GENERATION_PROVIDER", "value": "nim" },
-        { "name": "DEFAULT_GENERATION_MODEL", "value": "nvidia/nemotron-3-super-120b-a12b" },
+        { "name": "DEFAULT_GENERATION_MODEL", "value": "nvidia/nemotron-3.5-super-vl-120b-a12b" },
         { "name": "DEFAULT_EMBEDDING_PROVIDER", "value": "nim" },
         { "name": "DEFAULT_EMBEDDING_MODEL", "value": "nvidia/nemotron-3-embed-1b" },
         { "name": "DEFAULT_EMBEDDING_DIMENSION", "value": "2048" },

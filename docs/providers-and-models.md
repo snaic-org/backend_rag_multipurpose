@@ -98,9 +98,10 @@ NIM is implemented as a dedicated alias so the config stays explicit:
 
 Relevant NIM model IDs:
 
-- `nvidia/nemotron-3-super-120b-a12b` - active default generation model (`nim_3super120`); most articulate/warm tone, best for this RAG chatbot
-- `nvidia/nemotron-3-nano-30b-a3b` - faster/smaller generation option (`nim_nano30`); noticeably terser tone, follows the warm persona less faithfully
-- `nvidia/llama-3.3-nemotron-super-49b-v1.5`
+- `nvidia/nemotron-3.5-super-vl-120b-a12b` - active default generation model (`nim_35super120`); best grounded accuracy and instruction-following in the 2026-10 comparison, ~1s per answer
+- `nvidia/nemotron-3.5-lightning-30b-a3b` - faster option (`nim_35lightning30`); in the 2026-10 comparison it asserted a fact not in the knowledge base, so prefer Super for the public bot
+- `nvidia/nemotron-3-ultra-550b-a55b` - largest option (`nim_3ultra550`); 2-10s per answer, no accuracy gain over Super for grounded RAG
+- retired, removed from the catalog: `nvidia/nemotron-3-super-120b-a12b` (404 from the hosted API since 2026-10), `nvidia/nemotron-3-nano-30b-a3b` (end of life 2026-09-01), `nvidia/llama-3.3-nemotron-super-49b-v1.5` (end of life 2026-08-26)
 - `nvidia/llama-nemotron-embed-1b-v2`
 - `nvidia/llama-nemotron-rerank-1b-v2`
 

@@ -39,7 +39,7 @@ def test_nim_provider_payload_uses_chat_template_kwargs_without_injected_hint() 
 
     payload = provider._build_payload(
         messages=[ChatMessage(role="system", content="follow these rules")],
-        model="nvidia/nemotron-3-super-120b-a12b",
+        model="nvidia/nemotron-3.5-super-vl-120b-a12b",
         thinking_enabled=True,
         stream=False,
     )
