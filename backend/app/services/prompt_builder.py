@@ -1,7 +1,6 @@
-import re
-
 from app.core.config import get_settings
 from app.models.schemas import ChatCitation, ChatMessage, PromptContext, RetrievedChunk
+from app.services.text_terms import significant_terms
 
 
 DEFAULT_SYSTEM_PROMPT = """
@@ -84,35 +83,6 @@ _HEADER_PREFIXES = ("title:", "source:", "published at:")
 
 
 class PromptBuilder:
-    _TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
-    _STOPWORDS = {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "for",
-        "from",
-        "how",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "the",
-        "to",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "with",
-    }
-
     def __init__(self) -> None:
         self._settings = get_settings()
 
@@ -260,14 +230,7 @@ class PromptBuilder:
         return context_blocks
 
     def _extract_query_anchor_terms(self, user_message: str) -> list[str]:
-        terms: list[str] = []
-        for token in self._TOKEN_PATTERN.findall(user_message.lower()):
-            if len(token) < 4:
-                continue
-            if token in self._STOPWORDS:
-                continue
-            terms.append(token)
-        return terms
+        return significant_terms(user_message, min_length=4)
 
     def _anchor_match_score(self, content: str, anchor_terms: list[str]) -> int:
         if not anchor_terms:

@@ -5,6 +5,7 @@ import httpx
 
 from app.core.config import Settings
 from app.core.config import CHAT_MAX_RESPONSE_TOKENS, CHAT_TOP_P
+from app.core.http_client import shared_http_client
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
 from app.providers.common import (
@@ -123,7 +124,7 @@ class GeminiProvider(ProviderAdapter):
         thinking_enabled: bool,
     ) -> dict | None:
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with shared_http_client(timeout=60.0) as client:
                 response = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                     headers={"x-goog-api-key": self._settings.gemini_api_key},
@@ -155,7 +156,7 @@ class GeminiProvider(ProviderAdapter):
         *,
         thinking_enabled: bool,
     ) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with shared_http_client(timeout=60.0) as client:
             async with client.stream(
                 "POST",
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent",

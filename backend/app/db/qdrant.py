@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.models.schemas import DependencyHealth
+
+logger = get_logger(__name__)
 
 
 class QdrantManager:
@@ -9,6 +12,7 @@ class QdrantManager:
         self._settings = settings
         self._client = None
         self._initialized_collections: set[str] = set()
+        self._text_indexed_collections: set[str] = set()
 
     @property
     def client(self):
@@ -49,8 +53,29 @@ class QdrantManager:
                 field_schema=models.PayloadSchemaType.KEYWORD,
             )
 
+        # Full-text index on chunk content lets keyword search filter server-side.
+        # Best-effort: keyword search falls back to an unfiltered scroll without it.
+        try:
+            await self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name="content",
+                field_schema=models.TextIndexParams(
+                    type=models.TextIndexType.TEXT,
+                    tokenizer=models.TokenizerType.PREFIX,
+                    min_token_len=2,
+                    max_token_len=20,
+                    lowercase=True,
+                ),
+            )
+            self._text_indexed_collections.add(collection_name)
+        except Exception as exc:
+            logger.warning("qdrant_text_index_unavailable collection=%s error=%r", collection_name, exc)
+
         self._initialized_collections.add(collection_name)
         return collection_name
+
+    def has_text_index(self, collection_name: str) -> bool:
+        return collection_name in self._text_indexed_collections
 
     async def delete_all_collections(self) -> int:
         deleted = 0
@@ -63,6 +88,7 @@ class QdrantManager:
         # Forget the deleted collections so ensure_collection recreates them;
         # otherwise every chat and ingest fails with "collection not found".
         self._initialized_collections.clear()
+        self._text_indexed_collections.clear()
         return deleted
 
     async def healthcheck(self) -> DependencyHealth:

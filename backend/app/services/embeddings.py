@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import Settings
+from app.core.http_client import shared_http_client
 from app.core.model_profiles import find_profile
 from app.core.logging import get_logger
 from app.models.schemas import EmbeddingSelection, ProviderName
@@ -51,7 +52,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         if self._settings.openai_api_key:
             headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
 
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=OPENAI_API_BASE_URL,
             timeout=30.0,
         ) as client:
@@ -96,7 +97,7 @@ class NimEmbeddingProvider(EmbeddingProvider):
             payload_with_input_type["input_type"] = input_type
             payload_with_input_type["truncate"] = "NONE"
 
-        async with httpx.AsyncClient(base_url=self._settings.nim_base_url, timeout=30.0) as client:
+        async with shared_http_client(base_url=self._settings.nim_base_url, timeout=30.0) as client:
             data = await self._request_with_retry(
                 client=client,
                 headers=headers,
@@ -185,11 +186,11 @@ class GeminiEmbeddingProvider(EmbeddingProvider):
             raise ValueError("GEMINI_API_KEY is required for Gemini embeddings")
 
         embeddings: list[list[float]] = []
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with shared_http_client(timeout=30.0) as client:
             for text in texts:
                 response = await client.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{model}:embedContent",
-                    params={"key": self._settings.gemini_api_key},
+                    headers={"x-goog-api-key": self._settings.gemini_api_key},
                     json={"content": {"parts": [{"text": text}]}},
                 )
                 response.raise_for_status()
@@ -211,7 +212,7 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
         input_type: str | None = None,
     ) -> list[list[float]]:
         embeddings: list[list[float]] = []
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=self._settings.ollama_base_url,
             timeout=60.0,
         ) as client:

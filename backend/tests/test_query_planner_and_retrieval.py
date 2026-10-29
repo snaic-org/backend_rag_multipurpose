@@ -1,21 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-import types
 from types import SimpleNamespace
 from uuid import uuid4
 
-redis_module = types.ModuleType("redis")
-redis_asyncio_module = types.ModuleType("redis.asyncio")
-redis_asyncio_module.Redis = object
-redis_module.asyncio = redis_asyncio_module
-sys.modules.setdefault("redis", redis_module)
-sys.modules.setdefault("redis.asyncio", redis_asyncio_module)
-
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
 
 from app.core.config import Settings
 from app.models.schemas import EmbeddingSelection, RetrievedChunk
@@ -46,8 +34,8 @@ class _FakeRepository:
         self.semantic_calls.append(embedding[0])
         return self.semantic_map.get(embedding[0], [])[:limit]
 
-    async def search_keyword_chunks(self, **_kwargs) -> list[RetrievedChunk]:
-        return []
+    async def search_keyword_chunks(self, *, query_texts: list[str], **_kwargs) -> list[list[RetrievedChunk]]:
+        return [[] for _ in query_texts]
 
     async def search_best_available_chunks(self, **_kwargs) -> list[RetrievedChunk]:
         return []

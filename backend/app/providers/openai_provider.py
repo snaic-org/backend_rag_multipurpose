@@ -11,6 +11,7 @@ from app.core.config import (
     CHAT_TOP_P,
     Settings,
 )
+from app.core.http_client import shared_http_client
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
 from app.providers.common import (
@@ -131,7 +132,7 @@ class OpenAIProvider(ProviderAdapter):
 
     async def _post_chat_completion(self, headers: dict, payload: dict) -> dict | None:
         try:
-            async with httpx.AsyncClient(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
+            async with shared_http_client(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
                 response = await client.post(
                     "/chat/completions",
                     headers=headers,
@@ -145,7 +146,7 @@ class OpenAIProvider(ProviderAdapter):
             raise
 
     async def _stream_chat_completion(self, headers: dict, payload: dict) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
+        async with shared_http_client(base_url=OPENAI_API_BASE_URL, timeout=60.0) as client:
             async with client.stream(
                 "POST",
                 "/chat/completions",

@@ -11,6 +11,7 @@ from app.core.config import (
     CHAT_TOP_P,
     Settings,
 )
+from app.core.http_client import shared_http_client
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
 from app.providers.common import (
@@ -135,7 +136,7 @@ class NimProvider(ProviderAdapter):
         thinking_enabled: bool,
     ) -> dict | None:
         try:
-            async with httpx.AsyncClient(
+            async with shared_http_client(
                 base_url=self._settings.nim_base_url,
                 timeout=60.0,
             ) as client:
@@ -159,7 +160,7 @@ class NimProvider(ProviderAdapter):
         headers: dict[str, str],
         thinking_enabled: bool,
     ) -> AsyncIterator[str]:
-        async with httpx.AsyncClient(
+        async with shared_http_client(
             base_url=self._settings.nim_base_url,
             timeout=60.0,
         ) as client:

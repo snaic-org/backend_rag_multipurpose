@@ -25,6 +25,7 @@ from app.models.schemas import (
     AuthenticatedUser,
     CmsIngestRequest,
     DocumentRecord,
+    EmbeddingSelection,
     IngestFileResult,
     IngestFilesResponse,
     IngestTextRequest,
@@ -35,7 +36,6 @@ from app.models.schemas import (
 )
 from app.parsers.base import ensure_safe_archive
 from app.parsers.factory import ParserFactory
-from app.providers.registry import ProviderRegistry
 from app.services.model_selection_service import ModelSelectionService
 from app.services.cache_service import CORPUS_VERSION_KEY, CacheService
 from app.services.chunking import ChunkingService
@@ -73,33 +73,25 @@ class IngestService:
         redis_manager: RedisManager,
         qdrant_manager: QdrantManager,
         postgres_pool: AsyncConnectionPool,
-        provider_registry: ProviderRegistry,
         model_selection_service: ModelSelectionService,
     ) -> None:
         self._settings = settings
-        self._redis_manager = redis_manager
-        self._postgres_pool = postgres_pool
-        self._provider_registry = provider_registry
         self._model_selection_service = model_selection_service
         self._document_repository = DocumentRepository(postgres_pool)
         self._chunk_repository = ChunkRepository(qdrant_manager)
         self._parser_factory = ParserFactory()
         self._chunking_service = ChunkingService(settings)
         self._cache = CacheService(redis_manager.client, ttl_seconds=EMBEDDING_CACHE_TTL_SECONDS)
-        self._embedding_service = EmbeddingService(settings, cache_service=self._cache)
+        # Passage embeddings are not cached: content-hash dedup already prevents
+        # re-embedding, and batch-keyed entries (~2 MB each) were never hit.
+        self._embedding_service = EmbeddingService(settings)
 
     async def ingest_text_items(
         self,
         payload: IngestTextRequest,
         current_user: AuthenticatedUser,
     ) -> IngestTextResponse:
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        selection = self._embedding_service.resolve_selection(
-            None,
-            None,
-            None,
-            default_profile_name=default_embedding_profile,
-        )
+        selection = await self._current_selection()
 
         results: list[IngestFileResult] = []
         documents_inserted = 0
@@ -147,13 +139,7 @@ class IngestService:
         files: list[UploadFile],
         current_user: AuthenticatedUser,
     ) -> IngestFilesResponse:
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        selection = self._embedding_service.resolve_selection(
-            None,
-            None,
-            None,
-            default_profile_name=default_embedding_profile,
-        )
+        selection = await self._current_selection()
 
         results: list[IngestFileResult] = []
         total_chunks_inserted = 0
@@ -221,6 +207,11 @@ class IngestService:
             embedding_model=selection.model,
             results=results,
         )
+
+    async def _current_selection(self) -> EmbeddingSelection:
+        """The embedding profile currently selected by the admin."""
+        profile_name = await self._model_selection_service.get_embedding_profile_name()
+        return self._embedding_service.resolve_selection(None, None, None, default_profile_name=profile_name)
 
     async def _persist_documents(
         self,
@@ -367,10 +358,7 @@ class IngestService:
         payload: WebsiteIngestRequest,
         current_user: AuthenticatedUser,
     ) -> IngestFilesResponse:
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        selection = self._embedding_service.resolve_selection(
-            None, None, None, default_profile_name=default_embedding_profile,
-        )
+        selection = await self._current_selection()
 
         all_results: list[IngestFileResult] = []
         total_chunks = 0
@@ -523,10 +511,7 @@ class IngestService:
         if not configs:
             raise ValueError("No matching content types to ingest.")
 
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
-        selection = self._embedding_service.resolve_selection(
-            None, None, None, default_profile_name=default_embedding_profile,
-        )
+        selection = await self._current_selection()
 
         all_results: list[IngestFileResult] = []
         total_chunks = 0

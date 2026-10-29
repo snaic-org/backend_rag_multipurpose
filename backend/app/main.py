@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.cors import configure_cors
+from app.core.http_client import close_shared_http_clients
 from app.core.logging import configure_logging, get_logger
 from app.db.qdrant import QdrantManager
 from app.db.postgres import PostgresManager
@@ -14,8 +15,12 @@ from app.providers.registry import ProviderRegistry
 from app.services.auth_service import AuthService
 from app.services.chat_activity_service import ChatActivityService
 from app.services.chat_feedback_service import ChatFeedbackService
+from app.services.chat_service import ChatService
+from app.services.document_inspection_service import DocumentInspectionService
+from app.services.ingest_service import IngestService
 from app.services.model_health_service import ModelHealthService
 from app.services.model_selection_service import ModelSelectionService
+from app.services.reset_service import ResetService
 from app.services.system_prompt_service import SystemPromptService
 
 
@@ -31,7 +36,7 @@ async def lifespan(app: FastAPI):
     redis = RedisManager(settings)
     qdrant = QdrantManager(settings)
     providers = ProviderRegistry.from_settings(settings)
-    
+
     auth_service = AuthService(settings, postgres.pool)
     chat_activity_service = ChatActivityService(postgres.pool)
     chat_feedback_service = ChatFeedbackService(postgres.pool)
@@ -63,6 +68,34 @@ async def lifespan(app: FastAPI):
     embedding_profile = settings.embedding_profiles[model_selection.embedding_profile]
     await _wait_for_qdrant(qdrant, embedding_profile.dimension)
 
+    # Request services are stateless over the shared clients: build them once
+    # instead of on every request.
+    app.state.chat_service = ChatService(
+        settings=settings,
+        qdrant_manager=qdrant,
+        redis_manager=redis,
+        provider_registry=providers,
+        system_prompt_service=prompt_service,
+        model_selection_service=model_selection_service,
+    )
+    app.state.ingest_service = IngestService(
+        settings=settings,
+        redis_manager=redis,
+        qdrant_manager=qdrant,
+        postgres_pool=postgres.pool,
+        model_selection_service=model_selection_service,
+    )
+    app.state.document_inspection_service = DocumentInspectionService(
+        settings=settings,
+        postgres_pool=postgres.pool,
+        qdrant_manager=qdrant,
+    )
+    app.state.reset_service = ResetService(
+        postgres_pool=postgres.pool,
+        qdrant_manager=qdrant,
+        redis_manager=redis,
+    )
+
     logger.info("application_startup_complete")
 
     try:
@@ -71,6 +104,7 @@ async def lifespan(app: FastAPI):
         await qdrant.close()
         await redis.close()
         await postgres.close()
+        await close_shared_http_clients()
         logger.info("application_shutdown_complete")
 
 

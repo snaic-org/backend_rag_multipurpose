@@ -1,5 +1,6 @@
 from app.core.config import (
     CHAT_MAX_CONTEXT_CHUNK_CHARS,
+    EMBEDDING_CACHE_TTL_SECONDS,
     SESSION_STORAGE_ENABLED,
     SESSION_TTL_SECONDS,
     Settings,
@@ -12,12 +13,14 @@ from app.models.schemas import (
     ChatServiceResult,
     ChatStreamState,
     GenerationSelection,
+    ModelSelectionResponse,
 )
 from app.providers.common import contains_thinking_block, strip_thinking_blocks
 from app.providers.registry import ProviderRegistry
 from app.services.guardrails import GuardrailService
 from app.services.embeddings import EmbeddingService
 from app.services.assistant_copy import SAFE_FALLBACK_TEXT
+from app.services.cache_service import CacheService
 from app.services.model_selection_service import ModelSelectionService
 from app.services.prompt_builder import PromptBuilder
 from app.services.query_planner import QueryPlannerService
@@ -50,7 +53,10 @@ class ChatService:
     ) -> None:
         self._settings = settings
         self._providers = provider_registry
-        self._embedding_service = EmbeddingService(settings)
+        self._embedding_service = EmbeddingService(
+            settings,
+            cache_service=CacheService(redis_manager.client, ttl_seconds=EMBEDDING_CACHE_TTL_SECONDS),
+        )
         self._retrieval_service = RetrievalService(settings, qdrant_manager, redis_manager)
         self._prompt_builder = PromptBuilder()
         self._query_planner = QueryPlannerService(settings)
@@ -226,8 +232,9 @@ class ChatService:
     ) -> "_PreparedChatContext":
         await self._guardrails.enforce_request_budget(rate_limit_key)
 
-        generation = await self._resolve_generation_selection()
-        default_embedding_profile = await self._model_selection_service.get_embedding_profile_name()
+        model_selection = await self._model_selection_service.get_model_selection()
+        generation = self._resolve_generation_selection(model_selection)
+        default_embedding_profile = model_selection.embedding_profile
         session_id = self._resolve_session_id(session_id)
         session_messages = await self._session_service.get_messages(session_id)
         history = session_messages
@@ -360,18 +367,13 @@ class ChatService:
         )
         return any(re.search(pattern, normalized) for pattern in follow_up_patterns)
 
-    async def _resolve_generation_selection(self) -> GenerationSelection:
-        default_profile = await self._model_selection_service.get_generation_profile_name()
-        default_generation = self._settings.generation_profiles.get(default_profile)
-        if default_generation is None:
-            raise ValueError(f"Unknown generation profile '{default_profile}'")
-        resolved_provider = default_generation.provider
-        resolved_model = default_generation.model
-
-        if resolved_provider not in self._providers.supported_provider_names():
-            raise ValueError(f"Unsupported generation provider '{resolved_provider}'")
-
-        return GenerationSelection(provider=resolved_provider, model=resolved_model)
+    def _resolve_generation_selection(self, model_selection: ModelSelectionResponse) -> GenerationSelection:
+        if model_selection.generation_provider not in self._providers.supported_provider_names():
+            raise ValueError(f"Unsupported generation provider '{model_selection.generation_provider}'")
+        return GenerationSelection(
+            provider=model_selection.generation_provider,
+            model=model_selection.generation_model,
+        )
 
     def _format_answer(self, text: str | None, thinking: str | None) -> str:
         text = text or ""

@@ -1,3 +1,5 @@
+import asyncio
+
 from app.core.config import Settings
 from app.db.qdrant import QdrantManager
 from app.db.redis import RedisManager
@@ -72,39 +74,41 @@ class RetrievalService:
         keyword_limit = self._keyword_limit(top_k, candidate_limit, len(query_plans))
         rerank_input_limit = candidate_limit + (keyword_limit * len(query_plans))
 
-        for planned_query_text, planned_query_embedding in query_plans:
-            semantic_results = await self._repository.search_similar_chunks(
-                embedding=planned_query_embedding,
-                limit=semantic_limit,
-                similarity_threshold=self._settings.similarity_threshold,
-                embedding_provider=selection.provider,
-                embedding_model=selection.model,
-                embedding_profile=selection.profile_name,
-                embedding_dimension=selection.dimension,
-            )
-            merged_results = self._dedupe_chunks([*merged_results, *semantic_results])
-
-        for planned_query_text, _ in query_plans:
-            if not planned_query_text.strip():
-                continue
-            keyword_results = await self._repository.search_keyword_chunks(
-                query_text=planned_query_text,
+        profile = {
+            "embedding_provider": selection.provider,
+            "embedding_model": selection.model,
+            "embedding_profile": selection.profile_name,
+            "embedding_dimension": selection.dimension,
+        }
+        # All searches are independent: run them concurrently. Results are merged
+        # in the same order as before (semantic per variant, then keyword), so
+        # ranking is unchanged.
+        semantic_per_query, keyword_per_query = await asyncio.gather(
+            asyncio.gather(
+                *(
+                    self._repository.search_similar_chunks(
+                        embedding=planned_query_embedding,
+                        limit=semantic_limit,
+                        similarity_threshold=self._settings.similarity_threshold,
+                        **profile,
+                    )
+                    for _, planned_query_embedding in query_plans
+                )
+            ),
+            self._repository.search_keyword_chunks(
+                query_texts=[planned_query_text for planned_query_text, _ in query_plans],
                 limit=keyword_limit,
-                embedding_provider=selection.provider,
-                embedding_model=selection.model,
-                embedding_profile=selection.profile_name,
-                embedding_dimension=selection.dimension,
-            )
-            merged_results = self._dedupe_chunks([*merged_results, *keyword_results])
+                **profile,
+            ),
+        )
+        for results in [*semantic_per_query, *keyword_per_query]:
+            merged_results = self._dedupe_chunks([*merged_results, *results])
 
         if len(merged_results) < candidate_limit:
             best_available_results = await self._repository.search_best_available_chunks(
                 embedding=query_embedding,
                 limit=candidate_limit,
-                embedding_provider=selection.provider,
-                embedding_model=selection.model,
-                embedding_profile=selection.profile_name,
-                embedding_dimension=selection.dimension,
+                **profile,
             )
             merged_results = self._dedupe_chunks([*merged_results, *best_available_results])
 

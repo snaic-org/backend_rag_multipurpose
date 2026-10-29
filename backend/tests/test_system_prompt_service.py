@@ -2,19 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-import sys
-import types
 
-psycopg_module = types.ModuleType("psycopg")
-psycopg_rows_module = types.ModuleType("psycopg.rows")
-psycopg_rows_module.dict_row = object
-psycopg_module.rows = psycopg_rows_module
-sys.modules.setdefault("psycopg", psycopg_module)
-sys.modules.setdefault("psycopg.rows", psycopg_rows_module)
-
-psycopg_pool_module = types.ModuleType("psycopg_pool")
-psycopg_pool_module.AsyncConnectionPool = object
-sys.modules.setdefault("psycopg_pool", psycopg_pool_module)
 
 from app.models.schemas import SystemPromptRecord
 from app.services.prompt_builder import DEFAULT_SYSTEM_PROMPT

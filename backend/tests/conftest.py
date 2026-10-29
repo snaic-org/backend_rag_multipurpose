@@ -43,3 +43,13 @@ def live_api_config(request: pytest.FixtureRequest) -> dict[str, str | None]:
     if not options["base_url"]:
         pytest.skip("live API options were not provided")
     return options
+
+
+@pytest.fixture(autouse=True)
+def _fresh_http_clients():
+    """Each test runs in its own event loop, so pooled HTTP clients must not leak between tests."""
+    from app.core.http_client import forget_shared_http_clients
+
+    forget_shared_http_clients()
+    yield
+    forget_shared_http_clients()

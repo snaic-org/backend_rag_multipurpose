@@ -62,11 +62,7 @@ def _parse_activity_datetime(value: str | None, *, end_of_day: bool) -> datetime
 
 
 def _build_reset_service(request: Request) -> ResetService:
-    return ResetService(
-        postgres_pool=request.app.state.postgres.pool,
-        qdrant_manager=request.app.state.qdrant,
-        redis_manager=request.app.state.redis,
-    )
+    return request.app.state.reset_service
 
 
 def _build_auth_service(request: Request):
@@ -90,22 +86,11 @@ def _build_chat_feedback_service(request: Request) -> ChatFeedbackService:
 
 
 def _build_document_inspection_service(request: Request) -> DocumentInspectionService:
-    return DocumentInspectionService(
-        settings=request.app.state.settings,
-        postgres_pool=request.app.state.postgres.pool,
-        qdrant_manager=request.app.state.qdrant,
-    )
+    return request.app.state.document_inspection_service
 
 
 def _build_ingest_service(request: Request) -> IngestService:
-    return IngestService(
-        settings=request.app.state.settings,
-        redis_manager=request.app.state.redis,
-        qdrant_manager=request.app.state.qdrant,
-        postgres_pool=request.app.state.postgres.pool,
-        provider_registry=request.app.state.providers,
-        model_selection_service=request.app.state.model_selection_service,
-    )
+    return request.app.state.ingest_service
 
 
 @router.delete("/reset", response_model=ResetResponse)
