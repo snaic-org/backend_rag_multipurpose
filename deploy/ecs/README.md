@@ -561,9 +561,9 @@ aws logs get-log-events --log-group-name /ecs/backend-rag-multipurpose --log-str
 Deploys are automated by `.github/workflows/deploy.yml`, so no local Docker is needed:
 
 - every pull request runs the backend tests (`.github/workflows/ci.yml`)
-- every push to `main` that touches `backend/`, `deploy/ecs/task-definition.json`, the workflows, or `scripts/setup-health-alerts.ps1` runs the tests, then builds `rag-backend` and `rag-nginx`, pushes them to ECR tagged with the commit SHA and `latest`, registers a task definition revision pinned to the SHA images, rolls the ECS service, and waits for it to become stable
+- every push to `main` that touches `backend/`, `deploy/ecs/task-definition.json`, the workflows, or the alert scripts runs the tests, then builds `rag-backend` and `rag-nginx`, pushes them to ECR tagged with the commit SHA and `latest`, registers a task definition revision pinned to the SHA images, rolls the ECS service, and waits for it to become stable
 - the job then requires `GET /health/models` to return `200`, so a deploy whose models do not answer shows as failed (GitHub emails the person who triggered it)
-- a final job runs `scripts/setup-health-alerts.ps1` to keep the Route 53 health checks, CloudWatch alarms, and the SNS email subscription for `aicentre@singaporetech.edu.sg` in place
+- a final job runs `scripts/setup_alert_formatter.py` and `scripts/setup-health-alerts.ps1` to keep the plain-language alert emails, the Route 53 health checks, CloudWatch alarms, and the SNS email subscription for `aicentre@singaporetech.edu.sg` in place
 - to deploy without a code change, open **Actions -> Deploy -> Run workflow**
 
 One-time setup:
@@ -704,7 +704,41 @@ Notes:
 - override `-AlertEmail`, `-DomainName`, or `-CheckerRegions` as needed
 - required permissions: `route53:ListHealthChecks`, `route53:CreateHealthCheck`, `route53:ChangeTagsForResource`, `sns:CreateTopic`, `sns:Subscribe`, `sns:ListSubscriptionsByTopic`, `cloudwatch:PutMetricAlarm`
 - cost is roughly USD 4 per month: Route 53 bills each health check (USD 0.50) plus USD 1.00 per optional feature, so `/health/models` (HTTPS) is about USD 1.50 and `/health` (HTTPS + string matching) about USD 2.50; up to about USD 6.75 if the endpoint is billed as non-AWS. The two alarms fall within the CloudWatch free tier and SNS email is free for the first 1,000 messages a month
+- a new task runs its first model probe on startup, before the CMS re-index, so a deploy does not raise a false "models down" alert
 - NVIDIA usage: ECS sets `HEALTH_MODEL_PROBE_TTL_SECONDS=86400`, so a healthy result is re-probed once a day. Faster detection comes from real traffic: when a chat request gets an upstream error (for example a retired model), the cached result is expired and the next poll re-probes (at most once a minute), so a broken model alerts within a few minutes of the first failed chat. A failed result is re-probed every 5 minutes until it recovers, which sends the recovery email. With no chat traffic, a model retired upstream shows up at the next daily probe
+
+### Plain-language alert emails
+
+AWS's standard alarm email is long and technical. `scripts/setup_alert_formatter.py` replaces it with a short email:
+
+```text
+Subject: 🔴 SNAIC LLM backend: chatbot AI is not responding
+
+SNAIC LLM backend - problem detected
+
+What: The AI models behind the website chatbot are not responding.
+Impact: SNAIC Bot on www.snaic.net cannot answer questions.
+When: 29 Oct 2026, 11:02 PM (Singapore time)
+
+Details: https://multiragapi.snaic.net/health/models
+Next step: open the link to see what is failing. ...
+```
+
+and `✅ SNAIC LLM backend: chatbot AI is working again` on recovery (`API is down` / `API is healthy again` for `/health`).
+
+The alarms publish to the SNS topic `backend-rag-alarm-events`. A small Lambda function, `backend-rag-alert-formatter` (`scripts/alert_formatter/lambda_function.py`), formats each state change and publishes it to `backend-rag-health-alerts`, so the confirmed email subscription stays as it is. Only real problems and recoveries are emailed, not the `INSUFFICIENT_DATA` state.
+
+The deploy workflow runs it before `setup-health-alerts.ps1` and passes the topic on. To run it by hand:
+
+```bash
+python3 scripts/setup_alert_formatter.py
+```
+
+```powershell
+.\scripts\setup-health-alerts.ps1 -AlarmActionTopicName backend-rag-alarm-events
+```
+
+It needs the `AlertFormatter*` statements in `deploy/ecs/github-actions-deploy-policy.json`, and `sns:*` on `backend-rag-*` topics. If they are missing, it prints a warning and the alarms keep sending AWS's standard email, so alerts never go silent. Cost: within the Lambda and SNS free tiers.
 
 ## Post-deploy verification
 

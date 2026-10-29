@@ -74,3 +74,44 @@ def test_startup_builds_shared_request_services(monkeypatch) -> None:
             assert app.state.model_health_service is not None
 
     asyncio.run(run())
+
+
+def test_startup_probes_models_before_cms_sync(monkeypatch) -> None:
+    settings = Settings(
+        default_generation_provider="nim",
+        default_generation_model="nvidia/nemotron-3.5-super-vl-120b-a12b",
+        default_embedding_provider="nim",
+        default_embedding_model="nvidia/nemotron-3-embed-1b",
+        default_embedding_dimension=2048,
+    )
+    calls: list[str] = []
+    done = asyncio.Event()
+
+    class RecordingModelHealth:
+        def __init__(self, *args, **kwargs) -> None: ...
+
+        async def check(self):
+            calls.append("model_health")
+
+        async def aclose(self) -> None: ...
+
+    async def recording_sync(*args) -> bool:
+        calls.append("cms_sync")
+        done.set()
+        return False
+
+    monkeypatch.setattr(main_module, "get_settings", lambda: settings)
+    monkeypatch.setattr(main_module, "PostgresManager", FakePostgres)
+    monkeypatch.setattr(main_module, "RedisManager", FakeRedis)
+    monkeypatch.setattr(main_module, "QdrantManager", FakeQdrant)
+    monkeypatch.setattr(main_module, "ModelHealthService", RecordingModelHealth)
+    monkeypatch.setattr(main_module, "sync_cms_if_outdated", recording_sync)
+    for name in ("AuthService", "ChatActivityService", "ChatFeedbackService", "SystemPromptService", "ModelSelectionService"):
+        monkeypatch.setattr(main_module, name, FakeStartupService)
+
+    async def run() -> None:
+        async with main_module.lifespan(FastAPI()):
+            await asyncio.wait_for(done.wait(), timeout=5)
+
+    asyncio.run(run())
+    assert calls == ["model_health", "cms_sync"]

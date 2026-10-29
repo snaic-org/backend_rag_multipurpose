@@ -16,6 +16,8 @@ on:
       - "backend/**"
       - "deploy/ecs/task-definition.json"
       - "scripts/setup-health-alerts.ps1"
+      - "scripts/setup_alert_formatter.py"
+      - "scripts/alert_formatter/**"
       - ".github/workflows/deploy.yml"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
@@ -133,7 +135,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Short, plain-language alert emails. If this cannot be set up (for example
+      # the deploy user lacks the IAM permissions), it warns and the next step
+      # keeps the standard AWS alarm emails.
+      - name: Set up the alert email formatter
+        id: formatter
+        run: python3 scripts/setup_alert_formatter.py
+
       # Idempotent: reuses the existing health checks, topic, subscription, and alarms.
       - name: Set up Route 53 health checks, CloudWatch alarms, and SNS email
         shell: pwsh
-        run: ./scripts/setup-health-alerts.ps1
+        run: ./scripts/setup-health-alerts.ps1 -AlarmActionTopicName "${{ steps.formatter.outputs.alarm_topic_name }}"

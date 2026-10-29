@@ -5,7 +5,11 @@ param(
     [string[]]$CheckerRegions = @("ap-southeast-1", "ap-southeast-2", "ap-northeast-1"),
     [int]$RequestIntervalSeconds = 30,
     [int]$FailureThreshold = 3,
-    [int]$AlarmEvaluationMinutes = 2
+    [int]$AlarmEvaluationMinutes = 2,
+    # SNS topic the alarms publish to. Empty: the email topic itself (AWS's
+    # standard alarm email). scripts/setup_alert_formatter.py prints the topic
+    # whose Lambda sends short, plain-language emails instead.
+    [string]$AlarmActionTopicName = ""
 )
 
 # Creates (or reuses) external uptime monitoring that emails $AlertEmail when the
@@ -150,19 +154,29 @@ $topicArn = aws sns create-topic `
 Write-Host "Using SNS topic $topicArn"
 Ensure-EmailSubscription -TopicArn $topicArn
 
+$alarmTopicArn = $topicArn
+if ($AlarmActionTopicName) {
+    $alarmTopicArn = aws sns create-topic `
+        --region $AlarmRegion `
+        --name $AlarmActionTopicName `
+        --query TopicArn `
+        --output text
+    Write-Host "Alarms publish to $alarmTopicArn (formatted emails)"
+}
+
 $modelsCheckId = Ensure-HealthCheck -Name "$NamePrefix-models" -ResourcePath "/health/models" -SearchString ""
 $coreCheckId = Ensure-HealthCheck -Name "$NamePrefix-core" -ResourcePath "/health" -SearchString '"status":"ok"'
 
 Set-HealthAlarm `
     -AlarmName "$NamePrefix-models-unhealthy" `
     -HealthCheckId $modelsCheckId `
-    -TopicArn $topicArn `
+    -TopicArn $alarmTopicArn `
     -Description "https://$DomainName/health/models is failing: the API is down or an AI model (generation, embedding, or rerank) is not responding. Open the URL for details; check the 'app' container logs for model_health_probe_failed."
 
 Set-HealthAlarm `
     -AlarmName "$NamePrefix-core-unhealthy" `
     -HealthCheckId $coreCheckId `
-    -TopicArn $topicArn `
+    -TopicArn $alarmTopicArn `
     -Description "https://$DomainName/health is not reporting status ok: the API is down or PostgreSQL, Redis, Qdrant, or an active provider's configuration is unhealthy. Open the URL for details."
 
 Write-Host ""

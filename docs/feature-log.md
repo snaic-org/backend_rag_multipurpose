@@ -578,6 +578,20 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.7.2 - 2026-10-29
+
+Plain-language alert emails and no false alert on deploy.
+
+Added:
+
+- `scripts/setup_alert_formatter.py` and the `backend-rag-alert-formatter` Lambda: health alarms publish to `backend-rag-alarm-events`, and the Lambda emails a short message ("SNAIC LLM backend: chatbot AI is not responding", impact, Singapore time, status link) through the existing `backend-rag-health-alerts` subscription; recovery emails likewise. If the deploy user lacks the new IAM permissions, alarms keep the AWS email format
+
+Fixed:
+
+- a new task probes the models on startup, before the CMS re-index, instead of on the first `/health/models` poll; a probe competing with the re-index could time out and send a false "models down" alert during a deploy
+- em and en dashes in answers are replaced with hyphens, including while streaming
+- the projects directory says the website shows a selection of SNAIC's projects, not a full count
+
 ## v0.7.1 - 2026-10-29
 
 Friendlier, more helpful chatbot answers. The HTTP API contract is unchanged.

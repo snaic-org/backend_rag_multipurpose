@@ -12,7 +12,7 @@ CDN_BASE = "https://cdn.contentful.com"
 
 # Bump when the text built from CMS entries changes: a deployed server then
 # re-indexes the CMS content once on startup (see app/services/cms_sync.py).
-CMS_INDEX_VERSION = "2"
+CMS_INDEX_VERSION = "3"
 
 PROJECT_CONTENT_TYPE = "jointCentreProjectNew"
 
@@ -291,7 +291,8 @@ def _project_roster_sections(entries: list[dict]) -> list[dict]:
         return []
 
     intro = (
-        f"All {len(projects)} SNAIC (SIT x NVIDIA AI Centre) projects showcased on the website, "
+        f"The {len(projects)} SNAIC (SIT x NVIDIA AI Centre) projects showcased on the website, "
+        "a selection of SNAIC's work rather than a full count of its projects, "
         "with their status (progress), industries and technologies:"
     )
     # Pack whole project lines into sections that fit one chunk, so a project's
