@@ -43,11 +43,12 @@ Not implemented:
 
 ### Website ingestion
 
-- Fetches each URL (60s timeout, follows redirects) and extracts readable text
+- Fetches each URL (60s timeout, 90s overall, up to 5 redirects, 10 MB page cap) and extracts readable text
+- Refuses URLs that resolve to private, loopback, link-local (cloud metadata) or reserved addresses, or that use ports other than 80/443; every redirect hop is re-checked. Set `WEBSITE_INGEST_ALLOW_PRIVATE_HOSTS=true` to ingest intranet sites deliberately
 - Strips `script`, `style`, `nav`, `header`, `footer`, `aside`, `iframe`, `noscript`, `form`
 - Extracts heading-anchored sections; rejects error pages, non-HTML content, and pages with insufficient text
 - One failing URL does not abort the batch; each URL's outcome is reported individually
-- `force_reingest` re-scrapes and replaces a previously ingested URL
+- `force_reingest` re-scrapes and replaces every earlier copy of the URL, including when the page content changed
 
 ### Contentful CMS ingestion
 
@@ -56,7 +57,8 @@ Not implemented:
 - Send an empty `content_types` list to ingest all defaults, or specific content-type ids to target
 - Each entry is flattened (rich text, one-level links, nested objects such as project `techStack`); noise fields (images, `order`, `slug`, `screenshots`) are dropped
 - Team profiles are titled by member name and framed with role and member type; a per-type roster document is emitted so aggregation questions resolve in one retrieval hit
-- `force_reingest` wipes existing CMS documents first (full wipe on a full refresh, per-type wipe on a targeted refresh) so content and content-type changes do not leave duplicates
+- `force_reingest` stores the fresh content first, then removes CMS documents the refresh did not reproduce (all CMS documents on a full refresh, except those of content types whose fetch failed; only the requested types on a targeted refresh). A Contentful outage therefore never empties the knowledge base
+- the mapping lives in `backend/app/services/contentful.py`
 
 ## Normalized document model
 
@@ -133,6 +135,8 @@ Depending on source type, stored metadata may include:
 `POST /ingest/files` is partial-success safe:
 
 - one bad file does not fail the entire request
+- files over 25 MB, and DOCX/XLSX files that expand to more than 200 MB when unzipped, return per-file errors
+- documents are embedded before anything is stored, so a provider failure leaves no partial document behind and the upload can simply be retried
 - unsupported file types return per-file errors
 - empty files return per-file errors
 - remaining files continue processing
