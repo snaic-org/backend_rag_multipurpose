@@ -77,6 +77,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_client_ip
     ON chat_activity_logs (client_ip, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_status
     ON chat_activity_logs (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_activity_logs_session_id
+    ON chat_activity_logs (session_id, created_at);
 
 CREATE TABLE IF NOT EXISTS chat_feedback (
     id BIGSERIAL PRIMARY KEY,

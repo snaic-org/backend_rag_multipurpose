@@ -1,4 +1,5 @@
 import json
+from contextlib import aclosing
 from typing import AsyncIterator
 from hashlib import sha256
 
@@ -538,20 +539,23 @@ async def chat_stream(
         answer_parts: list[str] = []
         answer_length = 0
         try:
-            async for delta in stream_state.stream:
-                if not delta:
-                    continue
-                remaining = max_response_chars - answer_length
-                if remaining <= 0:
-                    break
-                chunk = delta[:remaining]
-                if chunk:
-                    answer_parts.append(chunk)
-                    answer_length += len(chunk)
-                    chunk_payload = {"delta": chunk} if debug_enabled else {"answer": chunk}
-                    yield _sse("chunk", chunk_payload)
-                if len(delta) > len(chunk):
-                    break
+            # aclosing: stopping early at the length cap must still close the
+            # upstream HTTP stream instead of leaving it open.
+            async with aclosing(stream_state.stream) as stream:
+                async for delta in stream:
+                    if not delta:
+                        continue
+                    remaining = max_response_chars - answer_length
+                    if remaining <= 0:
+                        break
+                    chunk = delta[:remaining]
+                    if chunk:
+                        answer_parts.append(chunk)
+                        answer_length += len(chunk)
+                        chunk_payload = {"delta": chunk} if debug_enabled else {"answer": chunk}
+                        yield _sse("chunk", chunk_payload)
+                    if len(delta) > len(chunk):
+                        break
 
             final_text = service.finalize_answer("".join(answer_parts))
             await service.finalize_stream(stream_state, final_text)

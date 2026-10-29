@@ -234,6 +234,10 @@ def test_gemini_payload_uses_env_generation_settings(monkeypatch) -> None:
     assert generation_config["candidateCount"] == 1
     assert generation_config["thinkingConfig"]["thinkingBudget"] == -1
     assert generation_config["thinkingConfig"]["includeThoughts"] is True
+    # The key travels in a header, never in the URL (where it would leak into
+    # error messages and logs).
+    assert captured["post"]["headers"] == {"x-goog-api-key": "test-gemini-key"}
+    assert captured["post"]["params"] is None
 
 
 def test_ollama_payload_uses_env_generation_settings(monkeypatch) -> None:

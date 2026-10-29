@@ -131,8 +131,14 @@ class FakeChunkRepository:
         return 1
 
 
+class FakeCache:
+    async def increment(self, key: str) -> None:
+        return None
+
+
 def build_service() -> IngestService:
     service = object.__new__(IngestService)
+    service._cache = FakeCache()
     service._document_repository = FakeDocumentRepository()
     service._chunking_service = FakeChunkingService()
     service._embedding_service = FakeEmbeddingService()
@@ -174,6 +180,7 @@ def test_duplicate_document_upload_is_skipped() -> None:
 
 def test_force_reingest_replaces_existing_document() -> None:
     service = object.__new__(IngestService)
+    service._cache = FakeCache()
     service._document_repository = FakeDocumentRepository()
     service._chunking_service = ForceChunkingService()
     service._embedding_service = ForceEmbeddingService()

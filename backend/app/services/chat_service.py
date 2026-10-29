@@ -13,6 +13,7 @@ from app.models.schemas import (
     ChatStreamState,
     GenerationSelection,
 )
+from app.providers.common import contains_thinking_block, strip_thinking_blocks
 from app.providers.registry import ProviderRegistry
 from app.services.guardrails import GuardrailService
 from app.services.embeddings import EmbeddingService
@@ -375,28 +376,11 @@ class ChatService:
     def _format_answer(self, text: str | None, thinking: str | None) -> str:
         text = text or ""
         if self._settings.chat_show_thinking_block:
-            if thinking and not self._contains_thinking_block(text):
+            if thinking and not contains_thinking_block(text):
                 return f"<thinking>\n{thinking}\n</thinking>\n\n{text}".strip()
             return text
 
-        return self._strip_thinking_blocks(text)
-
-    def _contains_thinking_block(self, text: str | None) -> bool:
-        if not text:
-            return False
-        lowered = text.lower()
-        return "<think>" in lowered or "<thinking>" in lowered
-
-    def _strip_thinking_blocks(self, text: str | None) -> str:
-        if not text:
-            return ""
-        stripped = re.sub(
-            r"<(?P<tag>think|thinking)>.*?</(?P=tag)>",
-            "",
-            text,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+        return strip_thinking_blocks(text)
 
 
 class _PreparedChatContext:

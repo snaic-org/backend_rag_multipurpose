@@ -13,9 +13,18 @@ from app.core.config import (
 )
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
+from app.providers.common import (
+    bearer_headers,
+    raise_for_status,
+    should_retry_without_thinking,
+    is_thinking_enabled,
+)
 
 
 OPENAI_API_BASE_URL = "https://api.openai.com/v1"
+
+
+_THINKING_ERROR_TOKENS = ("reasoning_effort", "reasoning", "thinking", "thought", "think")
 
 
 class OpenAIProvider(ProviderAdapter):
@@ -55,10 +64,8 @@ class OpenAIProvider(ProviderAdapter):
         if not self._settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required for OpenAI chat")
 
-        headers = {"Content-Type": "application/json"}
-        if self._settings.openai_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
-        thinking_enabled = self._thinking_enabled()
+        headers = bearer_headers(self._settings.openai_api_key)
+        thinking_enabled = is_thinking_enabled(self._settings)
         data = await self._post_chat_completion(
             headers=headers,
             payload=self._build_chat_payload(messages, model, thinking_enabled=thinking_enabled),
@@ -82,10 +89,8 @@ class OpenAIProvider(ProviderAdapter):
         if not self._settings.openai_api_key:
             raise ValueError("OPENAI_API_KEY is required for OpenAI chat")
 
-        headers = {"Content-Type": "application/json"}
-        if self._settings.openai_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.openai_api_key}"
-        thinking_enabled = self._thinking_enabled()
+        headers = bearer_headers(self._settings.openai_api_key)
+        thinking_enabled = is_thinking_enabled(self._settings)
         payload = self._build_chat_payload(messages, model, thinking_enabled=thinking_enabled, stream=True)
         try:
             async for delta in self._stream_chat_completion(headers=headers, payload=payload):
@@ -98,9 +103,6 @@ class OpenAIProvider(ProviderAdapter):
         fallback_payload = self._build_chat_payload(messages, model, thinking_enabled=False, stream=True)
         async for delta in self._stream_chat_completion(headers=headers, payload=fallback_payload):
             yield delta
-
-    def _thinking_enabled(self) -> bool:
-        return bool(getattr(self._settings, "chat_thinking_enabled", False))
 
     def _build_chat_payload(
         self,
@@ -150,7 +152,7 @@ class OpenAIProvider(ProviderAdapter):
                 headers=headers,
                 json=payload,
             ) as response:
-                response.raise_for_status()
+                await raise_for_status(response)
 
                 async for line in response.aiter_lines():
                     if not line or not line.startswith("data: "):
@@ -166,21 +168,4 @@ class OpenAIProvider(ProviderAdapter):
                         yield delta
 
     def _should_retry_without_thinking(self, exc: httpx.HTTPStatusError) -> bool:
-        if not self._thinking_enabled():
-            return False
-        status_code = getattr(exc.response, "status_code", None)
-        if status_code not in {400, 404, 422}:
-            return False
-        detail = " ".join(
-            part
-            for part in [
-                str(exc),
-                getattr(exc.response, "text", ""),
-                getattr(exc.response, "reason_phrase", ""),
-            ]
-            if part
-        ).lower()
-        return any(
-            token in detail
-            for token in ("reasoning_effort", "reasoning", "thinking", "thought", "think")
-        )
+        return should_retry_without_thinking(self._settings, exc, _THINKING_ERROR_TOKENS)

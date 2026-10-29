@@ -98,9 +98,18 @@ class FakeEmbeddingService:
         return None, [[0.0, 0.0] for _ in texts]
 
 
+class FakeCache:
+    def __init__(self) -> None:
+        self.increments = 0
+
+    async def increment(self, key: str) -> None:
+        self.increments += 1
+
+
 def _service(*, embedding_fails: bool = False, upsert_fails: bool = False) -> IngestService:
     settings = Settings()
     service = object.__new__(IngestService)
+    service._cache = FakeCache()
     service._settings = settings
     service._document_repository = FakeDocumentRepository()
     service._chunk_repository = FakeChunkRepository(fail=upsert_fails)
@@ -165,6 +174,7 @@ def test_delete_document_uses_the_documents_own_embedding_dimension() -> None:
 
     assert asyncio.run(service.delete_document(doc.id)) is True
     assert service._chunk_repository.deleted == [(doc.id, 1536)]
+    assert service._cache.increments == 1
 
 
 def test_website_reingest_replaces_changed_page_by_url(monkeypatch) -> None:

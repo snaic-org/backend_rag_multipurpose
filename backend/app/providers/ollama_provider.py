@@ -7,6 +7,15 @@ from app.core.config import Settings
 from app.core.config import CHAT_MAX_RESPONSE_TOKENS, CHAT_TOP_P
 from app.models.schemas import ChatCompletionResult, ChatMessage, ProviderHealth
 from app.providers.base import ProviderAdapter
+from app.providers.common import (
+    raise_for_status,
+    should_retry_without_thinking,
+    strip_thinking_delta,
+    is_thinking_enabled,
+)
+
+
+_THINKING_ERROR_TOKENS = ("think", "thinking", "reasoning")
 
 
 class OllamaProvider(ProviderAdapter):
@@ -57,7 +66,7 @@ class OllamaProvider(ProviderAdapter):
         messages: list[ChatMessage],
         model: str,
     ) -> ChatCompletionResult:
-        thinking_enabled = self._thinking_enabled()
+        thinking_enabled = is_thinking_enabled(self._settings)
         data = await self._post_chat(messages, model, thinking_enabled=thinking_enabled)
         if data is None and thinking_enabled:
             data = await self._post_chat(messages, model, thinking_enabled=False)
@@ -73,7 +82,7 @@ class OllamaProvider(ProviderAdapter):
         messages: list[ChatMessage],
         model: str,
     ) -> AsyncIterator[str]:
-        thinking_enabled = self._thinking_enabled()
+        thinking_enabled = is_thinking_enabled(self._settings)
         try:
             async for delta in self._stream_chat(messages, model, thinking_enabled=thinking_enabled):
                 yield delta
@@ -124,7 +133,7 @@ class OllamaProvider(ProviderAdapter):
                 "/api/chat",
                 json=self._build_payload(messages, model, thinking_enabled=thinking_enabled, stream=True),
             ) as response:
-                response.raise_for_status()
+                await raise_for_status(response)
 
                 in_thinking = False
                 async for line in response.aiter_lines():
@@ -135,7 +144,7 @@ class OllamaProvider(ProviderAdapter):
                     if self._settings.chat_show_thinking_block:
                         delta = message.get("content", "")
                     else:
-                        delta, in_thinking = self._strip_thinking_blocks(
+                        delta, in_thinking = strip_thinking_delta(
                             message.get("content", ""),
                             in_thinking,
                         )
@@ -164,55 +173,5 @@ class OllamaProvider(ProviderAdapter):
             },
         }
 
-    def _strip_thinking_blocks(self, text: str, in_thinking: bool) -> tuple[str, bool]:
-        output: list[str] = []
-        remaining = text
-
-        while remaining:
-            if in_thinking:
-                end = remaining.find("</think>")
-                end_alt = remaining.find("</thinking>")
-                if end == -1 and end_alt == -1:
-                    return "".join(output), True
-                if end_alt == -1 or (end != -1 and end < end_alt):
-                    remaining = remaining[end + len("</think>") :]
-                else:
-                    remaining = remaining[end_alt + len("</thinking>") :]
-                in_thinking = False
-                continue
-
-            start = remaining.find("<think>")
-            start_alt = remaining.find("<thinking>")
-            if start == -1 and start_alt == -1:
-                output.append(remaining)
-                return "".join(output), False
-
-            if start_alt == -1 or (start != -1 and start < start_alt):
-                output.append(remaining[:start])
-                remaining = remaining[start + len("<think>") :]
-            else:
-                output.append(remaining[:start_alt])
-                remaining = remaining[start_alt + len("<thinking>") :]
-            in_thinking = True
-
-        return "".join(output), in_thinking
-
-    def _thinking_enabled(self) -> bool:
-        return bool(getattr(self._settings, "chat_thinking_enabled", False))
-
     def _should_retry_without_thinking(self, exc: httpx.HTTPStatusError) -> bool:
-        if not self._thinking_enabled():
-            return False
-        status_code = getattr(exc.response, "status_code", None)
-        if status_code not in {400, 404, 422}:
-            return False
-        detail = " ".join(
-            part
-            for part in [
-                str(exc),
-                getattr(exc.response, "text", ""),
-                getattr(exc.response, "reason_phrase", ""),
-            ]
-            if part
-        ).lower()
-        return any(token in detail for token in ("think", "thinking", "reasoning"))
+        return should_retry_without_thinking(self._settings, exc, _THINKING_ERROR_TOKENS)

@@ -3,7 +3,7 @@ from app.db.qdrant import QdrantManager
 from app.db.redis import RedisManager
 from app.db.repositories.retrieval import RetrievalRepository
 from app.models.schemas import EmbeddingSelection, RetrievedChunk
-from app.services.cache_service import CacheService
+from app.services.cache_service import CORPUS_VERSION_KEY, CacheService
 from app.services.rerank import RerankService
 
 
@@ -60,6 +60,7 @@ class RetrievalService:
                 "retrieval_source_diversity_enabled": self._settings.retrieval_source_diversity_enabled,
                 "retrieval_source_diversity_min_sources": self._settings.retrieval_source_diversity_min_sources,
                 "retrieval_strategy_version": self._RETRIEVAL_STRATEGY_VERSION,
+                "corpus_version": await self._cache.get_counter(CORPUS_VERSION_KEY),
             },
         )
         cached = await self._cache.get_json(cache_key)

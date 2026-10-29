@@ -36,7 +36,7 @@ from app.models.schemas import (
 from app.parsers.factory import ParserFactory
 from app.providers.registry import ProviderRegistry
 from app.services.model_selection_service import ModelSelectionService
-from app.services.cache_service import CacheService
+from app.services.cache_service import CORPUS_VERSION_KEY, CacheService
 from app.services.chunking import ChunkingService
 from app.services.embeddings import EmbeddingService
 
@@ -72,13 +72,8 @@ class IngestService:
         self._chunk_repository = ChunkRepository(qdrant_manager)
         self._parser_factory = ParserFactory()
         self._chunking_service = ChunkingService(settings)
-        self._embedding_service = EmbeddingService(
-            settings,
-            cache_service=CacheService(
-                redis_manager.client,
-                ttl_seconds=EMBEDDING_CACHE_TTL_SECONDS,
-            ),
-        )
+        self._cache = CacheService(redis_manager.client, ttl_seconds=EMBEDDING_CACHE_TTL_SECONDS)
+        self._embedding_service = EmbeddingService(settings, cache_service=self._cache)
 
     async def ingest_text_items(
         self,
@@ -302,6 +297,7 @@ class IngestService:
                 await self._document_repository.delete_by_id(document_record.id)
                 raise
 
+            await self._cache.increment(CORPUS_VERSION_KEY)
             documents_inserted += 1
             chunks_inserted += len(inserted_chunks)
             results.append(
@@ -333,6 +329,7 @@ class IngestService:
     async def _delete_document_and_chunks(self, document_id: UUID, embedding_dimension: int) -> None:
         await self._chunk_repository.delete_for_document(document_id, embedding_dimension)
         await self._document_repository.delete_by_id(document_id)
+        await self._cache.increment(CORPUS_VERSION_KEY)
 
     async def _delete_documents(self, document_ids: list[UUID]) -> int:
         """Delete documents and their chunks, each from the collection it was embedded into."""
@@ -892,6 +889,7 @@ class IngestService:
                 doc.embedding_model,
             )
         await self._document_repository.delete_by_id(document_id)
+        await self._cache.increment(CORPUS_VERSION_KEY)
         return True
 
     def _build_system_metadata(
