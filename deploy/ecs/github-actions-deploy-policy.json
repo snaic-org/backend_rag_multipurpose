@@ -1,0 +1,86 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcrLogin",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrPushImages",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+      ],
+      "Resource": [
+        "arn:aws:ecr:ap-southeast-1:961341555117:repository/snaic_website/rag-backend",
+        "arn:aws:ecr:ap-southeast-1:961341555117:repository/snaic_website/rag-nginx"
+      ]
+    },
+    {
+      "Sid": "EcsRegisterTaskDefinition",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTaskDefinition",
+        "ecs:RegisterTaskDefinition"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcsUpdateService",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeServices",
+        "ecs:UpdateService"
+      ],
+      "Resource": "arn:aws:ecs:ap-southeast-1:961341555117:service/snaic_website_cluster/backend-rag-multipurpose"
+    },
+    {
+      "Sid": "PassTaskRoles",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::961341555117:role/ecsTaskExecutionRole",
+        "arn:aws:iam::961341555117:role/ecsTaskRole"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "HealthAlertChecks",
+      "Effect": "Allow",
+      "Action": [
+        "route53:ChangeTagsForResource",
+        "route53:CreateHealthCheck",
+        "route53:ListHealthChecks"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HealthAlertTopic",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Subscribe"
+      ],
+      "Resource": "arn:aws:sns:us-east-1:961341555117:backend-rag-health-alerts"
+    },
+    {
+      "Sid": "HealthAlertAlarms",
+      "Effect": "Allow",
+      "Action": "cloudwatch:PutMetricAlarm",
+      "Resource": "arn:aws:cloudwatch:us-east-1:961341555117:alarm:backend-rag-*"
+    }
+  ]
+}

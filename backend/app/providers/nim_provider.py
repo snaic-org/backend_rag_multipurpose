@@ -35,6 +35,16 @@ class NimProvider(ProviderAdapter):
                 configuration_present=False,
             )
 
+        if self._uses_hosted_api() and not self._settings.nim_api_key:
+            return ProviderHealth(
+                ok=False,
+                detail="missing NIM_API_KEY",
+                enabled=True,
+                provider=self.provider_name,
+                capabilities=self.capabilities,
+                configuration_present=False,
+            )
+
         return ProviderHealth(
             ok=True,
             detail="configuration_present",
@@ -87,6 +97,10 @@ class NimProvider(ProviderAdapter):
 
         async for delta in self._stream_chat(messages, model, headers=headers, thinking_enabled=False):
             yield delta
+
+    def _uses_hosted_api(self) -> bool:
+        host = urlparse(self._settings.nim_base_url).netloc.lower()
+        return host.endswith("api.nvidia.com")
 
     def _requires_api_key(self) -> bool:
         host = urlparse(self._settings.nim_base_url).netloc.lower()

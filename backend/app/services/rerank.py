@@ -21,35 +21,12 @@ class RerankService:
             return chunks
         if len(chunks) < self._settings.rerank_min_candidates:
             return chunks
-        invoke_url = self._settings.rerank_invoke_url.strip() or self._default_invoke_url()
-
-        payload = {
-            "model": self._settings.rerank_model,
-            "query": {"text": query_text},
-            "passages": [
-                {"text": f"{chunk.title}\n\n{chunk.content}".strip()}
-                for chunk in chunks
-            ],
-            "truncate": "END",
-        }
-
-        headers = {"Content-Type": "application/json"}
-        if self._settings.nim_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
-        elif self._requires_api_key(invoke_url):
-            raise ValueError("NIM_API_KEY is required for the configured reranker")
 
         try:
-            async with httpx.AsyncClient(
-                timeout=30.0,
-            ) as client:
-                response = await client.post(
-                    invoke_url,
-                    headers=headers,
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+            data = await self._post_rerank(
+                query_text,
+                [f"{chunk.title}\n\n{chunk.content}".strip() for chunk in chunks],
+            )
         except httpx.HTTPError as exc:
             # Retrieval already produced usable candidates, so a reranker outage
             # (network error, or a model retired upstream) degrades ordering
@@ -66,6 +43,37 @@ class RerankService:
         )
         reranked = [chunks[index] for index in ordered_indexes if 0 <= index < len(chunks)]
         return reranked or chunks
+
+    async def probe(self) -> None:
+        """Call the configured reranker and raise on any failure (used by health checks)."""
+        await self._post_rerank("health check", ["health check passage", "unrelated passage"])
+
+    async def _post_rerank(self, query_text: str, passages: list[str]) -> object:
+        invoke_url = self._settings.rerank_invoke_url.strip() or self._default_invoke_url()
+
+        payload = {
+            "model": self._settings.rerank_model,
+            "query": {"text": query_text},
+            "passages": [{"text": passage} for passage in passages],
+            "truncate": "END",
+        }
+
+        headers = {"Content-Type": "application/json"}
+        if self._settings.nim_api_key:
+            headers["Authorization"] = f"Bearer {self._settings.nim_api_key}"
+        elif self._requires_api_key(invoke_url):
+            raise ValueError("NIM_API_KEY is required for the configured reranker")
+
+        async with httpx.AsyncClient(
+            timeout=30.0,
+        ) as client:
+            response = await client.post(
+                invoke_url,
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            return response.json()
 
     def _extract_order(self, data: object, candidate_count: int) -> list[int]:
         ranked_items: list[tuple[int, float]] = []

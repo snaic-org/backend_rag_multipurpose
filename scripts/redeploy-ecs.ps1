@@ -690,6 +690,20 @@ if (-not $SkipUpdate) {
     }
 
     Write-Host "ECS service updated successfully."
+
+    if ($EnableHttpsAlb -and $DomainName) {
+        # /health (used by the container health check) cannot see a retired model,
+        # so confirm the configured models actually answer before calling it done.
+        $modelHealthUrl = "https://$DomainName/health/models"
+        Write-Host "Checking $modelHealthUrl ..."
+        try {
+            $modelHealth = Invoke-RestMethod -Uri $modelHealthUrl -TimeoutSec 90
+            Write-Host "Model health: $($modelHealth.status) (generation: $($modelHealth.generation.model))"
+        }
+        catch {
+            Write-Warning "Model health check failed at $modelHealthUrl - $($_.Exception.Message). The service is running but chat may fail; open the URL for details."
+        }
+    }
 }
 
 if ($resolvedTaskDefinitionPath -and (Test-Path -LiteralPath $resolvedTaskDefinitionPath)) {

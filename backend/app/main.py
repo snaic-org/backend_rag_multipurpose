@@ -2,10 +2,10 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.cors import configure_cors
 from app.core.logging import configure_logging, get_logger
 from app.db.qdrant import QdrantManager
 from app.db.postgres import PostgresManager
@@ -14,6 +14,7 @@ from app.providers.registry import ProviderRegistry
 from app.services.auth_service import AuthService
 from app.services.chat_activity_service import ChatActivityService
 from app.services.chat_feedback_service import ChatFeedbackService
+from app.services.model_health_service import ModelHealthService
 from app.services.model_selection_service import ModelSelectionService
 from app.services.system_prompt_service import SystemPromptService
 
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     chat_feedback_service = ChatFeedbackService(postgres.pool)
     prompt_service = SystemPromptService(postgres.pool)
     model_selection_service = ModelSelectionService(settings, postgres.pool)
+    model_health_service = ModelHealthService(settings, providers, model_selection_service)
 
     app.state.settings = settings
     app.state.postgres = postgres
@@ -45,6 +47,7 @@ async def lifespan(app: FastAPI):
     app.state.feedback_service = chat_feedback_service
     app.state.prompt_service = prompt_service
     app.state.model_selection_service = model_selection_service
+    app.state.model_health_service = model_health_service
 
     await postgres.connect()
     await postgres.apply_schema()
@@ -93,15 +96,7 @@ def create_app() -> FastAPI:
         description=settings.app_description,
         lifespan=lifespan,
     )
-    if settings.cors_allowed_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=settings.cors_allowed_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-            expose_headers=["X-Chat-Session-Id"],
-        )
+    configure_cors(app, settings)
     app.include_router(api_router)
     return app
 

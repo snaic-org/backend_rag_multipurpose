@@ -578,6 +578,71 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.5 - 2026-10-29
+
+Probe NVIDIA once a day without slowing alerts.
+
+Changed:
+
+- ECS sets `HEALTH_MODEL_PROBE_TTL_SECONDS=86400`, so `/health/models` probes healthy models once a day instead of every 5 minutes
+- a chat request that fails with an upstream error expires the cached model health result (at most once a minute), so the next poll re-probes and a broken model alerts within minutes
+- a failed model health result is re-probed every 5 minutes, so recovery is reported without waiting out the TTL
+
+## v0.6.4 - 2026-10-29
+
+Automated testing and deployment with GitHub Actions.
+
+Added:
+
+- `.github/workflows/ci.yml`: backend tests on every pull request (Python 3.11, matching the Docker image)
+- `.github/workflows/deploy.yml`: on push to `main` (or on demand), tests, builds and pushes SHA-tagged images to ECR, deploys a pinned task definition revision to ECS, waits for stability, requires `/health/models` to return `200`, then runs `scripts/setup-health-alerts.ps1`
+- `deploy/ecs/github-actions-deploy-policy.json`: least-privilege IAM policy for the deploy user
+
+Changed:
+
+- `scripts/setup-health-alerts.ps1` stops on a failing `aws` call under PowerShell 7.3+
+
+## v0.6.3 - 2026-10-29
+
+CORS for the SNAIC website, real model health checks, and email alerts.
+
+Added:
+
+- `GET /health/models`: calls the active generation, embedding, and rerank models, returns `503` when any fails, caches results for `HEALTH_MODEL_PROBE_TTL_SECONDS` (default `300`) and refreshes expired results in the background so it answers fast, and logs full upstream errors as `model_health_probe_failed` while the public response only names the failure class
+- `scripts/setup-health-alerts.ps1`: Route 53 health checks on `/health/models` and `/health`, CloudWatch alarms, and an SNS email subscription that notifies `aicentre@singaporetech.edu.sg` on failure and recovery
+- `scripts/redeploy-ecs.ps1` checks `/health/models` after a deploy and warns if a model is not answering
+
+Changed:
+
+- `/health` `status` now reflects only datastores and the providers the active model selection uses; providers report `in_use`, so unconfigured OpenAI/Gemini/Ollama no longer make production permanently `degraded`
+- the NIM provider health check fails when the hosted NVIDIA API is configured without `NIM_API_KEY`
+- reranking request code is shared between chat and the health probe
+- `/health` runs its datastore and provider checks concurrently
+
+Fixed:
+
+- ECS sets `CORS_ALLOWED_ORIGINS=https://www.snaic.net,https://snaic.net`; browser preflight requests previously got `405`
+- comma-separated `CORS_ALLOWED_ORIGINS` values no longer crash startup; JSON lists still work and trailing slashes are stripped
+
+## v0.6.2 - 2026-10-29
+
+Replace retired NVIDIA NIM generation models.
+
+Fixed:
+
+- production chat failed with `502` on every grounded answer because the default generation model `nvidia/nemotron-3-super-120b-a12b` started returning `404 Not found for account` from the hosted NIM API; the catalog alternatives `nemotron-3-nano-30b-a3b` and `llama-3.3-nemotron-super-49b-v1.5` had already reached end of life (`410 Gone`)
+- a stored model selection that names a profile no longer in the catalog is now replaced with the configured default at startup, instead of failing startup and every chat request with `Unknown generation profile`
+
+Changed:
+
+- default generation model is now `nvidia/nemotron-3.5-super-vl-120b-a12b` (`nim_35super120`)
+- generation catalog now offers `nim_35super120`, `nim_35lightning30` (`nvidia/nemotron-3.5-lightning-30b-a3b`), and `nim_3ultra550` (`nvidia/nemotron-3-ultra-550b-a55b`); retired profiles `nim_3super120`, `nim_nano30`, and `nim_llama33_super49b` were removed
+
+Selection notes:
+
+- candidates were compared on the production system prompt with grounded, yes/no, missing-detail, out-of-scope, and prompt-injection questions
+- Super 3.5 answered all correctly in ~1s; Lightning 3.5 asserted a sector not in the knowledge base; Ultra contradicted itself on a yes/no question and took up to 10s
+
 ## v0.6.1 - 2026-07-09
 
 Model selection, reasoning, tone, and knowledge-base hygiene.

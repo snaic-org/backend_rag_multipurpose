@@ -127,6 +127,8 @@ For ECS, keep the startup defaults in `deploy/ecs/task-definition.json`:
 - `AUTH_BOOTSTRAP_ADMIN_USERNAME`
 - `AUTH_BOOTSTRAP_ADMIN_PASSWORD`
 - `CHAT_DEBUG_ENABLED`
+- `CORS_ALLOWED_ORIGINS` (comma-separated browser origins; empty disables CORS)
+- `HEALTH_MODEL_PROBE_TTL_SECONDS` and `HEALTH_MODEL_PROBE_TIMEOUT_SECONDS` (optional; `/health/models` cache and per-model timeout)
 
 Chat guardrail defaults now use code values, so they are not expected in `backend/.env`.
 
@@ -241,7 +243,7 @@ Bootstrap admin note:
 
 After redeploying the backend image or replacing the task, verify:
 
-1. `GET /health` returns `200`
+1. `GET /health` returns `200` with `"status":"ok"`, and `GET /health/models` returns `200`
 2. admin login still works against the current persisted database state
 3. `POST /chat` returns `200` with only `answer`, compact `citations`, and `session_id` when `CHAT_DEBUG_ENABLED=false`
 4. `POST /chat/stream` still streams answer chunks and a compact final payload

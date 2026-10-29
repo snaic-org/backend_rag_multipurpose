@@ -986,6 +986,58 @@ Relevant files:
 - `backend/app/core/config.py`
 - `backend/app/providers/nim_provider.py`
 
+## Chat returns 502 after NVIDIA retires a model (2026-10-29)
+
+Symptom:
+
+- `/health` reports postgres, redis, qdrant, and nim as ok, but `/chat` and `/chat/stream` fail with `502 Bad Gateway`
+- questions with no retrieved chunks still get the fallback answer, because they never call the generation model
+
+Cause:
+
+- the hosted NIM API stopped serving the default generation model: `nvidia/nemotron-3-super-120b-a12b` returned `404 Function ... Not found for account`, and the catalog alternatives returned `410 Gone` (end of life)
+- the NIM healthcheck only checks configuration, so `/health` cannot detect a retired model
+- `_raise_chat_http_error` maps an upstream 4xx to `502`
+
+Fix:
+
+- switch the default to a live model (`nvidia/nemotron-3.5-super-vl-120b-a12b`) in `backend/app/core/config.py`, `backend/.env.example`, and `deploy/ecs/task-definition.json`, then rebuild and redeploy
+- startup now replaces a stored selection whose profile was removed from the catalog, so no manual `PUT /admin/model-selection` is needed after the redeploy
+
+Diagnosis tip:
+
+- open `https://multiragapi.snaic.net/health/models`; a `503` with `upstream HTTP 404` or `410` on `generation` confirms the model is gone (added in v0.6.3, which also emails `aicentre@singaporetech.edu.sg` via `scripts/setup-health-alerts.ps1`)
+- or call `https://integrate.api.nvidia.com/v1/chat/completions` directly with the production `NIM_API_KEY` and the configured model
+
+Relevant files:
+
+- `backend/app/core/config.py`
+- `backend/app/services/model_selection_service.py`
+- `deploy/ecs/task-definition.json`
+
+## Browser calls blocked by CORS / startup fails after setting CORS_ALLOWED_ORIGINS (2026-10-29)
+
+Symptom:
+
+- `OPTIONS` preflight requests from `https://www.snaic.net` returned `405`, so browsers blocked chat calls
+- setting `CORS_ALLOWED_ORIGINS=https://a.com,https://b.com` crashed startup with `SettingsError: error parsing value for field "cors_allowed_origins"`
+
+Cause:
+
+- `CORS_ALLOWED_ORIGINS` was never set in the ECS task, so the CORS middleware was not installed
+- pydantic-settings parses list fields from env as JSON before field validators run, so a comma-separated value failed before the comma-splitting validator could see it
+
+Fix:
+
+- the field is annotated with `NoDecode`; the validator accepts comma-separated or JSON-list values and strips trailing slashes (browsers never send one in `Origin`)
+- ECS now sets `CORS_ALLOWED_ORIGINS=https://www.snaic.net,https://snaic.net`
+
+Relevant files:
+
+- `backend/app/core/config.py`
+- `backend/app/core/cors.py`
+- `deploy/ecs/task-definition.json`
+
 ## Usage
 
 When a new setup or deployment issue appears, add:

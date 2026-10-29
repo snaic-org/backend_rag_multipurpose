@@ -45,7 +45,7 @@ ALLOWED_SYNTHESIZER_NAMES: list[str] = []
 SYSTEM_PROMPT_OVERRIDE = ""
 FOCUSED_METRIC_COLUMNS = {"contextual_relevancy", "hit_rate", "mrr"}
 
-EVAL_GENERATION_PROFILE = "nim_3super120"
+EVAL_GENERATION_PROFILE = "nim_35super120"
 EVAL_EMBEDDING_PROFILE = "nim_nemotron_2048"
 
 CRITIC_MODEL = "gpt-5-mini"

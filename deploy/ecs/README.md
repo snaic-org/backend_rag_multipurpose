@@ -87,7 +87,7 @@ This keeps the current local Compose architecture inside one ECS task.
 Current ECS template defaults:
 
 - generation provider: `nim`
-- generation model: `nvidia/nemotron-3-super-120b-a12b`
+- generation model: `nvidia/nemotron-3.5-super-vl-120b-a12b`
 - embedding provider: `nim`
 - embedding model: `nvidia/nemotron-3-embed-1b`
 - embedding dimension: `2048`
@@ -556,6 +556,29 @@ aws logs get-log-events --log-group-name /ecs/backend-rag-multipurpose --log-str
 
 `-SkipBuild` and `-SkipPush` are only safe when the running image already contains the code you expect.
 
+## Continuous deployment (GitHub Actions)
+
+Deploys are automated by `.github/workflows/deploy.yml`, so no local Docker is needed:
+
+- every pull request runs the backend tests (`.github/workflows/ci.yml`)
+- every push to `main` that touches `backend/`, `deploy/ecs/task-definition.json`, the workflows, or `scripts/setup-health-alerts.ps1` runs the tests, then builds `rag-backend` and `rag-nginx`, pushes them to ECR tagged with the commit SHA and `latest`, registers a task definition revision pinned to the SHA images, rolls the ECS service, and waits for it to become stable
+- the job then requires `GET /health/models` to return `200`, so a deploy whose models do not answer shows as failed (GitHub emails the person who triggered it)
+- a final job runs `scripts/setup-health-alerts.ps1` to keep the Route 53 health checks, CloudWatch alarms, and the SNS email subscription for `aicentre@singaporetech.edu.sg` in place
+- to deploy without a code change, open **Actions -> Deploy -> Run workflow**
+
+One-time setup:
+
+1. In IAM, create a user (for example `github-actions-backend-rag`) with no console access and attach an inline policy with the contents of `deploy/ecs/github-actions-deploy-policy.json` (least privilege: ECR push to the two repositories, register task definitions, update this one ECS service, pass the two task roles, and the health-alert resources).
+2. Create an access key for that user (use case: application running outside AWS).
+3. In GitHub, open **Settings -> Secrets and variables -> Actions** and add repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+4. After the first successful run, confirm the SNS subscription from the email AWS sends to `aicentre@singaporetech.edu.sg`.
+
+Notes:
+
+- the workflow only updates the service's task definition; the ALB, target group, security groups, and Route 53 alias created by `scripts/redeploy-ecs.ps1` are kept as they are. Use the script for infrastructure changes.
+- to roll back, update the service to an earlier task definition revision; each revision points at the exact images of its commit
+- for keyless auth later, replace the access key with a GitHub OIDC role and `role-to-assume` in `aws-actions/configure-aws-credentials`
+
 ## One-command redeploy
 
 If you want a repeatable local command that builds, pushes, registers, and updates the ECS service, use:
@@ -652,14 +675,42 @@ client
 - The ECS task template seeds NIM as the initial generation and embedding default, but the catalog still includes OpenAI and Ollama profiles in code if you switch them later through the admin API.
 - Chat activity and chat feedback are stored in the task-local PostgreSQL container, so replacing the task can clear admin monitoring history.
 - Public chat response details are controlled by `CHAT_DEBUG_ENABLED`; leave it disabled unless the endpoint is restricted to trusted operators.
+- Browser access is controlled by `CORS_ALLOWED_ORIGINS` (comma-separated, currently `https://www.snaic.net,https://snaic.net`). Add the origin of any other site or local dev server that calls the API from a browser; without it, browsers block the request at the preflight (`OPTIONS`) step.
 - If you want Fargate to be production-ready, the next step is: app + nginx on Fargate, PostgreSQL on RDS, Redis on ElastiCache.
 - Chat persona wording lives in `backend/app/services/prompt_builder.py`, so any tone change requires rebuilding and pushing the `rag-backend` image, then registering a new task definition revision and updating the ECS service.
+
+## Health monitoring and email alerts
+
+`GET /health` stays the container health check because it never calls paid upstream APIs and always returns `200`; a model outage must not make ECS restart a healthy task. `GET /health/models` is the readiness check for monitoring: it calls the active models and returns `503` when one fails. `scripts/redeploy-ecs.ps1` calls it after every deploy and warns if it fails.
+
+To email `aicentre@singaporetech.edu.sg` when production deteriorates and again when it recovers, run once:
+
+```powershell
+.\scripts\setup-health-alerts.ps1
+```
+
+It creates (or reuses on re-run):
+
+- a Route 53 HTTPS health check on `https://multiragapi.snaic.net/health/models` (unhealthy on `503` or no answer)
+- a Route 53 HTTPS string-match health check on `/health` (unhealthy unless the body contains `"status":"ok"`)
+- an SNS topic `backend-rag-health-alerts` with an email subscription
+- one CloudWatch alarm per health check that notifies the topic on `ALARM` and `OK`
+
+Notes:
+
+- after the first run, someone must click **Confirm subscription** in the AWS email sent to the alert address; no alerts are delivered until then
+- Route 53 health check metrics exist only in `us-east-1`, so the alarms and SNS topic live there
+- checks run from 3 regions every 30s; an outage (site down, or `/health/models` already failing) alerts in about 3-4 minutes
+- override `-AlertEmail`, `-DomainName`, or `-CheckerRegions` as needed
+- required permissions: `route53:ListHealthChecks`, `route53:CreateHealthCheck`, `route53:ChangeTagsForResource`, `sns:CreateTopic`, `sns:Subscribe`, `sns:ListSubscriptionsByTopic`, `cloudwatch:PutMetricAlarm`
+- cost is roughly USD 4 per month: Route 53 bills each health check (USD 0.50) plus USD 1.00 per optional feature, so `/health/models` (HTTPS) is about USD 1.50 and `/health` (HTTPS + string matching) about USD 2.50; up to about USD 6.75 if the endpoint is billed as non-AWS. The two alarms fall within the CloudWatch free tier and SNS email is free for the first 1,000 messages a month
+- NVIDIA usage: ECS sets `HEALTH_MODEL_PROBE_TTL_SECONDS=86400`, so a healthy result is re-probed once a day. Faster detection comes from real traffic: when a chat request gets an upstream error (for example a retired model), the cached result is expired and the next poll re-probes (at most once a minute), so a broken model alerts within a few minutes of the first failed chat. A failed result is re-probed every 5 minutes until it recovers, which sends the recovery email. With no chat traffic, a model retired upstream shows up at the next daily probe
 
 ## Post-deploy verification
 
 After a new task revision is live, verify:
 
-1. `GET /health` returns `200`
+1. `GET /health` returns `200` with `"status":"ok"`, and `GET /health/models` returns `200`
 2. `POST /chat` returns `200` with only `answer`, compact `citations`, and `session_id` when `CHAT_DEBUG_ENABLED=false`
 3. `POST /chat/stream` still streams answer chunks and a compact final payload
 4. `GET /admin/chat-activity` returns `200`

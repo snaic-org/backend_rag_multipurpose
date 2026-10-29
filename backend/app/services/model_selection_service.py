@@ -1,11 +1,14 @@
 from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.db.repositories.model_selection import ModelSelectionRepository
 from app.models.schemas import (
     ModelCatalogResponse,
     ModelSelectionResponse,
 )
+
+logger = get_logger(__name__)
 
 
 class ModelSelectionService:
@@ -24,6 +27,41 @@ class ModelSelectionService:
             generation_profile,
             embedding_profile,
         )
+        await self._replace_retired_profiles(generation_profile, embedding_profile)
+
+    async def _replace_retired_profiles(
+        self,
+        default_generation_profile: str,
+        default_embedding_profile: str,
+    ) -> None:
+        # The stored selection outlives code deploys. When a profile is removed from
+        # the catalog (e.g. the upstream model was retired), fall back to the default
+        # instead of failing every request with "Unknown generation profile".
+        record = await self._repository.get_model_selection()
+        if record is None:
+            return
+
+        generation_profile = record.generation_profile
+        if generation_profile not in self._settings.generation_profiles:
+            generation_profile = default_generation_profile
+
+        embedding_profile = record.embedding_profile
+        if embedding_profile not in self._settings.embedding_profiles:
+            embedding_profile = default_embedding_profile
+
+        if (generation_profile, embedding_profile) == (record.generation_profile, record.embedding_profile):
+            return
+
+        logger.warning(
+            "model_selection_retired_profile_replaced",
+            extra={
+                "previous_generation_profile": record.generation_profile,
+                "previous_embedding_profile": record.embedding_profile,
+                "generation_profile": generation_profile,
+                "embedding_profile": embedding_profile,
+            },
+        )
+        await self._repository.update_model_selection(generation_profile, embedding_profile)
 
     async def get_model_selection(self) -> ModelSelectionResponse:
         record = await self._repository.get_model_selection()

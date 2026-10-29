@@ -77,6 +77,8 @@ Use this mode when you want the entire local stack, including Ollama, running in
 
 ### ECS deployment
 
+Deploys are automated: every push to `main` that changes the backend is tested, built, pushed to ECR, rolled out to ECS, and verified with `/health/models` by GitHub Actions. One-time setup (an IAM user and two repository secrets) is in [deploy/ecs/README.md](deploy/ecs/README.md#continuous-deployment-github-actions).
+
 For the ECS on Fargate path, use the dedicated deployment guide in [deploy/ecs/README.md](deploy/ecs/README.md).
 
 The current ECS setup:
@@ -98,8 +100,10 @@ Use [docs/deployment.md](docs/deployment.md) for the broader deployment notes an
 ### Operational notes
 
 - **Knowledge-base hygiene:** only ingest SNAIC-specific content. The bot answers strictly from the knowledge base and relays retrieved text verbatim, so generic SIT scrapes or admissions FAQs will surface as SNAIC "facts" (this caused a bogus `$16.35` registration fee). See [docs/ingestion.md](docs/ingestion.md#knowledge-base-scoping-important).
-- **Generation model:** default is `nvidia/nemotron-3-super-120b-a12b` (warmer, more articulate); `nvidia/nemotron-3-nano-30b-a3b` is a faster but terser alternative in the catalog. Keep `CHAT_THINKING_ENABLED=false` for this grounded RAG use case. See [docs/providers-and-models.md](docs/providers-and-models.md).
+- **Generation model:** default is `nvidia/nemotron-3.5-super-vl-120b-a12b` (`nim_35super120`), chosen for grounded accuracy and instruction-following. The catalog also offers `nvidia/nemotron-3.5-lightning-30b-a3b` (faster, but less strictly grounded) and `nvidia/nemotron-3-ultra-550b-a55b` (slower). NVIDIA retires hosted models on a schedule; if chat starts returning 502s, check the model on build.nvidia.com first (see [docs/troubleshooting-log.md](docs/troubleshooting-log.md)). Keep `CHAT_THINKING_ENABLED=false` for this grounded RAG use case. See [docs/providers-and-models.md](docs/providers-and-models.md).
 - **Chat latency** (~3-6s) is dominated by the retrieval pipeline (multi-query embeddings + rerank), not the generation model.
+- **Health and alerts:** `/health` is the container liveness check; `/health/models` calls the active models and returns `503` when one fails. Run `scripts/setup-health-alerts.ps1` once to email `aicentre@singaporetech.edu.sg` on failure and recovery. See [deploy/ecs/README.md](deploy/ecs/README.md#health-monitoring-and-email-alerts).
+- **CORS:** browser clients must be listed in `CORS_ALLOWED_ORIGINS` (comma-separated).
 - **CMS ingestion:** pull SNAIC site content from Contentful via `POST /ingest/cms` rather than scraping the JavaScript-rendered pages.
 
 ## Test
