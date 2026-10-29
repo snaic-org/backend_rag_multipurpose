@@ -38,7 +38,7 @@ def test_prompt_builder_includes_grounding_and_citations() -> None:
     assert "Do not refer to the person as \"the user\"." in system_content
     assert "- Do not end responses with emoji or celebratory symbols." in system_content
     assert prompt.messages[1].role == "assistant"
-    assert prompt.messages[1].content == "Conversation history:\nHi"
+    assert prompt.messages[1].content == "Conversation history:\nUser: Hi"
     assert prompt.messages[2].content == "Question from the person you are chatting with:\nWhat services do we offer?"
     assert prompt.messages[3].content.startswith("Here is accurate, verified information about SNAIC")
     assert "We offer AI chatbot implementation for SME customers." in prompt.messages[3].content
@@ -294,3 +294,38 @@ def test_prompt_builder_prefers_highest_similarity_excerpt_within_document() -> 
 
     context_prompt = prompt.messages[-1].content
     assert "Nanyang Technological University, Singapore" in context_prompt
+
+
+def test_prompt_builder_keeps_title_and_source_lines_inside_content() -> None:
+    builder = PromptBuilder()
+    chunk = RetrievedChunk(
+        chunk_id="11111111-1111-1111-1111-111111111111",
+        document_id="22222222-2222-2222-2222-222222222222",
+        title="Alan Tan",
+        url=None,
+        source_type="cms",
+        content=(
+            "Title: Alan Tan\n"
+            "This is a SNAIC team member profile.\n"
+            "Title: Director\n"
+            "Source: Straits Times interview"
+        ),
+        metadata={},
+        similarity_score=0.9,
+    )
+
+    prompt = builder.build(
+        user_message="Who is the director?",
+        chat_history=[ChatMessage(role="user", content="Hi"), ChatMessage(role="assistant", content="Hello!")],
+        retrieved_chunks=[chunk],
+        max_history_messages=8,
+        max_context_chars=4000,
+        max_context_tokens=1000,
+        max_chunk_chars=2000,
+    )
+
+    context_prompt = prompt.messages[-1].content
+    assert "Source: Alan Tan" in context_prompt
+    assert "Title: Director" in context_prompt
+    assert "Source: Straits Times interview" in context_prompt
+    assert prompt.messages[1].content == "Conversation history:\nUser: Hi\nAssistant: Hello!"

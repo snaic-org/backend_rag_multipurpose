@@ -60,6 +60,9 @@ class QdrantManager:
             if collection.name.startswith(prefix):
                 await self.client.delete_collection(collection.name)
                 deleted += 1
+        # Forget the deleted collections so ensure_collection recreates them;
+        # otherwise every chat and ingest fails with "collection not found".
+        self._initialized_collections.clear()
         return deleted
 
     async def healthcheck(self) -> DependencyHealth:

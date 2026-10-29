@@ -20,6 +20,9 @@ from app.models.schemas import ChatMessage
 from app.services.assistant_copy import SOURCE_INTROSPECTION_REFUSAL_TEXT
 
 
+_MIN_REPEAT_CHECK_CHARS = 24
+
+
 class GuardrailService:
     def __init__(self, settings: Settings, redis_client: Redis) -> None:
         self._settings = settings
@@ -93,13 +96,13 @@ class GuardrailService:
         if len(text) <= max_chars and self._estimate_tokens(text) <= max_tokens:
             return self._strip_terminal_decorations(text)
 
-        words = text.split()
-        if words:
-            limited = " ".join(words[:max_tokens])
-        else:
-            limited = text[:max_chars]
-
-        limited = limited[:max_chars].rstrip()
+        # Cut the original text (not a re-joined word list) so line breaks, lists
+        # and tables survive.
+        limit = max_chars
+        words = list(re.finditer(r"\S+", text))
+        if len(words) > max_tokens:
+            limit = min(limit, words[max_tokens - 1].end())
+        limited = text[:limit].rstrip()
         if not limited:
             return ""
 
@@ -120,18 +123,22 @@ class GuardrailService:
         return any(pattern.search(message) for pattern in self._source_introspection_patterns)
 
     def _is_repeated_prompt(self, message: str, recent_user_messages: list[str]) -> bool:
+        # Short messages ("tell me more", "why?") are normal to repeat in a conversation.
+        if len(message) < _MIN_REPEAT_CHECK_CHARS:
+            return False
+
         normalized_recent = [self._normalize(item) for item in recent_user_messages if self._normalize(item)]
         if not normalized_recent:
             return False
 
-        identical_count = sum(1 for item in normalized_recent if item == message)
+        lookback = normalized_recent[-CHAT_REPEATED_PROMPT_LOOKBACK:]
+        identical_count = sum(1 for item in lookback if item == message)
         if identical_count >= 2:
             return True
 
-        lookback = normalized_recent[-CHAT_REPEATED_PROMPT_LOOKBACK:]
         near_matches = 0
         for previous in lookback:
-            if len(message) < 24 or len(previous) < 24:
+            if len(previous) < _MIN_REPEAT_CHECK_CHARS:
                 continue
             ratio = SequenceMatcher(None, message, previous).ratio()
             if ratio >= 0.92:

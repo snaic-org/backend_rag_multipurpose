@@ -78,3 +78,30 @@ def test_chat_service_strips_user_question_preamble_from_final_answer() -> None:
     )
 
     assert answer == "Project scoping defines the project goals, scope, timeline, and expected outcomes."
+
+
+def test_short_standalone_question_is_not_treated_as_follow_up() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="List the projects"),
+        ChatMessage(role="assistant", content="1. Project A\n2. Project B"),
+    ]
+
+    assert service._build_retrieval_message("Where is SNAIC located?", history) == "Where is SNAIC located?"
+    assert "user follow-up: Tell me more" in service._build_retrieval_message("Tell me more", history)
+    assert "user follow-up: Why?" in service._build_retrieval_message("Why?", history)
+
+
+def test_follow_up_retrieval_query_caps_long_history() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="old question " * 50),
+        ChatMessage(role="assistant", content="old answer " * 50),
+        ChatMessage(role="user", content="List the projects"),
+        ChatMessage(role="assistant", content="x" * 5000),
+    ]
+
+    retrieval_message = service._build_retrieval_message("tell me more about it", history)
+
+    assert "old question" not in retrieval_message
+    assert len(retrieval_message) < 1700

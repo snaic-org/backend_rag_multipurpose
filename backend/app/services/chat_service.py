@@ -25,6 +25,17 @@ from app.services.retrieval import RetrievalService
 from app.services.session_service import SessionService
 import re
 
+# Words that make a short message depend on the previous exchange.
+_REFERENCE_WORDS = frozenset(
+    {
+        "it", "its", "that", "this", "these", "those", "them", "they", "their",
+        "he", "she", "him", "his", "her", "more", "else", "another", "other",
+        "one", "ones", "same", "previous", "above", "first", "second", "third",
+        "fourth", "fifth", "last", "next",
+    }
+)
+_FOLLOW_UP_CONTEXT_CHARS = 1500
+
 
 class ChatService:
     def __init__(
@@ -320,11 +331,12 @@ class ChatService:
         if not self._is_contextual_follow_up(user_message):
             return user_message
 
-        recent_history = history[-4:]
+        # The last exchange is what a follow-up refers to; cap it so a long earlier
+        # answer does not drown out the new question in the embedding.
+        recent_history = [message for message in history[-2:] if message.content.strip()]
         history_text = "\n".join(
-            f"{message.role}: {message.content}"
+            f"{message.role}: {message.content.strip()[:_FOLLOW_UP_CONTEXT_CHARS]}"
             for message in recent_history
-            if message.content.strip()
         )
         if not history_text:
             return user_message
@@ -332,7 +344,12 @@ class ChatService:
 
     def _is_contextual_follow_up(self, user_message: str) -> bool:
         normalized = user_message.strip().lower()
-        if len(normalized.split()) <= 5:
+        words = re.findall(r"[a-z0-9']+", normalized)
+        if len(words) <= 2:
+            return True
+        # A short message is only a follow-up when it refers back to something;
+        # "Where is SNAIC located?" is short but stands on its own.
+        if len(words) <= 5 and any(word in _REFERENCE_WORDS for word in words):
             return True
         follow_up_patterns = (
             r"\b(tell|explain|describe)\s+me\s+(more\s+)?about\s+(\d+|it|that|this|them)\b",
