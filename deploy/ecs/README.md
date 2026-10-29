@@ -700,11 +700,11 @@ Notes:
 
 - after the first run, someone must click **Confirm subscription** in the AWS email sent to the alert address; no alerts are delivered until then
 - Route 53 health check metrics exist only in `us-east-1`, so the alarms and SNS topic live there
-- checks run from 3 regions every 30s; an outage alerts in about 3-4 minutes. A failing model can take up to `HEALTH_MODEL_PROBE_TTL_SECONDS` longer to show, because model probe results are cached
+- checks run from 3 regions every 30s; an outage (site down, or `/health/models` already failing) alerts in about 3-4 minutes
 - override `-AlertEmail`, `-DomainName`, or `-CheckerRegions` as needed
 - required permissions: `route53:ListHealthChecks`, `route53:CreateHealthCheck`, `route53:ChangeTagsForResource`, `sns:CreateTopic`, `sns:Subscribe`, `sns:ListSubscriptionsByTopic`, `cloudwatch:PutMetricAlarm`
 - cost is roughly USD 4 per month: Route 53 bills each health check (USD 0.50) plus USD 1.00 per optional feature, so `/health/models` (HTTPS) is about USD 1.50 and `/health` (HTTPS + string matching) about USD 2.50; up to about USD 6.75 if the endpoint is billed as non-AWS. The two alarms fall within the CloudWatch free tier and SNS email is free for the first 1,000 messages a month
-- `/health/models` probes the models about once per `HEALTH_MODEL_PROBE_TTL_SECONDS` while Route 53 polls (about 8,600 small calls a month to each model at the default 300s); raise the TTL if your NVIDIA plan has a usage quota
+- NVIDIA usage: ECS sets `HEALTH_MODEL_PROBE_TTL_SECONDS=86400`, so a healthy result is re-probed once a day. Faster detection comes from real traffic: when a chat request gets an upstream error (for example a retired model), the cached result is expired and the next poll re-probes (at most once a minute), so a broken model alerts within a few minutes of the first failed chat. A failed result is re-probed every 5 minutes until it recovers, which sends the recovery email. With no chat traffic, a model retired upstream shows up at the next daily probe
 
 ## Post-deploy verification
 

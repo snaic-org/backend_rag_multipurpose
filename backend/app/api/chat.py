@@ -184,6 +184,16 @@ def _raise_chat_http_error(exc: Exception) -> None:
     raise HTTPException(status_code=status_code, detail=message) from exc
 
 
+def _request_model_recheck(request: Request, exc: Exception) -> None:
+    # An upstream model error (e.g. a retired model) should show up in
+    # /health/models now, not when its cached result next expires.
+    if not isinstance(exc, httpx.HTTPError):
+        return
+    model_health_service = getattr(request.app.state, "model_health_service", None)
+    if model_health_service is not None:
+        model_health_service.request_recheck()
+
+
 def _raise_feedback_http_error(exc: Exception) -> None:
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
@@ -418,6 +428,7 @@ async def chat(
                 error_message=str(exc),
             )
         )
+        _request_model_recheck(request, exc)
         _raise_chat_http_error(exc)
 
     await _record_activity_safe(
@@ -473,6 +484,7 @@ async def chat_stream(
                 error_message=str(exc),
             )
         )
+        _request_model_recheck(request, exc)
         _raise_chat_http_error(exc)
 
     async def event_generator() -> AsyncIterator[str]:
@@ -598,6 +610,7 @@ async def chat_stream(
                     session_id=stream_state.session_id,
                 )
             )
+            _request_model_recheck(request, exc)
             raise
 
     response = StreamingResponse(event_generator(), media_type="text/event-stream")

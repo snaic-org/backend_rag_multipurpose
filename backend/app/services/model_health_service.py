@@ -15,6 +15,12 @@ from app.services.rerank import RerankService
 
 logger = get_logger(__name__)
 
+# A burst of failing chat requests may trigger at most one re-probe per interval.
+_MIN_RECHECK_INTERVAL_SECONDS = 60
+# Failed results are re-probed this often (or per the TTL, if shorter) so a
+# recovery is noticed without waiting out a long TTL.
+_UNHEALTHY_RECHECK_SECONDS = 300
+
 _PROBE_MESSAGES = [
     ChatMessage(role="system", content="Reply with the single word OK."),
     ChatMessage(role="user", content="Health check."),
@@ -56,11 +62,26 @@ class ModelHealthService:
                     await self._refresh()
                     return self._cached
 
-        if time.monotonic() - self._cached_at >= self._settings.health_model_probe_ttl_seconds:
+        ttl = self._settings.health_model_probe_ttl_seconds
+        if self._cached.status != "ok":
+            ttl = min(ttl, _UNHEALTHY_RECHECK_SECONDS)
+        if time.monotonic() - self._cached_at >= ttl:
             if self._refresh_task is None or self._refresh_task.done():
                 self._refresh_task = asyncio.create_task(self._refresh_in_background())
 
         return self._cached.model_copy(update={"cached": True})
+
+    def request_recheck(self) -> None:
+        """Expire the cached result after a real request hit an upstream error.
+
+        With a long TTL (e.g. one probe a day) this keeps detection fast: the next
+        check re-probes instead of serving a result that predates the failure.
+        """
+        if self._cached is None:
+            return
+        if time.monotonic() - self._cached_at < _MIN_RECHECK_INTERVAL_SECONDS:
+            return
+        self._cached_at = float("-inf")
 
     async def _refresh(self) -> None:
         self._cached = await self._run_probes()

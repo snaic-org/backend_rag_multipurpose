@@ -185,3 +185,55 @@ def test_model_health_runs_one_background_refresh_at_a_time() -> None:
     asyncio.run(run())
 
     assert provider.calls == 2
+
+
+def test_model_health_recheck_after_upstream_failure_reprobes_despite_long_ttl() -> None:
+    provider = FakeProvider("ok")
+    service = _service(provider, settings=_settings(health_model_probe_ttl_seconds=86400))
+
+    async def run():
+        await service.check()
+        provider.behaviour = "retired"
+        service._cached_at -= 120  # last probe was two minutes ago
+        service.request_recheck()
+        await service.check()  # serves the stale result, starts a re-probe
+        await service._refresh_task
+        return await service.check()
+
+    result = asyncio.run(run())
+
+    assert provider.calls == 2
+    assert result.status == "degraded"
+
+
+def test_model_health_recheck_is_rate_limited() -> None:
+    provider = FakeProvider("ok")
+    service = _service(provider, settings=_settings(health_model_probe_ttl_seconds=86400))
+
+    async def run():
+        await service.check()
+        service.request_recheck()  # the last probe was just now
+        await service.check()
+
+    asyncio.run(run())
+
+    assert provider.calls == 1
+    assert service._refresh_task is None
+
+
+def test_model_health_rechecks_failed_result_sooner_than_ttl() -> None:
+    provider = FakeProvider("retired")
+    service = _service(provider, settings=_settings(health_model_probe_ttl_seconds=86400))
+
+    async def run():
+        first = await service.check()
+        provider.behaviour = "ok"
+        service._cached_at -= 301  # older than the unhealthy re-check interval
+        await service.check()
+        await service._refresh_task
+        return first, await service.check()
+
+    first, recovered = asyncio.run(run())
+
+    assert first.status == "degraded"
+    assert recovered.status == "ok"

@@ -350,3 +350,61 @@ def test_auth_then_ingest_then_chat_returns_ingested_content(monkeypatch) -> Non
             }
 
     asyncio.run(run_flow())
+
+
+class _FailingChatService:
+    def __init__(self, exc: Exception) -> None:
+        self._exc = exc
+
+    async def prepare_chat(self, payload, rate_limit_key, session_id=None):
+        raise self._exc
+
+
+class _RecordingModelHealthService:
+    def __init__(self) -> None:
+        self.recheck_requests = 0
+
+    def request_recheck(self) -> None:
+        self.recheck_requests += 1
+
+
+def _chat_with_failure(monkeypatch, exc: Exception) -> tuple[int, int]:
+    app = build_app()
+    model_health = _RecordingModelHealthService()
+    app.state.model_health_service = model_health
+    monkeypatch.setattr(chat_api, "_build_chat_service", lambda request: _FailingChatService(exc))
+
+    async def run_flow() -> int:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            token_response = await client.post(
+                "/auth/token",
+                json={"username": "admin", "password": "change-me-immediately"},
+            )
+            token = token_response.json()["access_token"]
+            chat_response = await client.post(
+                "/chat",
+                headers={"Authorization": f"Bearer {token}"},
+                json={"message": "What is SNAIC?"},
+            )
+            return chat_response.status_code
+
+    status_code = asyncio.run(run_flow())
+    return status_code, model_health.recheck_requests
+
+
+def test_chat_upstream_model_error_requests_model_health_recheck(monkeypatch) -> None:
+    request = httpx.Request("POST", "https://integrate.api.nvidia.com/v1/chat/completions")
+    exc = httpx.HTTPStatusError("404", request=request, response=httpx.Response(404, request=request))
+
+    status_code, recheck_requests = _chat_with_failure(monkeypatch, exc)
+
+    assert status_code == 502
+    assert recheck_requests == 1
+
+
+def test_chat_guardrail_rejection_does_not_request_model_health_recheck(monkeypatch) -> None:
+    status_code, recheck_requests = _chat_with_failure(monkeypatch, ValueError("Prompt too long"))
+
+    assert status_code == 400
+    assert recheck_requests == 0

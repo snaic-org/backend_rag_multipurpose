@@ -578,6 +578,16 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.5 - 2026-10-29
+
+Probe NVIDIA once a day without slowing alerts.
+
+Changed:
+
+- ECS sets `HEALTH_MODEL_PROBE_TTL_SECONDS=86400`, so `/health/models` probes healthy models once a day instead of every 5 minutes
+- a chat request that fails with an upstream error expires the cached model health result (at most once a minute), so the next poll re-probes and a broken model alerts within minutes
+- a failed model health result is re-probed every 5 minutes, so recovery is reported without waiting out the TTL
+
 ## v0.6.4 - 2026-10-29
 
 Automated testing and deployment with GitHub Actions.
