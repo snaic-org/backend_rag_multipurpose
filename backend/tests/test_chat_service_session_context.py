@@ -117,3 +117,10 @@ def test_topic_query_skipped_for_long_or_first_messages() -> None:
 
     assert service._build_topic_query(long_message, long_message, history) is None
     assert service._build_topic_query("Who leads SNAIC?", "Who leads SNAIC?", []) is None
+
+
+def test_plain_dashes_keeps_length_for_streamed_chunks() -> None:
+    chunk = "Who we are — for example, TRL 4–7"
+
+    assert ChatService.plain_dashes(chunk) == "Who we are - for example, TRL 4-7"
+    assert len(ChatService.plain_dashes(chunk)) == len(chunk)

@@ -37,7 +37,8 @@ def test_project_roster_groups_projects_with_counts() -> None:
     roster = contentful.build_roster_document(PROJECT_CFG, ENTRIES, "https://www.snaic.net", "system")
 
     assert roster.title == "SNAIC Projects Directory"
-    assert "All 3 SNAIC" in roster.content
+    assert "The 3 SNAIC" in roster.content
+    assert "a selection of SNAIC's work" in roster.content
     assert [section["heading"] for section in roster.sections][-4:] == [
         "All SNAIC projects",
         "SNAIC projects grouped by industry",

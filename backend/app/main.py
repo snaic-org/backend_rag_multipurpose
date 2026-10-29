@@ -95,9 +95,18 @@ async def lifespan(app: FastAPI):
         redis_manager=redis,
     )
 
-    # Runs in the background so the service is healthy while CMS content is
-    # re-indexed; chat keeps using the existing content meanwhile.
-    cms_sync_task = asyncio.create_task(sync_cms_if_outdated(settings, redis.client, app.state.ingest_service))
+    # Runs in the background so startup is not delayed. The model health probe
+    # goes first and alone: a new task's first /health/models call would
+    # otherwise run the probe live, competing with the CMS re-index for the
+    # model API, and a timed-out probe raises a false "models down" alert.
+    async def warm_up() -> None:
+        try:
+            await model_health_service.check()
+        except Exception as exc:
+            logger.warning("model_health_warm_up_failed error=%r", exc)
+        await sync_cms_if_outdated(settings, redis.client, app.state.ingest_service)
+
+    warm_up_task = asyncio.create_task(warm_up())
 
     logger.info("application_startup_complete")
 
@@ -105,10 +114,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         # Stop background work first, then close every resource even if one fails.
-        if not cms_sync_task.done():
-            cms_sync_task.cancel()
+        if not warm_up_task.done():
+            warm_up_task.cancel()
             try:
-                await cms_sync_task
+                await warm_up_task
             except asyncio.CancelledError:
                 pass
         for close in (

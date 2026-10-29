@@ -41,6 +41,8 @@ _REFERENCE_WORDS = frozenset(
     }
 )
 _FOLLOW_UP_CONTEXT_CHARS = 1500
+# The prompt asks for hyphens, but models still emit em and en dashes.
+_DASHES = str.maketrans({"\u2014": "-", "\u2013": "-"})
 # Messages up to this many words are checked for references to the previous
 # exchange, and also searched together with the previous question.
 _SHORT_MESSAGE_WORDS = 8
@@ -208,8 +210,14 @@ class ChatService:
             answer,
         )
 
+    @staticmethod
+    def plain_dashes(text: str) -> str:
+        """Replace em and en dashes with hyphens; the length is unchanged, so it
+        is safe on streamed chunks."""
+        return text.translate(_DASHES)
+
     def finalize_answer(self, text: str) -> str:
-        cleaned = self._strip_user_question_preamble(text)
+        cleaned = self.plain_dashes(self._strip_user_question_preamble(text))
         return self._guardrails.truncate_response(cleaned)
 
     def _strip_user_question_preamble(self, text: str | None) -> str:

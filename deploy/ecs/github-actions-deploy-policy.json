@@ -74,13 +74,47 @@
         "sns:ListSubscriptionsByTopic",
         "sns:Subscribe"
       ],
-      "Resource": "arn:aws:sns:us-east-1:961341555117:backend-rag-health-alerts"
+      "Resource": "arn:aws:sns:us-east-1:961341555117:backend-rag-*"
     },
     {
       "Sid": "HealthAlertAlarms",
       "Effect": "Allow",
       "Action": "cloudwatch:PutMetricAlarm",
       "Resource": "arn:aws:cloudwatch:us-east-1:961341555117:alarm:backend-rag-*"
+    },
+    {
+      "Sid": "AlertFormatterRole",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:CreateRole",
+        "iam:PutRolePolicy"
+      ],
+      "Resource": "arn:aws:iam::961341555117:role/backend-rag-alert-formatter"
+    },
+    {
+      "Sid": "AlertFormatterPassRole",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::961341555117:role/backend-rag-alert-formatter",
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": "lambda.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Sid": "AlertFormatterFunction",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:CreateFunction",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission"
+      ],
+      "Resource": "arn:aws:lambda:us-east-1:961341555117:function:backend-rag-alert-formatter"
     }
   ]
 }

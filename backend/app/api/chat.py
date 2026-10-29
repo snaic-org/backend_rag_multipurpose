@@ -575,7 +575,7 @@ async def chat_stream(
                     remaining = max_response_chars - answer_length
                     if remaining <= 0:
                         break
-                    chunk = delta[:remaining]
+                    chunk = ChatService.plain_dashes(delta[:remaining])
                     if chunk:
                         answer_parts.append(chunk)
                         answer_length += len(chunk)
