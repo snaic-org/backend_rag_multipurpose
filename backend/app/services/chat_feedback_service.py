@@ -17,9 +17,6 @@ class ChatFeedbackService:
         self._repository = ChatFeedbackRepository(postgres_pool)
         self._activity_repository = ChatActivityRepository(postgres_pool)
 
-    async def ensure_table(self) -> None:
-        await self._repository.ensure_table()
-
     async def submit_feedback(
         self,
         payload: ChatFeedbackRequest,

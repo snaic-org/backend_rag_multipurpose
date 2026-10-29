@@ -1,3 +1,6 @@
+import re
+from dataclasses import dataclass
+
 from app.core.config import (
     CHAT_MAX_CONTEXT_CHUNK_CHARS,
     EMBEDDING_CACHE_TTL_SECONDS,
@@ -27,7 +30,6 @@ from app.services.query_planner import QueryPlannerService
 from app.services.system_prompt_service import SystemPromptService
 from app.services.retrieval import RetrievalService
 from app.services.session_service import SessionService
-import re
 
 # Words that make a short message depend on the previous exchange.
 _REFERENCE_WORDS = frozenset(
@@ -385,35 +387,19 @@ class ChatService:
         return strip_thinking_blocks(text)
 
 
+@dataclass
 class _PreparedChatContext:
-    def __init__(
-        self,
-        provider: str,
-        model: str,
-        embedding_profile: str,
-        embedding_provider: str,
-        embedding_model: str,
-        prompt_messages: list[ChatMessage],
-        retrieved_chunks: list,
-        thinking: str | None,
-        citations: list,
-        used_fallback: bool,
-        fallback_text: str,
-        session_id: str | None,
-        user_message: str,
-        message_history: list[ChatMessage],
-    ) -> None:
-        self.provider = provider
-        self.model = model
-        self.embedding_profile = embedding_profile
-        self.embedding_provider = embedding_provider
-        self.embedding_model = embedding_model
-        self.prompt_messages = prompt_messages
-        self.retrieved_chunks = retrieved_chunks
-        self.thinking = thinking
-        self.citations = citations
-        self.used_fallback = used_fallback
-        self.fallback_text = fallback_text
-        self.session_id = session_id
-        self.user_message = user_message
-        self.message_history = message_history
+    provider: str
+    model: str
+    embedding_profile: str
+    embedding_provider: str
+    embedding_model: str
+    prompt_messages: list[ChatMessage]
+    retrieved_chunks: list
+    thinking: str | None
+    citations: list
+    used_fallback: bool
+    fallback_text: str
+    session_id: str | None
+    user_message: str
+    message_history: list[ChatMessage]

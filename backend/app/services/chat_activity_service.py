@@ -16,9 +16,6 @@ class ChatActivityService:
     def __init__(self, postgres_pool: AsyncConnectionPool) -> None:
         self._repository = ChatActivityRepository(postgres_pool)
 
-    async def ensure_table(self) -> None:
-        await self._repository.ensure_table()
-
     async def record(self, payload: ChatActivityWrite) -> ChatActivityResponse:
         record = await self._repository.create(payload)
         return ChatActivityResponse.model_validate(record)

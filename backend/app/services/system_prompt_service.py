@@ -10,7 +10,6 @@ class SystemPromptService:
         self._repository = SystemPromptRepository(postgres_pool)
 
     async def ensure_default_system_prompt(self) -> None:
-        await self._repository.ensure_system_prompt_table(DEFAULT_SYSTEM_PROMPT)
         record = await self._repository.get_system_prompt()
         if record is None or record.system_prompt != DEFAULT_SYSTEM_PROMPT:
             await self._repository.update_system_prompt(DEFAULT_SYSTEM_PROMPT)

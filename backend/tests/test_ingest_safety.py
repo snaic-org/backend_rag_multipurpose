@@ -12,6 +12,7 @@ from app.models.schemas import (
     NormalizedDocument,
     ParsedFile,
 )
+from app.services import contentful
 from app.services.chunking import ChunkingService
 from app.services.ingest_service import IngestService
 
@@ -224,18 +225,18 @@ def _cms_service(monkeypatch, failing_types: set[str]) -> IngestService:
             raise RuntimeError("contentful down")
         return [{"sys": {"id": content_type}}], {}
 
-    monkeypatch.setattr(service, "_fetch_contentful_entries", fetch)
+    monkeypatch.setattr(contentful, "fetch_entries", fetch)
     monkeypatch.setattr(
-        service,
-        "_contentful_entry_to_document",
-        lambda entry, includes, cfg, base, user: NormalizedDocument(
+        contentful,
+        "entry_to_document",
+        lambda entry, includes, cfg, base, created_by: NormalizedDocument(
             title=cfg["content_type"],
             source_type="cms",
             content=f"fresh {cfg['content_type']}",
             metadata={"contentful_content_type": cfg["content_type"]},
         ),
     )
-    monkeypatch.setattr(service, "_build_cms_roster_document", lambda *args: None)
+    monkeypatch.setattr(contentful, "build_roster_document", lambda *args: None)
     return service
 
 

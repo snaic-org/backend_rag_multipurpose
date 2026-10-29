@@ -62,8 +62,6 @@ async def lifespan(app: FastAPI):
     await auth_service.ensure_bootstrap_admin()
     await prompt_service.ensure_default_system_prompt()
     await model_selection_service.ensure_default_model_selection()
-    await chat_activity_service.ensure_table()
-    await chat_feedback_service.ensure_table()
     model_selection = await model_selection_service.get_model_selection()
     embedding_profile = settings.embedding_profiles[model_selection.embedding_profile]
     await _wait_for_qdrant(qdrant, embedding_profile.dimension)

@@ -65,10 +65,6 @@ class FakePromptRepository:
     def __init__(self, prompt: str | None) -> None:
         self._prompt = prompt
         self.updates: list[str] = []
-        self.ensure_calls = 0
-
-    async def ensure_system_prompt_table(self, default_prompt: str) -> None:
-        self.ensure_calls += 1
 
     async def get_system_prompt(self) -> SystemPromptRecord | None:
         if self._prompt is None:
@@ -97,7 +93,6 @@ def test_system_prompt_service_updates_managed_legacy_prompt() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())
@@ -111,7 +106,6 @@ def test_system_prompt_service_overwrites_custom_prompt_on_startup() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())
@@ -125,7 +119,6 @@ def test_system_prompt_service_initializes_missing_prompt() -> None:
 
         await service.ensure_default_system_prompt()
 
-        assert repository.ensure_calls == 1
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
 
     asyncio.run(run_test())

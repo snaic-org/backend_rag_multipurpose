@@ -398,6 +398,37 @@ def _build_activity_payload(
     )
 
 
+def _activity_from(
+    request: Request,
+    current_user: AuthenticatedUser,
+    payload: ChatRequest,
+    outcome: ChatServiceResult | ChatStreamState,
+    *,
+    status_value: str,
+    response_answer: str | None,
+    used_fallback: bool = False,
+    error_message: str | None = None,
+) -> ChatActivityWrite:
+    """Activity record for a chat that reached the model-selection stage."""
+    return _build_activity_payload(
+        request,
+        current_user,
+        payload,
+        status_value=status_value,
+        response_answer=response_answer,
+        provider=outcome.provider,
+        model=outcome.model,
+        embedding_profile=outcome.embedding_profile,
+        embedding_provider=outcome.embedding_provider,
+        embedding_model=outcome.embedding_model,
+        used_fallback=used_fallback,
+        citations_count=len(outcome.citations),
+        retrieved_chunks_count=len(outcome.retrieved_chunks),
+        error_message=error_message,
+        session_id=outcome.session_id,
+    )
+
+
 async def _record_activity_safe(
     activity_service: ChatActivityService,
     activity_payload: ChatActivityWrite,
@@ -444,21 +475,14 @@ async def chat(
 
     await _record_activity_safe(
         activity_service,
-        _build_activity_payload(
+        _activity_from(
             request,
             current_user,
             payload,
+            result,
             status_value="completed",
             response_answer=result.answer,
-            provider=result.provider,
-            model=result.model,
-            embedding_profile=result.embedding_profile,
-            embedding_provider=result.embedding_provider,
-            embedding_model=result.embedding_model,
             used_fallback=result.used_fallback,
-            citations_count=len(result.citations),
-            retrieved_chunks_count=len(result.retrieved_chunks),
-            session_id=result.session_id,
         )
     )
 
@@ -506,21 +530,14 @@ async def chat_stream(
         if stream_state.used_fallback:
             await _record_activity_safe(
                 activity_service,
-                _build_activity_payload(
+                _activity_from(
                     request,
                     current_user,
                     payload,
+                    stream_state,
                     status_value="completed",
                     response_answer=stream_state.fallback_text,
-                    provider=stream_state.provider,
-                    model=stream_state.model,
-                    embedding_profile=stream_state.embedding_profile,
-                    embedding_provider=stream_state.embedding_provider,
-                    embedding_model=stream_state.embedding_model,
                     used_fallback=True,
-                    citations_count=0,
-                    retrieved_chunks_count=0,
-                    session_id=stream_state.session_id,
                 )
             )
             chunk_payload = (
@@ -571,21 +588,13 @@ async def chat_stream(
             await service.finalize_stream(stream_state, final_text)
             await _record_activity_safe(
                 activity_service,
-                _build_activity_payload(
+                _activity_from(
                     request,
                     current_user,
                     payload,
+                    stream_state,
                     status_value="completed",
                     response_answer=final_text,
-                    provider=stream_state.provider,
-                    model=stream_state.model,
-                    embedding_profile=stream_state.embedding_profile,
-                    embedding_provider=stream_state.embedding_provider,
-                    embedding_model=stream_state.embedding_model,
-                    used_fallback=False,
-                    citations_count=len(stream_state.citations),
-                    retrieved_chunks_count=len(stream_state.retrieved_chunks),
-                    session_id=stream_state.session_id,
                 )
             )
             done_payload = (
@@ -607,21 +616,14 @@ async def chat_stream(
             partial_answer = service.finalize_answer("".join(answer_parts))
             await _record_activity_safe(
                 activity_service,
-                _build_activity_payload(
+                _activity_from(
                     request,
                     current_user,
                     payload,
+                    stream_state,
                     status_value="failed",
                     response_answer=partial_answer or None,
-                    provider=stream_state.provider,
-                    model=stream_state.model,
-                    embedding_profile=stream_state.embedding_profile,
-                    embedding_provider=stream_state.embedding_provider,
-                    embedding_model=stream_state.embedding_model,
                     error_message=str(exc),
-                    citations_count=len(stream_state.citations),
-                    retrieved_chunks_count=len(stream_state.retrieved_chunks),
-                    session_id=stream_state.session_id,
                 )
             )
             _request_model_recheck(request, exc)

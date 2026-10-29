@@ -73,20 +73,7 @@ class _FakeModelSelectionRepository:
         self.generation_profiles = list(generation_profiles)
         self.embedding_profiles = list(embedding_profiles)
 
-    async def ensure_model_selection_table(
-        self,
-        default_generation_profile: str,
-        default_embedding_profile: str,
-    ) -> None:
-        if self.record is None:
-            self.record = ModelSelectionRecord(
-                id=1,
-                generation_profile=default_generation_profile,
-                embedding_profile=default_embedding_profile,
-                updated_at=datetime.now(timezone.utc),
-            )
-
-    async def ensure_default_model_selection(
+    async def seed_default_model_selection(
         self,
         default_generation_profile: str,
         default_embedding_profile: str,

@@ -19,14 +19,7 @@ class ModelSelectionService:
     async def ensure_default_model_selection(self) -> None:
         generation_profile = self._resolve_default_generation_profile_name()
         embedding_profile = self._resolve_default_embedding_profile_name()
-        await self._repository.ensure_model_selection_table(
-            generation_profile,
-            embedding_profile,
-        )
-        await self._repository.ensure_default_model_selection(
-            generation_profile,
-            embedding_profile,
-        )
+        await self._repository.seed_default_model_selection(generation_profile, embedding_profile)
         await self._replace_retired_profiles(generation_profile, embedding_profile)
 
     async def _replace_retired_profiles(

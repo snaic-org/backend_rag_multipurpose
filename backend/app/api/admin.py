@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from app.api.errors import raise_value_error
 from app.core.security import require_admin_user
 from app.models.schemas import (
     AuthenticatedUser,
@@ -152,11 +153,7 @@ async def get_document(
     try:
         return await _build_document_inspection_service(request).get_document(document_id)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.get("/documents/{document_id}/raw", response_model=list[ChunkRecord])
@@ -168,11 +165,7 @@ async def get_document_raw_chunks(
     try:
         return await _build_document_inspection_service(request).get_document_chunks(document_id)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.delete(
@@ -206,11 +199,7 @@ async def reingest_document(
     try:
         details = await inspection_service.get_document(document_id)
     except ValueError as exc:
-        message = str(exc)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND if "not found" in message.lower() else status.HTTP_400_BAD_REQUEST,
-            detail=message,
-        ) from exc
+        raise_value_error(exc)
 
     if details.document.source_type != "website":
         raise HTTPException(
@@ -365,11 +354,7 @@ async def update_user(
     try:
         return await _build_auth_service(request).update_user(user_id, payload, current_user)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -381,8 +366,4 @@ async def delete_user(
     try:
         await _build_auth_service(request).delete_user(user_id, current_user)
     except ValueError as exc:
-        message = str(exc)
-        status_code = status.HTTP_400_BAD_REQUEST
-        if "not found" in message.lower():
-            status_code = status.HTTP_404_NOT_FOUND
-        raise HTTPException(status_code=status_code, detail=message) from exc
+        raise_value_error(exc)

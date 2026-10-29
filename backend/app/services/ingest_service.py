@@ -9,11 +9,6 @@ from psycopg_pool import AsyncConnectionPool
 
 from app.core.config import Settings
 from app.core.config import EMBEDDING_CACHE_TTL_SECONDS
-from app.core.config import (
-    CONTENTFUL_CDN_BASE,
-    CONTENTFUL_SKIP_FIELDS,
-    DEFAULT_CONTENTFUL_CONTENT_TYPES,
-)
 from app.core.logging import get_logger
 from app.core.model_profiles import match_profiles
 from app.core.url_safety import UnsafeUrlError, ensure_public_url
@@ -38,6 +33,7 @@ from app.parsers.base import ensure_safe_archive
 from app.parsers.factory import ParserFactory
 from app.services.model_selection_service import ModelSelectionService
 from app.services.cache_service import CORPUS_VERSION_KEY, CacheService
+from app.services import contentful
 from app.services.chunking import ChunkingService
 from app.services.embeddings import EmbeddingService
 
@@ -54,16 +50,6 @@ WEBSITE_USER_AGENT = "Mozilla/5.0 (compatible; RAGBot/1.0)"
 
 class _PageTooLargeError(Exception):
     pass
-
-
-def _contentful_richtext_to_text(node) -> str:
-    """Recursively flatten a Contentful rich-text document node into plain text."""
-    if not isinstance(node, dict):
-        return ""
-    if node.get("nodeType") == "text":
-        return node.get("value", "")
-    parts = [_contentful_richtext_to_text(child) for child in node.get("content", [])]
-    return " ".join(p for p in parts if p).strip()
 
 
 class IngestService:
@@ -507,7 +493,7 @@ class IngestService:
         env = (self._settings.contentful_environment or "master").strip()
         base = self._settings.contentful_site_base_url.rstrip("/")
 
-        configs = self._resolve_cms_content_types(payload.content_types)
+        configs = contentful.resolve_content_types(payload.content_types)
         if not configs:
             raise ValueError("No matching content types to ingest.")
 
@@ -525,7 +511,7 @@ class IngestService:
             for cfg in configs:
                 content_type = cfg["content_type"]
                 try:
-                    entries, includes = await self._fetch_contentful_entries(
+                    entries, includes = await contentful.fetch_entries(
                         client, space, env, token, content_type,
                     )
                 except httpx.HTTPStatusError as exc:
@@ -542,7 +528,7 @@ class IngestService:
 
                 documents: list[NormalizedDocument] = []
                 for entry in entries:
-                    doc = self._contentful_entry_to_document(entry, includes, cfg, base, current_user)
+                    doc = contentful.entry_to_document(entry, includes, cfg, base, current_user.username)
                     if doc is not None:
                         documents.append(doc)
 
@@ -550,7 +536,7 @@ class IngestService:
                 # ("who are the leaders / team / list all X") can be answered from a
                 # single retrieval hit instead of needing every individual entry.
                 if cfg.get("roster") and entries:
-                    roster = self._build_cms_roster_document(cfg, entries, base, current_user)
+                    roster = contentful.build_roster_document(cfg, entries, base, current_user.username)
                     if roster is not None:
                         documents.append(roster)
 
@@ -619,278 +605,6 @@ class IngestService:
             chunks_created=0,
             error=error,
         )
-
-    def _resolve_cms_content_types(self, requested: list[str]) -> list[dict]:
-        if not requested:
-            return list(DEFAULT_CONTENTFUL_CONTENT_TYPES)
-
-        known = {c["content_type"]: c for c in DEFAULT_CONTENTFUL_CONTENT_TYPES}
-        resolved: list[dict] = []
-        for content_type in requested:
-            if content_type in known:
-                resolved.append(known[content_type])
-            else:
-                resolved.append({
-                    "content_type": content_type,
-                    "label": content_type,
-                    "url_path": "",
-                    "detail_page": False,
-                })
-        return resolved
-
-    async def _fetch_contentful_entries(
-        self,
-        client: httpx.AsyncClient,
-        space: str,
-        env: str,
-        token: str,
-        content_type: str,
-    ) -> tuple[list[dict], dict]:
-        url = f"{CONTENTFUL_CDN_BASE}/spaces/{space}/environments/{env}/entries"
-        all_items: list[dict] = []
-        includes: dict = {"Entry": [], "Asset": []}
-        skip = 0
-        limit = 100
-
-        while True:
-            params = {
-                "content_type": content_type,
-                "access_token": token,
-                "limit": limit,
-                "skip": skip,
-                "include": 1,
-            }
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-
-            items = data.get("items", [])
-            all_items.extend(items)
-
-            inc = data.get("includes", {})
-            includes["Entry"].extend(inc.get("Entry", []))
-            includes["Asset"].extend(inc.get("Asset", []))
-
-            total = data.get("total", 0)
-            skip += limit
-            if not items or skip >= total:
-                break
-
-        return all_items, includes
-
-    def _contentful_entry_to_document(
-        self,
-        entry: dict,
-        includes: dict,
-        cfg: dict,
-        base: str,
-        current_user: AuthenticatedUser,
-    ) -> NormalizedDocument | None:
-        fields = entry.get("fields", {})
-        if not fields:
-            return None
-
-        entry_id = entry.get("sys", {}).get("id", "")
-        content_type = cfg["content_type"]
-        is_team = content_type == "team"
-
-        # For people, the document title should be the person's NAME, not their
-        # job title. For everything else the entry title/heading is correct.
-        name = self._cf_field(fields, "name", "fullName")
-        role = self._cf_field(fields, "title", "role", "position")
-        member_type = self._cf_field(fields, "memberType", "category", "group")
-
-        if is_team and name:
-            title = name
-        else:
-            title = self._contentful_entry_title(fields, cfg["label"])
-
-        body = self._contentful_entry_text(entry, includes)
-        if not body.strip():
-            return None
-
-        # Prepend framing so every entry contains the "SNAIC" anchor and the key
-        # descriptors people actually search for (name, role, member type).
-        frame_lines = [cfg.get("frame", f"This is SNAIC {cfg['label']} content.")]
-        if is_team:
-            descriptor = ", ".join(part for part in (name, role) if part)
-            if descriptor:
-                frame_lines.append(f"{descriptor}.")
-            if member_type:
-                frame_lines.append(f"Member type at SNAIC: {member_type}.")
-        header = " ".join(frame_lines)
-
-        content = f"{header}\n\n{body}".strip()
-
-        url = base + cfg.get("url_path", "")
-        if cfg.get("detail_page") and entry_id:
-            url = f"{url}/{entry_id}"
-
-        metadata = self._build_system_metadata(
-            current_user=current_user,
-            source_kind="cms",
-            title=title,
-        )
-        metadata["source_url"] = url
-        metadata["contentful_content_type"] = content_type
-        metadata["contentful_entry_id"] = entry_id
-        if member_type:
-            metadata["member_type"] = member_type
-
-        return NormalizedDocument(
-            title=title,
-            source_type="cms",
-            content=content,
-            metadata=metadata,
-            url=url,
-        )
-
-    def _build_cms_roster_document(
-        self,
-        cfg: dict,
-        entries: list[dict],
-        base: str,
-        current_user: AuthenticatedUser,
-    ) -> NormalizedDocument | None:
-        content_type = cfg["content_type"]
-        url = base + cfg.get("url_path", "")
-
-        if content_type == "team":
-            # Group members by MemberType, listing leadership groups first.
-            groups: dict[str, list[str]] = {}
-            for entry in entries:
-                fields = entry.get("fields", {})
-                name = self._cf_field(fields, "name", "fullName") or "Unknown"
-                role = self._cf_field(fields, "title", "role", "position")
-                member_type = self._cf_field(fields, "memberType", "category", "group") or "Member"
-                line = f"- {name}" + (f" - {role}" if role else "")
-                groups.setdefault(member_type, []).append(line)
-
-            def group_priority(member_type: str) -> tuple[int, str]:
-                lowered = member_type.lower()
-                if any(word in lowered for word in ("director", "lead", "head", "chair", "advis", "principal")):
-                    return (0, member_type)
-                return (1, member_type)
-
-            lines = [
-                "SNAIC (SIT x NVIDIA AI Centre) - Team and Leadership Directory.",
-                "The following people make up the SNAIC team, grouped by their role. "
-                "Directors and leadership are listed first.",
-                "",
-            ]
-            for member_type in sorted(groups, key=group_priority):
-                heading = member_type if member_type.endswith("s") else f"{member_type}s"
-                lines.append(f"{heading}:")
-                lines.extend(groups[member_type])
-                lines.append("")
-            content = "\n".join(lines).strip()
-            title = "SNAIC Team and Leadership Directory"
-        else:
-            entry_lines = []
-            for entry in entries:
-                fields = entry.get("fields", {})
-                t = self._contentful_entry_title(fields, "")
-                if not t:
-                    continue
-                summary = self._cf_field(fields, "summary", "brief", "description")
-                if summary:
-                    summary = " ".join(summary.split())[:200]
-                    entry_lines.append(f"- {t}: {summary}")
-                else:
-                    entry_lines.append(f"- {t}")
-            if not entry_lines:
-                return None
-            content = "\n".join(
-                [f"Complete list of all SNAIC (SIT x NVIDIA AI Centre) {cfg['label']}:", ""] + entry_lines
-            ).strip()
-            title = f"SNAIC {cfg['label']} Directory"
-
-        metadata = self._build_system_metadata(
-            current_user=current_user,
-            source_kind="cms",
-            title=title,
-        )
-        metadata["source_url"] = url
-        metadata["contentful_content_type"] = content_type
-        metadata["cms_roster"] = True
-
-        return NormalizedDocument(
-            title=title,
-            source_type="cms",
-            content=content,
-            metadata=metadata,
-            url=url,
-        )
-
-    @staticmethod
-    def _cf_field(fields: dict, *names: str) -> str:
-        """Case-insensitive lookup returning the first matching string field."""
-        lowered = {k.lower(): v for k, v in fields.items()}
-        for name in names:
-            value = lowered.get(name.lower())
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return ""
-
-    @staticmethod
-    def _contentful_entry_title(fields: dict, fallback: str) -> str:
-        for key in ("title", "name", "heading", "projectTitle", "newsTitle", "fullName", "publicationTitle"):
-            for actual_key, value in fields.items():
-                if actual_key.lower() == key and isinstance(value, str) and value.strip():
-                    return value.strip()
-        return fallback
-
-    def _contentful_entry_text(self, entry_or_asset: dict, includes: dict, depth: int = 0) -> str:
-        fields = entry_or_asset.get("fields", {})
-        lines: list[str] = []
-        for key, value in fields.items():
-            if key.lower() in CONTENTFUL_SKIP_FIELDS:
-                continue
-            text = self._contentful_field_to_text(value, includes, depth)
-            if text and text.strip():
-                label = key[0].upper() + key[1:]
-                lines.append(f"{label}: {text.strip()}")
-        return "\n".join(lines)
-
-    def _contentful_field_to_text(self, value, includes: dict, depth: int = 0) -> str:
-        if isinstance(value, str):
-            return value
-        if isinstance(value, bool):
-            return "yes" if value else "no"
-        if isinstance(value, (int, float)):
-            return str(value)
-        if isinstance(value, list):
-            parts = [self._contentful_field_to_text(v, includes, depth) for v in value]
-            return "\n".join(p for p in parts if p and p.strip())
-        if isinstance(value, dict):
-            # Contentful rich text document
-            if value.get("nodeType") == "document":
-                return _contentful_richtext_to_text(value)
-            sys_info = value.get("sys", {})
-            if sys_info.get("type") == "Link":
-                if depth < 1:
-                    resolved = self._resolve_contentful_link(sys_info, includes)
-                    if resolved is not None:
-                        return self._contentful_entry_text(resolved, includes, depth + 1)
-                return ""
-            # Plain JSON object field (e.g. a project's techStack) - flatten it.
-            if not sys_info:
-                parts = []
-                for sub_key, sub_value in value.items():
-                    sub_text = self._contentful_field_to_text(sub_value, includes, depth)
-                    if sub_text and sub_text.strip():
-                        parts.append(f"{sub_key}: {sub_text.strip()}")
-                return "; ".join(parts)
-        return ""
-
-    @staticmethod
-    def _resolve_contentful_link(link_sys: dict, includes: dict) -> dict | None:
-        link_type = link_sys.get("linkType")
-        link_id = link_sys.get("id")
-        for item in includes.get(link_type, []):
-            if item.get("sys", {}).get("id") == link_id:
-                return item
-        return None
 
     async def delete_document(self, document_id: UUID) -> bool:
         doc = await self._document_repository.get_by_id(document_id)

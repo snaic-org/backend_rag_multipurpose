@@ -8,29 +8,6 @@ class ChatFeedbackRepository:
     def __init__(self, pool: AsyncConnectionPool) -> None:
         self._pool = pool
 
-    async def ensure_table(self) -> None:
-        queries = [
-            """
-            CREATE TABLE IF NOT EXISTS chat_feedback (
-                id BIGSERIAL PRIMARY KEY,
-                user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
-                username TEXT NOT NULL,
-                session_id TEXT NOT NULL,
-                rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-                comments TEXT,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-            """,
-            "CREATE INDEX IF NOT EXISTS idx_chat_feedback_session_id ON chat_feedback (session_id, created_at DESC)",
-            "CREATE INDEX IF NOT EXISTS idx_chat_feedback_user_id ON chat_feedback (user_id, created_at DESC)",
-        ]
-
-        async with self._pool.connection() as connection:
-            async with connection.cursor() as cursor:
-                for query in queries:
-                    await cursor.execute(query)
-            await connection.commit()
-
     async def create(
         self,
         *,

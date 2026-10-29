@@ -31,7 +31,6 @@ class AuthService:
         if not self._settings.auth_enabled:
             return
 
-        await self._repository.ensure_auth_tables()
         password_hash = self._hash_password(self._settings.auth_bootstrap_admin_password)
         await self._repository.create_bootstrap_admin_if_missing(
             username=self._settings.auth_bootstrap_admin_username,

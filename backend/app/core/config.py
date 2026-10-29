@@ -26,30 +26,9 @@ CHAT_TOP_P = 1.0
 CHAT_FREQUENCY_PENALTY = 0.0
 CHAT_PRESENCE_PENALTY = 0.0
 CHAT_DEBUG_ENABLED = False
-CHAT_BINARY_PRECOMPUTE_ENABLED = False
 EMBEDDING_CACHE_TTL_SECONDS = 3600
 SESSION_TTL_SECONDS = 86400
 
-CONTENTFUL_CDN_BASE = "https://cdn.contentful.com"
-
-# Default Contentful content types to ingest, in priority order.
-# Each maps a Contentful content_type id to a human label, the public page
-# it renders on (used as the citation URL), and whether entries have their
-# own detail page (id appended to the url).
-DEFAULT_CONTENTFUL_CONTENT_TYPES = [
-    {"content_type": "jointCentreProjectNew", "label": "Projects", "url_path": "/projects", "detail_page": True,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) research project.", "roster": True},
-    {"content_type": "jointCentreNews", "label": "News", "url_path": "/news", "detail_page": True,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) news item or announcement.", "roster": True},
-    {"content_type": "team", "label": "Our Team", "url_path": "/our-team", "detail_page": False,
-     "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) team member profile.", "roster": True},
-]
-
-# Contentful fields that add noise rather than signal for retrieval.
-CONTENTFUL_SKIP_FIELDS = {
-    "profilepicture", "order", "image", "thumbnail", "featuredimage", "slug",
-    "heroimage", "architectureimage", "screenshots",
-}
 SESSION_STORAGE_ENABLED = True
 OPENAI_REASONING_EFFORT = "low"
 NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
@@ -139,8 +118,6 @@ class Settings(BaseSettings):
             "Contact: shioktech@gmail.com"
         )
     )
-    app_host: str = Field(default="0.0.0.0")
-    app_port: int = Field(default=8000)
     log_level: str = Field(default="INFO")
     # NoDecode: let the validator below split comma-separated values instead of
     # pydantic-settings requiring a JSON list.
@@ -209,7 +186,6 @@ class Settings(BaseSettings):
     )
     chunk_size: int = Field(default=1000)
     chunk_overlap: int = Field(default=150)
-    structured_rows_per_chunk: int = Field(default=10)
     similarity_threshold: float = Field(default=0.35)
     max_session_messages: int = Field(default=12)
 
@@ -246,30 +222,15 @@ class Settings(BaseSettings):
             return [str(origin).strip().rstrip("/") for origin in value if str(origin).strip()]
         return value
 
-    @field_validator("default_generation_provider", mode="before")
+    @field_validator(
+        "default_generation_provider",
+        "default_generation_model",
+        "default_embedding_provider",
+        "default_embedding_model",
+        mode="before",
+    )
     @classmethod
-    def normalize_default_generation_provider(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_generation_model", mode="before")
-    @classmethod
-    def normalize_default_generation_model(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_embedding_provider", mode="before")
-    @classmethod
-    def normalize_default_embedding_provider(cls, value: object) -> object:
-        if isinstance(value, str):
-            return value.strip()
-        return value
-
-    @field_validator("default_embedding_model", mode="before")
-    @classmethod
-    def normalize_default_embedding_model(cls, value: object) -> object:
+    def strip_default_model_settings(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip()
         return value
