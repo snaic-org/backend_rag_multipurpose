@@ -578,6 +578,20 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.6.4 - 2026-10-29
+
+Automated testing and deployment with GitHub Actions.
+
+Added:
+
+- `.github/workflows/ci.yml`: backend tests on every pull request (Python 3.11, matching the Docker image)
+- `.github/workflows/deploy.yml`: on push to `main` (or on demand), tests, builds and pushes SHA-tagged images to ECR, deploys a pinned task definition revision to ECS, waits for stability, requires `/health/models` to return `200`, then runs `scripts/setup-health-alerts.ps1`
+- `deploy/ecs/github-actions-deploy-policy.json`: least-privilege IAM policy for the deploy user
+
+Changed:
+
+- `scripts/setup-health-alerts.ps1` stops on a failing `aws` call under PowerShell 7.3+
+
 ## v0.6.3 - 2026-10-29
 
 CORS for the SNAIC website, real model health checks, and email alerts.

@@ -77,6 +77,8 @@ Use this mode when you want the entire local stack, including Ollama, running in
 
 ### ECS deployment
 
+Deploys are automated: every push to `main` that changes the backend is tested, built, pushed to ECR, rolled out to ECS, and verified with `/health/models` by GitHub Actions. One-time setup (an IAM user and two repository secrets) is in [deploy/ecs/README.md](deploy/ecs/README.md#continuous-deployment-github-actions).
+
 For the ECS on Fargate path, use the dedicated deployment guide in [deploy/ecs/README.md](deploy/ecs/README.md).
 
 The current ECS setup:

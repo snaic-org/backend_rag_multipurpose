@@ -556,6 +556,29 @@ aws logs get-log-events --log-group-name /ecs/backend-rag-multipurpose --log-str
 
 `-SkipBuild` and `-SkipPush` are only safe when the running image already contains the code you expect.
 
+## Continuous deployment (GitHub Actions)
+
+Deploys are automated by `.github/workflows/deploy.yml`, so no local Docker is needed:
+
+- every pull request runs the backend tests (`.github/workflows/ci.yml`)
+- every push to `main` that touches `backend/`, `deploy/ecs/task-definition.json`, the workflows, or `scripts/setup-health-alerts.ps1` runs the tests, then builds `rag-backend` and `rag-nginx`, pushes them to ECR tagged with the commit SHA and `latest`, registers a task definition revision pinned to the SHA images, rolls the ECS service, and waits for it to become stable
+- the job then requires `GET /health/models` to return `200`, so a deploy whose models do not answer shows as failed (GitHub emails the person who triggered it)
+- a final job runs `scripts/setup-health-alerts.ps1` to keep the Route 53 health checks, CloudWatch alarms, and the SNS email subscription for `aicentre@singaporetech.edu.sg` in place
+- to deploy without a code change, open **Actions -> Deploy -> Run workflow**
+
+One-time setup:
+
+1. In IAM, create a user (for example `github-actions-backend-rag`) with no console access and attach an inline policy with the contents of `deploy/ecs/github-actions-deploy-policy.json` (least privilege: ECR push to the two repositories, register task definitions, update this one ECS service, pass the two task roles, and the health-alert resources).
+2. Create an access key for that user (use case: application running outside AWS).
+3. In GitHub, open **Settings -> Secrets and variables -> Actions** and add repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+4. After the first successful run, confirm the SNS subscription from the email AWS sends to `aicentre@singaporetech.edu.sg`.
+
+Notes:
+
+- the workflow only updates the service's task definition; the ALB, target group, security groups, and Route 53 alias created by `scripts/redeploy-ecs.ps1` are kept as they are. Use the script for infrastructure changes.
+- to roll back, update the service to an earlier task definition revision; each revision points at the exact images of its commit
+- for keyless auth later, replace the access key with a GitHub OIDC role and `role-to-assume` in `aws-actions/configure-aws-credentials`
+
 ## One-command redeploy
 
 If you want a repeatable local command that builds, pushes, registers, and updates the ECS service, use:

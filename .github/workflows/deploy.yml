@@ -1,0 +1,139 @@
+name: Deploy
+
+# Builds the backend and nginx images, pushes them to ECR, rolls the ECS service
+# onto a new task definition revision, verifies the models answer, and keeps the
+# email health alerts in place. Runs on every push to main that touches the
+# deployed code, or on demand from the Actions tab.
+#
+# Required repository secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+# (an IAM user with deploy/ecs/github-actions-deploy-policy.json attached).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "backend/**"
+      - "deploy/ecs/task-definition.json"
+      - "scripts/setup-health-alerts.ps1"
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REGISTRY: 961341555117.dkr.ecr.ap-southeast-1.amazonaws.com
+  BACKEND_REPOSITORY: snaic_website/rag-backend
+  NGINX_REPOSITORY: snaic_website/rag-nginx
+  ECS_CLUSTER: snaic_website_cluster
+  ECS_SERVICE: backend-rag-multipurpose
+  TASK_DEFINITION: deploy/ecs/task-definition.json
+  PUBLIC_URL: https://multiragapi.snaic.net
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    name: Build and deploy to ECS
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ env.PUBLIC_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push images
+        id: images
+        run: |
+          backend_image="$ECR_REGISTRY/$BACKEND_REPOSITORY:$GITHUB_SHA"
+          nginx_image="$ECR_REGISTRY/$NGINX_REPOSITORY:$GITHUB_SHA"
+
+          docker build -f backend/Dockerfile -t "$backend_image" -t "$ECR_REGISTRY/$BACKEND_REPOSITORY:latest" backend
+          docker build -f backend/nginx/Dockerfile -t "$nginx_image" -t "$ECR_REGISTRY/$NGINX_REPOSITORY:latest" backend/nginx
+
+          docker push --all-tags "$ECR_REGISTRY/$BACKEND_REPOSITORY"
+          docker push --all-tags "$ECR_REGISTRY/$NGINX_REPOSITORY"
+
+          echo "backend=$backend_image" >> "$GITHUB_OUTPUT"
+          echo "nginx=$nginx_image" >> "$GITHUB_OUTPUT"
+
+      # Pin the revision to this commit's images (not :latest) so every revision
+      # can be rolled back to exactly.
+      - name: Render task definition (app)
+        id: render-app
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.TASK_DEFINITION }}
+          container-name: app
+          image: ${{ steps.images.outputs.backend }}
+
+      - name: Render task definition (nginx)
+        id: render-nginx
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ steps.render-app.outputs.task-definition }}
+          container-name: nginx
+          image: ${{ steps.images.outputs.nginx }}
+
+      # Updates only the task definition: the service keeps its existing load
+      # balancer and network configuration (created by scripts/redeploy-ecs.ps1).
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render-nginx.outputs.task-definition }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ env.ECS_SERVICE }}
+          force-new-deployment: true
+          wait-for-service-stability: true
+          wait-for-minutes: 20
+
+      - name: Verify models answer
+        run: |
+          # /health/models returns 503 while any active model fails. The first
+          # call on a new task runs a live probe, so allow a few attempts.
+          for attempt in $(seq 1 10); do
+            code=$(curl -sS -o health.json -w '%{http_code}' --max-time 60 "$PUBLIC_URL/health/models" || true)
+            echo "Attempt $attempt: HTTP $code"
+            cat health.json 2>/dev/null && echo
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::$PUBLIC_URL/health/models did not return 200 after deploy. The service is running but chat is likely failing; see the response above and the app container logs (model_health_probe_failed)."
+          exit 1
+
+  health-alerts:
+    name: Ensure email health alerts
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # Idempotent: reuses the existing health checks, topic, subscription, and alarms.
+      - name: Set up Route 53 health checks, CloudWatch alarms, and SNS email
+        shell: pwsh
+        run: ./scripts/setup-health-alerts.ps1

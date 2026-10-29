@@ -20,6 +20,8 @@ param(
 # Safe to re-run: existing health checks, topic, subscription, and alarms are reused/updated.
 
 $ErrorActionPreference = "Stop"
+# Make a failing aws CLI call stop the script (PowerShell 7.3+; ignored by Windows PowerShell 5.1).
+$PSNativeCommandUseErrorActionPreference = $true
 $AlarmRegion = "us-east-1"
 
 function Write-JsonTempFile {
