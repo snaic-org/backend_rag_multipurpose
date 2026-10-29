@@ -10,12 +10,46 @@ from app.models.schemas import NormalizedDocument
 
 CDN_BASE = "https://cdn.contentful.com"
 
+# Bump when the text built from CMS entries changes: a deployed server then
+# re-indexes the CMS content once on startup (see app/services/cms_sync.py).
+CMS_INDEX_VERSION = "2"
+
+PROJECT_CONTENT_TYPE = "jointCentreProjectNew"
+
+# Contentful stores project tags as codes. These are the names the website
+# shows (src/models/tagMaps.js in the website repository).
+INDUSTRY_TAGS = {
+    "FIN": "Finance", "HC": "Healthcare", "MFG": "Manufacturing", "RET": "Retail",
+    "EDU": "Education", "TECH": "Technology", "TEL": "Telecommunications",
+    "TRANS": "Transportation", "EGY": "Energy", "GOV": "Government",
+    "ENT": "Entertainment", "AGRI": "Agriculture", "RE": "Real Estate",
+    "CONS": "Construction", "LEG": "Legal",
+}
+TECH_TAGS = {
+    "NLP": "Natural Language Processing (NLP)", "MM": "Multimodal Models (MM)",
+    "LLM": "Large Language Models (LLM)", "RAG": "Retrieval Augmented Generation (RAG)",
+    "CV": "Computer Vision (CV)", "ST": "Speech Technology (ST)",
+    "SA": "Sentiment Analysis (SA)", "VI": "Visual Insight (VI)", "CL": "Continual Learning (CL)",
+    "CS": "Content Simplification (CS)", "SDG": "Synthetic Data Generation (SDG)",
+    "RE": "Response Evaluation (RE)", "VR": "Visual Reasoning (VR)", "QA": "Question Answering (QA)",
+    "PA": "Predictive Analysis (PA)", "SE": "Speech Enhancement (SE)",
+    "ASR": "Automatic Speech Recognition (ASR)",
+}
+# Roster sections stay under the default chunk size (1000) minus the chunk header.
+_ROSTER_SECTION_CHARS = 850
+
+# Lower-cased field id -> (label in the indexed text, code -> name map).
+_TAG_FIELDS = {
+    "industrytags": ("Industries", INDUSTRY_TAGS),
+    "techtags": ("Technologies", TECH_TAGS),
+}
+
 # Default Contentful content types to ingest, in priority order.
 # Each maps a Contentful content_type id to a human label, the public page
 # it renders on (used as the citation URL), and whether entries have their
 # own detail page (id appended to the url).
 DEFAULT_CONTENT_TYPES = [
-    {"content_type": "jointCentreProjectNew", "label": "Projects", "url_path": "/projects", "detail_page": True,
+    {"content_type": PROJECT_CONTENT_TYPE, "label": "Projects", "url_path": "/projects", "detail_page": True,
      "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) research project.", "roster": True},
     {"content_type": "jointCentreNews", "label": "News", "url_path": "/news", "detail_page": True,
      "frame": "This is a SNAIC (SIT x NVIDIA AI Centre) news item or announcement.", "roster": True},
@@ -161,6 +195,7 @@ def build_roster_document(
     content_type = cfg["content_type"]
     url = base + cfg.get("url_path", "")
 
+    sections: list[dict] = []
     if content_type == "team":
         # Group members by MemberType, listing leadership groups first.
         groups: dict[str, list[str]] = {}
@@ -191,7 +226,14 @@ def build_roster_document(
             lines.append("")
         content = "\n".join(lines).strip()
         title = "SNAIC Team and Leadership Directory"
+    elif content_type == PROJECT_CONTENT_TYPE:
+        sections = _project_roster_sections(entries)
+        if not sections:
+            return None
+        content = "\n\n".join(f"{section['heading']}:\n{section['content']}" for section in sections)
+        title = f"SNAIC {cfg['label']} Directory"
     else:
+        sections = []
         entry_lines = []
         for entry in entries:
             fields = entry.get("fields", {})
@@ -222,7 +264,73 @@ def build_roster_document(
         content=content,
         metadata=metadata,
         url=url,
+        sections=sections,
     )
+
+
+def _project_roster_sections(entries: list[dict]) -> list[dict]:
+    """List every project with its status and tags, then group them by industry,
+    technology and status, so "list them by group" or "how many in each"
+    questions can be answered from one place. Each part is its own section, so
+    it is indexed whole instead of being cut at an arbitrary chunk boundary."""
+    projects = []
+    for entry in entries:
+        fields = entry.get("fields", {})
+        title = _entry_title(fields, "")
+        if not title:
+            continue
+        projects.append({
+            "title": title,
+            "short": title.split(":", 1)[0].strip(),
+            "summary": " ".join(_field(fields, "summary", "brief", "description").split())[:160],
+            "status": _field(fields, "status") or "Status not stated",
+            "industries": _tag_names(fields.get("industryTags"), INDUSTRY_TAGS),
+            "technologies": _tag_names(fields.get("techTags"), TECH_TAGS),
+        })
+    if not projects:
+        return []
+
+    intro = (
+        f"All {len(projects)} SNAIC (SIT x NVIDIA AI Centre) projects showcased on the website, "
+        "with their status (progress), industries and technologies:"
+    )
+    # Pack whole project lines into sections that fit one chunk, so a project's
+    # details are never split across chunks.
+    sections: list[dict] = []
+    current: list[str] = []
+    for project in projects:
+        line = f"- {project['title']} - Status: {project['status']}."
+        if project["summary"]:
+            line += f" {project['summary'].rstrip('.')}."
+        if project["industries"]:
+            line += f" Industries: {', '.join(project['industries'])}."
+        if project["technologies"]:
+            line += f" Technologies: {', '.join(project['technologies'])}."
+        if current and len(intro) + sum(len(item) + 1 for item in current) + len(line) > _ROSTER_SECTION_CHARS:
+            sections.append({"heading": "All SNAIC projects", "content": "\n".join([intro, *current])})
+            current = []
+        current.append(line)
+    sections.append({"heading": "All SNAIC projects", "content": "\n".join([intro, *current])})
+
+    for group_name, key in (("industry", "industries"), ("technology", "technologies"), ("status", "status")):
+        groups: dict[str, list[str]] = {}
+        for project in projects:
+            values = project[key] if isinstance(project[key], list) else [project[key]]
+            for value in values:
+                groups.setdefault(value, []).append(project["short"])
+        if not groups:
+            continue
+        lines = [f"SNAIC projects grouped by {group_name}, with the number of projects in each group in brackets:"]
+        for value in sorted(groups, key=lambda name: (-len(groups[name]), name)):
+            lines.append(f"- {value} ({len(groups[value])}): {', '.join(groups[value])}")
+        sections.append({"heading": f"SNAIC projects grouped by {group_name}", "content": "\n".join(lines)})
+
+    return sections
+
+
+def _tag_names(value, names: dict[str, str]) -> list[str]:
+    codes = value if isinstance(value, list) else [value] if isinstance(value, str) else []
+    return [names.get(code.strip().upper(), code.strip()) for code in codes if isinstance(code, str) and code.strip()]
 
 
 def _field(fields: dict, *names: str) -> str:
@@ -248,6 +356,12 @@ def _entry_text(entry_or_asset: dict, includes: dict, depth: int = 0) -> str:
     lines: list[str] = []
     for key, value in fields.items():
         if key.lower() in SKIP_FIELDS:
+            continue
+        if key.lower() in _TAG_FIELDS:
+            label, names = _TAG_FIELDS[key.lower()]
+            tags = _tag_names(value, names)
+            if tags:
+                lines.append(f"{label}: {', '.join(tags)}")
             continue
         text = _field_to_text(value, includes, depth)
         if text and text.strip():

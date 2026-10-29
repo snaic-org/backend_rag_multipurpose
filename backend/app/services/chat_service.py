@@ -37,10 +37,13 @@ _REFERENCE_WORDS = frozenset(
         "it", "its", "that", "this", "these", "those", "them", "they", "their",
         "he", "she", "him", "his", "her", "more", "else", "another", "other",
         "one", "ones", "same", "previous", "above", "first", "second", "third",
-        "fourth", "fifth", "last", "next",
+        "fourth", "fifth", "last", "next", "each", "both", "all",
     }
 )
 _FOLLOW_UP_CONTEXT_CHARS = 1500
+# Messages up to this many words are checked for references to the previous
+# exchange, and also searched together with the previous question.
+_SHORT_MESSAGE_WORDS = 8
 
 
 class ChatService:
@@ -246,6 +249,9 @@ class ChatService:
         top_k = self._guardrails.clamp_top_k(self._settings.chat_top_k)
         retrieval_message = self._build_retrieval_message(normalized_message, history)
         planned_queries = self._query_planner.build_queries(retrieval_message) or [retrieval_message]
+        topic_query = self._build_topic_query(normalized_message, retrieval_message, history)
+        if topic_query and topic_query.lower() not in {query.lower() for query in planned_queries}:
+            planned_queries = [*planned_queries, topic_query]
 
         embedding_selection, query_embeddings = await self._embedding_service.embed_texts(
             texts=planned_queries,
@@ -352,6 +358,30 @@ class ChatService:
             return user_message
         return f"{history_text}\nuser follow-up: {user_message}"
 
+    def _build_topic_query(
+        self,
+        user_message: str,
+        retrieval_message: str,
+        history: list[ChatMessage],
+    ) -> str | None:
+        """Pair a short message with the previous question as an extra search.
+
+        A follow-up such as "Can you list them by group" names no topic of its
+        own; searched alone it finds nothing. The extra query carries the topic
+        forward, while the message's own query still finds new topics.
+        """
+        if retrieval_message != user_message:
+            return None  # Already searched together with the previous exchange.
+        if len(re.findall(r"[a-z0-9']+", user_message.lower())) > _SHORT_MESSAGE_WORDS:
+            return None
+        previous_question = next(
+            (message.content.strip() for message in reversed(history) if message.role == "user" and message.content.strip()),
+            "",
+        )
+        if not previous_question:
+            return None
+        return f"{previous_question[:_FOLLOW_UP_CONTEXT_CHARS]} {user_message}"
+
     def _is_contextual_follow_up(self, user_message: str) -> bool:
         normalized = user_message.strip().lower()
         words = re.findall(r"[a-z0-9']+", normalized)
@@ -359,7 +389,7 @@ class ChatService:
             return True
         # A short message is only a follow-up when it refers back to something;
         # "Where is SNAIC located?" is short but stands on its own.
-        if len(words) <= 5 and any(word in _REFERENCE_WORDS for word in words):
+        if len(words) <= _SHORT_MESSAGE_WORDS and any(word in _REFERENCE_WORDS for word in words):
             return True
         follow_up_patterns = (
             r"\b(tell|explain|describe)\s+me\s+(more\s+)?about\s+(\d+|it|that|this|them)\b",

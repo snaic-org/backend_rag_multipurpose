@@ -81,3 +81,39 @@ def test_follow_up_retrieval_query_caps_long_history() -> None:
 
     assert "old question" not in retrieval_message
     assert len(retrieval_message) < 1700
+
+
+def test_short_follow_ups_with_references_use_previous_exchange() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="How many projects does SNAIC work on?"),
+        ChatMessage(role="assistant", content="SNAIC works on more than 50 industry AI projects."),
+    ]
+
+    for message in ("List me their accomplishments in a table", "How many projects are there in each?"):
+        assert "user follow-up:" in service._build_retrieval_message(message, history)
+
+
+def test_short_message_also_searched_with_previous_question() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [
+        ChatMessage(role="user", content="How many projects does SNAIC work on?"),
+        ChatMessage(role="assistant", content="More than 50."),
+    ]
+
+    message = "Can you list me by group"
+    retrieval_message = service._build_retrieval_message(message, history)
+
+    assert retrieval_message == message
+    assert service._build_topic_query(message, retrieval_message, history) == (
+        "How many projects does SNAIC work on? Can you list me by group"
+    )
+
+
+def test_topic_query_skipped_for_long_or_first_messages() -> None:
+    service = ChatService.__new__(ChatService)
+    history = [ChatMessage(role="user", content="List the projects")]
+    long_message = "What real-time video analytics services does SNAIC provide to its partners?"
+
+    assert service._build_topic_query(long_message, long_message, history) is None
+    assert service._build_topic_query("Who leads SNAIC?", "Who leads SNAIC?", []) is None
