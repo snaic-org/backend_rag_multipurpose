@@ -245,7 +245,14 @@ def test_chat_activity_is_recorded_and_visible_to_admin(monkeypatch) -> None:
             assert payload["activities"][0]["session_id"] == chat_response.json()["session_id"]
             assert payload["activities"][0]["citations_count"] == 1
             assert payload["activities"][0]["status"] == "completed"
-            assert payload["activities"][0]["metadata"] == {"debug": False, "top_k": 5}
+            metadata = payload["activities"][0]["metadata"]
+            assert {key: metadata[key] for key in ("debug", "top_k", "output_chars")} == {
+                "debug": False,
+                "top_k": 5,
+                "output_chars": len("Recorded answer"),
+            }
+            assert isinstance(metadata["input_chars"], int)
+            assert isinstance(metadata["duration_ms"], int) and metadata["duration_ms"] >= 0
 
     asyncio.run(run_flow())
 

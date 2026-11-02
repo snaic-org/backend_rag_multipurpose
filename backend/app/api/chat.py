@@ -1,4 +1,5 @@
 import json
+import time
 from contextlib import aclosing
 from typing import AsyncIterator
 from hashlib import sha256
@@ -368,6 +369,7 @@ def _build_activity_payload(
     retrieved_chunks_count: int = 0,
     error_message: str | None = None,
     session_id: str | None = None,
+    usage: dict | None = None,
 ) -> ChatActivityWrite:
     forwarded_for = _extract_forwarded_for(request)
     return ChatActivityWrite(
@@ -394,6 +396,7 @@ def _build_activity_payload(
         metadata={
             "debug": _debug_enabled_for(request.app.state.settings),
             "top_k": getattr(request.app.state.settings, "chat_top_k", 5),
+            **(usage or {}),
         },
     )
 
@@ -408,8 +411,20 @@ def _activity_from(
     response_answer: str | None,
     used_fallback: bool = False,
     error_message: str | None = None,
+    started: float | None = None,
 ) -> ChatActivityWrite:
-    """Activity record for a chat that reached the model-selection stage."""
+    """Activity record for a chat that reached the model-selection stage.
+
+    `usage` feeds the admin dashboard: response time, and the characters sent
+    to and received from the model (prompt_messages is empty when no model was
+    called), from which token use and cost are estimated.
+    """
+    usage = {
+        "input_chars": sum(len(message.content) for message in outcome.prompt_messages),
+        "output_chars": len(response_answer or ""),
+    }
+    if started is not None:
+        usage["duration_ms"] = int((time.monotonic() - started) * 1000)
     return _build_activity_payload(
         request,
         current_user,
@@ -426,6 +441,7 @@ def _activity_from(
         retrieved_chunks_count=len(outcome.retrieved_chunks),
         error_message=error_message,
         session_id=outcome.session_id,
+        usage=usage,
     )
 
 
@@ -450,6 +466,7 @@ async def chat(
     payload: ChatRequest,
     current_user: AuthenticatedUser = Depends(require_authenticated_user),
 ) -> dict:
+    started = time.monotonic()
     service = _build_chat_service(request)
     activity_service = _build_chat_activity_service(request)
     rate_limit_key = _resolve_rate_limit_key(current_user)
@@ -483,6 +500,7 @@ async def chat(
             status_value="completed",
             response_answer=result.answer,
             used_fallback=result.used_fallback,
+            started=started,
         )
     )
 
@@ -500,6 +518,7 @@ async def chat_stream(
     payload: ChatRequest,
     current_user: AuthenticatedUser = Depends(require_authenticated_user),
 ) -> StreamingResponse:
+    started = time.monotonic()
     service = _build_chat_service(request)
     activity_service = _build_chat_activity_service(request)
     rate_limit_key = _resolve_rate_limit_key(current_user)
@@ -538,6 +557,7 @@ async def chat_stream(
                     status_value="completed",
                     response_answer=stream_state.fallback_text,
                     used_fallback=True,
+                    started=started,
                 )
             )
             chunk_payload = (
@@ -595,6 +615,7 @@ async def chat_stream(
                     stream_state,
                     status_value="completed",
                     response_answer=final_text,
+                    started=started,
                 )
             )
             done_payload = (
@@ -624,6 +645,7 @@ async def chat_stream(
                     status_value="failed",
                     response_answer=partial_answer or None,
                     error_message=str(exc),
+                    started=started,
                 )
             )
             _request_model_recheck(request, exc)

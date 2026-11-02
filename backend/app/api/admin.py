@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from app.api.errors import raise_value_error
 from app.core.security import require_admin_user
 from app.models.schemas import (
+    AnalyticsResponse,
     AuthenticatedUser,
     ChatActivityQueryResponse,
     ChatFeedbackResponse,
@@ -254,6 +255,16 @@ async def list_chat_activity(
         end_at=parsed_end_at,
         keyword=keyword,
     )
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+async def get_analytics(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=365, description="Length of the period, ending now. Totals for the period before it are included for comparison."),
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> AnalyticsResponse:
+    """Usage analytics for the admin dashboard: daily chats, tokens, keywords, feedback, errors and latency."""
+    return await request.app.state.analytics_service.summarize(days)
 
 
 @router.get("/chat-feedback", response_model=list[ChatFeedbackResponse])

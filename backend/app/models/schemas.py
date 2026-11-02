@@ -706,3 +706,71 @@ class UserRecord(BaseModel):
     updated_at: datetime
 
 
+
+
+class AnalyticsTotals(BaseModel):
+    chats: int = 0
+    completed: int = 0
+    failed: int = 0
+    fallback: int = 0
+    sessions: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class AnalyticsDay(BaseModel):
+    date: str
+    chats: int = 0
+    completed: int = 0
+    failed: int = 0
+    fallback: int = 0
+    sessions: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+class AnalyticsCount(BaseModel):
+    label: str
+    count: int
+
+
+class AnalyticsLatency(BaseModel):
+    samples: int = 0
+    average_ms: int | None = None
+    p50_ms: int | None = None
+    p95_ms: int | None = None
+
+
+class AnalyticsFeedbackComment(BaseModel):
+    rating: int
+    comments: str
+    created_at: datetime
+
+
+class AnalyticsFeedback(BaseModel):
+    count: int = 0
+    average_rating: float | None = None
+    distribution: dict[str, int] = Field(default_factory=dict)
+    keywords: list[AnalyticsCount] = Field(default_factory=list)
+    recent_comments: list[AnalyticsFeedbackComment] = Field(default_factory=list)
+
+
+class AnalyticsResponse(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    days: int
+    timezone: str
+    totals: AnalyticsTotals
+    previous_totals: AnalyticsTotals
+    daily: list[AnalyticsDay] = Field(default_factory=list)
+    hourly: list[int] = Field(default_factory=list)
+    weekday_hourly: list[list[int]] = Field(default_factory=list)
+    models: list[AnalyticsCount] = Field(default_factory=list)
+    keywords: list[AnalyticsCount] = Field(default_factory=list)
+    top_questions: list[AnalyticsCount] = Field(default_factory=list)
+    errors: list[AnalyticsCount] = Field(default_factory=list)
+    latency: AnalyticsLatency = Field(default_factory=AnalyticsLatency)
+    tokens_measured_share: float = 0.0
+    average_answer_chars: int = 0
+    feedback: AnalyticsFeedback = Field(default_factory=AnalyticsFeedback)
+    truncated: bool = False

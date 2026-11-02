@@ -6,12 +6,14 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.cors import configure_cors
+from app.core.dashboard import mount_dashboard
 from app.core.http_client import close_shared_http_clients
 from app.core.logging import configure_logging, get_logger
 from app.db.qdrant import QdrantManager
 from app.db.postgres import PostgresManager
 from app.db.redis import RedisManager
 from app.providers.registry import ProviderRegistry
+from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.chat_activity_service import ChatActivityService
 from app.services.chat_feedback_service import ChatFeedbackService
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
     app.state.auth_service = auth_service
     app.state.activity_service = chat_activity_service
     app.state.feedback_service = chat_feedback_service
+    app.state.analytics_service = AnalyticsService(postgres.pool)
     app.state.prompt_service = prompt_service
     app.state.model_selection_service = model_selection_service
     app.state.model_health_service = model_health_service
@@ -160,6 +163,7 @@ def create_app() -> FastAPI:
     )
     configure_cors(app, settings)
     app.include_router(api_router)
+    mount_dashboard(app)
     return app
 
 
