@@ -170,6 +170,30 @@ class ChatActivityRepository:
 
         return [ChatActivityRecord.model_validate(row) for row in rows]
 
+    async def list_for_analytics(self, *, start_at, end_at, limit: int) -> list[dict]:
+        """The columns usage analytics need, newest first, without the full answers."""
+        query = """
+            SELECT
+                created_at,
+                status,
+                used_fallback,
+                session_id,
+                provider,
+                model,
+                request_message,
+                LENGTH(COALESCE(response_answer, '')) AS answer_chars,
+                error_message,
+                metadata
+            FROM chat_activity_logs
+            WHERE created_at >= %(start_at)s AND created_at <= %(end_at)s
+            ORDER BY created_at DESC, id DESC
+            LIMIT %(limit)s
+        """
+        async with self._pool.connection() as connection:
+            async with connection.cursor(row_factory=dict_row) as cursor:
+                await cursor.execute(query, {"start_at": start_at, "end_at": end_at, "limit": limit})
+                return list(await cursor.fetchall())
+
     async def list_by_session_ids(self, session_ids: list[str]) -> list[ChatActivityRecord]:
         if not session_ids:
             return []

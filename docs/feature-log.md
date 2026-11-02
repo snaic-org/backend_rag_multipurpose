@@ -578,6 +578,18 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.8.0 - 2026-11-02
+
+SNAIC Console: an admin dashboard served by the API at `/dashboard/`.
+
+Added:
+
+- `backend/app/dashboard`: static HTML/CSS/JS console (no build step; Chart.js 4.4.4 vendored, MIT). Pages: Overview (KPIs with change on the previous period, conversations per day, insights, busiest hours, keywords, ratings, most asked questions, day-by-hour heatmap), Usage & cost (estimated tokens and spend with editable prices, daily breakdown, CSV export), Conversations (search, date range, status filter, sortable table, conversation drawer, CSV export), Feedback (rating filter, search, sort), Models & health, Knowledge base (search, source filter, "Refresh website content"), Users (invite-only: add, disable, reset password, delete) and Settings (theme, default period, rows per page, currency and prices). Every chart has a table view; light and dark themes; reduced motion respected
+- `GET /admin/analytics?days=N` (admin): totals and the previous period's, daily and hourly series in Singapore time, models, keywords, top questions, errors, latency percentiles, estimated tokens and feedback summary
+- chat activity metadata records `duration_ms`, `input_chars` and `output_chars`, so response time and token estimates are measured from now on
+- `/auth/token` refuses for 15 minutes after 10 failed sign-ins from one address (skipped if Redis is unavailable)
+- `/dashboard` responses carry a strict Content-Security-Policy, `X-Frame-Options: DENY`, `nosniff` and `no-referrer`
+
 ## v0.7.2 - 2026-10-29
 
 Plain-language alert emails and no false alert on deploy.
