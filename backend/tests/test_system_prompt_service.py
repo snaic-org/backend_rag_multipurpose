@@ -62,8 +62,9 @@ USER QUESTION
 
 
 class FakePromptRepository:
-    def __init__(self, prompt: str | None) -> None:
+    def __init__(self, prompt: str | None, is_custom: bool = False) -> None:
         self._prompt = prompt
+        self._is_custom = is_custom
         self.updates: list[str] = []
 
     async def get_system_prompt(self) -> SystemPromptRecord | None:
@@ -73,15 +74,18 @@ class FakePromptRepository:
             id=1,
             system_prompt=self._prompt,
             updated_at=datetime.now(timezone.utc),
+            is_custom=self._is_custom,
         )
 
-    async def update_system_prompt(self, system_prompt: str) -> SystemPromptRecord:
+    async def update_system_prompt(self, system_prompt: str, *, is_custom: bool = False) -> SystemPromptRecord:
         self._prompt = system_prompt
+        self._is_custom = is_custom
         self.updates.append(system_prompt)
         return SystemPromptRecord(
             id=1,
             system_prompt=system_prompt,
             updated_at=datetime.now(timezone.utc),
+            is_custom=is_custom,
         )
 
 
@@ -98,7 +102,8 @@ def test_system_prompt_service_updates_managed_legacy_prompt() -> None:
     asyncio.run(run_test())
 
 
-def test_system_prompt_service_overwrites_custom_prompt_on_startup() -> None:
+def test_system_prompt_service_overwrites_unmarked_prompt_on_startup() -> None:
+    # Prompts stored before the custom flag existed are treated as built-in.
     async def run_test() -> None:
         service = SystemPromptService(postgres_pool=None)  # type: ignore[arg-type]
         repository = FakePromptRepository("You are a custom admin-managed prompt.")
@@ -120,5 +125,33 @@ def test_system_prompt_service_initializes_missing_prompt() -> None:
         await service.ensure_default_system_prompt()
 
         assert repository.updates == [DEFAULT_SYSTEM_PROMPT]
+
+    asyncio.run(run_test())
+
+
+def test_prompt_saved_by_admin_survives_restart_until_reset() -> None:
+    async def run_test() -> None:
+        service = SystemPromptService(postgres_pool=None)  # type: ignore[arg-type]
+        repository = FakePromptRepository(DEFAULT_SYSTEM_PROMPT)
+        service._repository = repository  # type: ignore[assignment]
+
+        saved = await service.update_system_prompt("You are a custom admin-managed prompt.")
+        assert saved.is_custom is True
+
+        await service.ensure_default_system_prompt()
+        assert (await service.get_system_prompt()).system_prompt == "You are a custom admin-managed prompt."
+
+        reset = await service.reset_system_prompt()
+        assert reset.system_prompt == DEFAULT_SYSTEM_PROMPT and reset.is_custom is False
+
+    asyncio.run(run_test())
+
+
+def test_saving_the_built_in_text_is_not_custom() -> None:
+    async def run_test() -> None:
+        service = SystemPromptService(postgres_pool=None)  # type: ignore[arg-type]
+        service._repository = FakePromptRepository(None)  # type: ignore[assignment]
+
+        assert (await service.update_system_prompt(DEFAULT_SYSTEM_PROMPT)).is_custom is False
 
     asyncio.run(run_test())

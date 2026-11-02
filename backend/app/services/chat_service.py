@@ -139,6 +139,45 @@ class ChatService:
             message_history=message_history,
         )
 
+    async def preview_answer(
+        self,
+        *,
+        message: str,
+        provider: str,
+        model: str,
+        rate_limit_key: str,
+        system_prompt: str | None = None,
+    ) -> ChatServiceResult:
+        """Answer one question with a chosen model, and optionally a draft system
+        prompt, through the normal retrieval pipeline. Nothing is saved: no
+        session history, no change to the live model or prompt."""
+        prepared = await self._prepare_chat_context(ChatRequest(message=message), rate_limit_key, None)
+        if prepared.used_fallback:
+            return ChatServiceResult(
+                answer=prepared.fallback_text,
+                provider=provider,
+                model=model,
+                embedding_profile=prepared.embedding_profile,
+                embedding_provider=prepared.embedding_provider,
+                embedding_model=prepared.embedding_model,
+                used_fallback=True,
+            )
+
+        messages = prepared.prompt_messages
+        if system_prompt is not None and messages and messages[0].role == "system":
+            messages = [ChatMessage(role="system", content=system_prompt), *messages[1:]]
+        completion = await self._providers.get(provider).complete_chat(messages=messages, model=model)
+        return ChatServiceResult(
+            answer=self.finalize_answer(self._format_answer(completion.text or "", completion.thinking or None)),
+            citations=prepared.citations,
+            provider=provider,
+            model=model,
+            embedding_profile=prepared.embedding_profile,
+            embedding_provider=prepared.embedding_provider,
+            embedding_model=prepared.embedding_model,
+            prompt_messages=messages,
+        )
+
     async def start_stream(
         self,
         payload: ChatRequest,

@@ -3,7 +3,7 @@ import { api, session, settings as settingsStore, DEFAULT_SETTINGS, ApiError } f
 import { barChart, lineChart, chartPanel, destroyCharts, token, STATUS } from './charts.js';
 import {
   h, icon, fmt, countUp, toast, openDrawer, openModal, segmented, searchBox, select, empty,
-  dataTable, starRating, toCsv, download,
+  dataTable, starRating, toCsv, download, markdown,
 } from './ui.js';
 
 const app = document.getElementById('app');
@@ -11,6 +11,8 @@ const state = {
   user: null,
   settings: settingsStore.load(),
   analytics: new Map(), // days -> response
+  models: null, // promise of { selection, health }
+  draftPrompt: null, // unsaved prompt text from the Prompt page, tried in the Playground
   navOpen: false,
 };
 
@@ -26,10 +28,12 @@ const ROUTES = {
   usage: { title: 'Usage & cost', icon: 'usage', render: renderUsage, group: 'Insights' },
   conversations: { title: 'Conversations', icon: 'chat', render: renderConversations, group: 'Insights' },
   feedback: { title: 'Feedback', icon: 'star', render: renderFeedback, group: 'Insights' },
-  models: { title: 'Models & health', icon: 'chip', render: renderModels, group: 'System' },
-  knowledge: { title: 'Knowledge base', icon: 'book', render: renderKnowledge, group: 'System' },
-  users: { title: 'Users', icon: 'users', render: renderUsers, group: 'System' },
-  settings: { title: 'Settings', icon: 'settings', render: renderSettings, group: 'System' },
+  playground: { title: 'Playground', icon: 'spark', render: renderPlayground, group: 'Assistant' },
+  prompt: { title: 'Prompt', icon: 'edit', render: renderPrompt, group: 'Assistant' },
+  models: { title: 'Models & health', icon: 'chip', render: renderModels, group: 'Assistant' },
+  knowledge: { title: 'Knowledge base', icon: 'book', render: renderKnowledge, group: 'Assistant' },
+  users: { title: 'Users', icon: 'users', render: renderUsers, group: 'Admin' },
+  settings: { title: 'Settings', icon: 'settings', render: renderSettings, group: 'Admin' },
 };
 
 // ---------- Boot ----------
@@ -183,7 +187,7 @@ function shell(active, content) {
     h('div', { class: 'spacer' }),
     h('button', {
       class: 'button ghost',
-      onclick: () => { state.analytics.clear(); route(); toast('Refreshed'); },
+      onclick: () => { state.analytics.clear(); state.models = null; route(); toast('Refreshed'); },
     }, icon('refresh'), 'Refresh'));
 
   const root = h('div', { class: 'shell' }, sidebar, h('div', { class: 'main' }, topbar, content));
@@ -262,10 +266,50 @@ function answered(totals) {
   return Math.max(0, totals.completed - totals.fallback);
 }
 
+// ---------- Models in use (shown on the main pages) ----------
+function getModels() {
+  if (!state.models) {
+    state.models = Promise.all([api.modelSelection(), api.modelHealth().catch(() => null)])
+      .then(([selection, health]) => ({ selection, health }))
+      .catch((exc) => { state.models = null; throw exc; });
+  }
+  return state.models;
+}
+
+function modelStrip({ selection, health }) {
+  const items = [
+    { role: 'Answers', model: selection.generation_model, probe: health?.generation },
+    { role: 'Search (embeddings)', model: selection.embedding_model, probe: health?.embedding },
+    { role: 'Reranker', model: health?.rerank?.model, probe: health?.rerank },
+  ];
+  const strip = h('section', { class: 'card model-strip', 'aria-label': 'Models in use' },
+    h('div', { class: 'lead' }, h('span', { class: 'badge' }, icon('chip')), h('span', {}, 'Models in use')));
+  for (const item of items) {
+    const [provider, name] = item.model?.includes('/') ? [item.model.slice(0, item.model.indexOf('/')), item.model.slice(item.model.indexOf('/') + 1)] : ['', item.model];
+    // Right after a model switch the last health check still describes the old model.
+    const stale = Boolean(item.probe && item.model && item.probe.model !== item.model);
+    const status = !item.model
+      ? h('span', { class: 'pill neutral' }, 'Off')
+      : stale
+        ? h('span', { class: 'pill neutral' }, 'Checking…')
+        : item.probe
+        ? h('span', { class: `pill ${item.probe.ok ? 'good' : 'bad'}` }, item.probe.ok ? 'Responding' : 'Not responding')
+        : h('span', { class: 'pill neutral' }, 'Unknown');
+    strip.append(
+      h('span', { class: 'divider', 'aria-hidden': 'true' }),
+      h('div', { class: 'item', title: item.model || '' },
+        h('span', { class: 'role' }, item.role),
+        h('span', { class: 'name' }, h('span', { class: 'model' }, name || 'Not in use'), status),
+        h('span', { class: 'meta' }, [provider && provider.toUpperCase(), !stale && item.probe?.latency_ms ? fmt.ms(item.probe.latency_ms) : ''].filter(Boolean).join(' · '))));
+  }
+  strip.append(h('a', { class: 'button ghost details', href: '#/models' }, 'Details'));
+  return strip;
+}
+
 // ---------- Overview ----------
 async function renderOverview(content) {
   const days = state.days || state.settings.defaultDays;
-  const data = await getAnalytics(days);
+  const [data, models] = await Promise.all([getAnalytics(days), getModels()]);
   const { totals, previous_totals: previous } = data;
   const cost = costOf(totals, days);
   const answerRate = totals.chats ? answered(totals) / totals.chats : 0;
@@ -273,6 +317,7 @@ async function renderOverview(content) {
 
   content.replaceChildren(
     pageHead('Overview', `SNAIC Bot activity over the last ${days === 365 ? 'year' : `${days} days`} (Singapore time)`, periodControl(content, renderOverview)),
+    modelStrip(models),
     data.truncated ? h('div', { class: 'callout warn' }, 'This period has more conversations than one summary reads; the oldest are left out.') : '',
     h('div', { class: 'grid kpis stagger' },
       kpi('Conversations', 'chat', totals.chats, { delta: change(totals.chats, previous.chats) }),
@@ -417,7 +462,7 @@ function insightsList(data, days) {
 // ---------- Usage & cost ----------
 async function renderUsage(content) {
   const days = state.days || state.settings.defaultDays;
-  const data = await getAnalytics(days);
+  const [data, models] = await Promise.all([getAnalytics(days), getModels()]);
   const { totals } = data;
   const currency = state.settings.currency;
   const heroValue = h('span', { class: 'value' });
@@ -475,6 +520,7 @@ async function renderUsage(content) {
   content.replaceChildren(
     pageHead('Usage & cost', 'Token use and estimated spend. Prices are saved in this browser.', periodControl(content, renderUsage),
       h('button', { class: 'button', onclick: () => download(`snaic-usage-${days}d.csv`, toCsv(dailyColumns, dailyRows)) }, icon('download'), 'Export CSV')),
+    modelStrip(models),
     h('div', { class: 'grid two stagger' },
       h('section', { class: 'card' },
         h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, 'Estimated cost'), h('p', {}, `Last ${days} days`))),
@@ -657,21 +703,200 @@ function feedbackCard(item) {
     h('div', { class: 'meta' }, h('span', {}, fmt.relative(item.created_at)), h('span', {}, 'View conversation')));
 }
 
+// ---------- Playground ----------
+const SAMPLE_QUESTIONS = [
+  'What is SNAIC and what does it do?',
+  'Can you list the projects by industry?',
+  'How can I collaborate with SNAIC?',
+  'Who leads SNAIC?',
+];
+
+async function loadModelOptions() {
+  const [catalog, selection, health] = await Promise.all([api.modelCatalog(), api.modelSelection(), api.health()]);
+  const ready = (provider) => Boolean(health.providers?.[provider]?.ok);
+  const options = catalog.generation_profiles.map((item) => ({
+    ...item,
+    ready: ready(item.provider),
+    live: item.profile_name === selection.generation_profile,
+  }));
+  return { options, selection, catalog, health };
+}
+
+function modelOptionLabel(item) {
+  return `${item.model.split('/').pop()}${item.live ? ' (live)' : ''}${item.ready ? '' : ' - no API key'}`;
+}
+
+async function renderPlayground(content, params) {
+  const { options, selection } = await loadModelOptions();
+  const chosen = { a: params.get('model') || selection.generation_profile, b: '' };
+  let useDraft = state.draftPrompt !== null && params.get('draft') === '1';
+
+  const modelSelect = (key, allowNone) => {
+    const node = h('select', { class: 'select', 'aria-label': key === 'a' ? 'Model' : 'Compare with' });
+    if (allowNone) node.append(h('option', { value: '' }, 'No comparison'));
+    for (const item of options) {
+      node.append(h('option', { value: item.profile_name, disabled: !item.ready, selected: item.profile_name === chosen[key] }, modelOptionLabel(item)));
+    }
+    node.addEventListener('change', () => { chosen[key] = node.value; });
+    return node;
+  };
+
+  const thread = h('div', { class: 'playground-thread' },
+    empty('Ask SNAIC Bot anything', 'Answers use the live knowledge base. They are not shown to visitors or logged as conversations.'));
+  const input = h('textarea', { class: 'input', rows: '2', placeholder: 'Ask a question…', 'aria-label': 'Question', maxlength: '2000' });
+  const sendButton = h('button', { class: 'button primary', type: 'submit' }, icon('send'), 'Ask');
+  const ask = async (question) => {
+    const text = question.trim();
+    if (!text) return;
+    if (thread.querySelector('.empty')) thread.replaceChildren();
+    input.value = '';
+    const profiles = [chosen.a, chosen.b].filter(Boolean).filter((value, index, list) => list.indexOf(value) === index);
+    const answers = h('div', { class: `playground-answers cols-${profiles.length}` });
+    thread.append(h('div', { class: 'bubble user' }, text), answers);
+    const runs = profiles.map(async (profile) => {
+      const info = options.find((item) => item.profile_name === profile);
+      const body = h('div', { class: 'skeleton-lines' }, h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }), h('div', { class: 'skeleton short' }));
+      const meta = h('div', { class: 'toolbar' }, h('span', { class: 'pill neutral' }, 'Thinking…'));
+      const answerCard = h('article', { class: 'card answer-card' },
+        h('div', { class: 'card-head' }, h('div', {}, h('h3', {}, info?.model.split('/').pop() || profile), h('p', {}, `${profile}${useDraft ? ' · draft prompt' : ''}`)), meta),
+        body);
+      answers.append(answerCard);
+      try {
+        const result = await api.playground({ message: text, generationProfile: profile, systemPrompt: useDraft ? state.draftPrompt : null });
+        meta.replaceChildren(
+          h('span', { class: 'pill neutral' }, fmt.ms(result.latency_ms)),
+          result.used_fallback ? h('span', { class: 'pill warn' }, 'No match') : h('span', { class: 'pill good' }, 'Answered'));
+        body.replaceWith(h('div', {}, markdown(result.answer),
+          result.sources.length ? h('div', { class: 'sources' }, h('span', { class: 'muted' }, 'Sources'), result.sources.map((source) => (source.url
+            ? h('a', { class: 'tag', href: source.url, target: '_blank', rel: 'noopener noreferrer' }, source.title)
+            : h('span', { class: 'tag' }, source.title)))) : ''));
+      } catch (exc) {
+        meta.replaceChildren(h('span', { class: 'pill bad' }, 'Failed'));
+        body.replaceWith(h('p', { class: 'error-text' }, exc.message));
+      }
+    });
+    sendButton.disabled = true;
+    answers.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    await Promise.allSettled(runs);
+    sendButton.disabled = false;
+    input.focus();
+  };
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); ask(input.value); }
+  });
+
+  const draftSwitch = h('input', { type: 'checkbox', checked: useDraft, 'aria-label': 'Use draft prompt' });
+  draftSwitch.addEventListener('change', () => { useDraft = draftSwitch.checked; });
+
+  content.replaceChildren(
+    pageHead('Playground', 'Test SNAIC Bot with any model, or compare two side by side. Nothing here changes the live bot.'),
+    h('section', { class: 'card playground-controls' },
+      h('div', { class: 'field' }, h('span', { class: 'label' }, 'Model'), modelSelect('a', false)),
+      h('div', { class: 'field' }, h('span', { class: 'label' }, 'Compare with'), modelSelect('b', true)),
+      state.draftPrompt !== null
+        ? h('label', { class: 'check-row draft-toggle' }, h('span', {}, h('strong', {}, 'Use draft prompt'), h('span', { class: 'muted' }, ' from the Prompt page')), h('span', { class: 'switch' }, draftSwitch, h('span', {})))
+        : h('a', { class: 'button ghost', href: '#/prompt' }, icon('edit'), 'Edit the prompt')),
+    h('section', { class: 'card playground' },
+      thread,
+      h('div', { class: 'tag-cloud samples' }, SAMPLE_QUESTIONS.map((question) => h('button', { class: 'tag', type: 'button', onclick: () => ask(question) }, question))),
+      h('form', { class: 'composer', onsubmit: (event) => { event.preventDefault(); ask(input.value); } }, input, sendButton)),
+  );
+  input.focus();
+}
+
+// ---------- Prompt ----------
+async function renderPrompt(content) {
+  const saved = await api.systemPrompt();
+  const editor = h('textarea', { class: 'input prompt-editor', spellcheck: 'false', 'aria-label': 'System prompt' });
+  editor.value = state.draftPrompt ?? saved.system_prompt;
+  const status = h('div', { class: 'toolbar' });
+  const counter = h('span', { class: 'muted' });
+
+  const refreshStatus = () => {
+    const dirty = editor.value !== saved.system_prompt;
+    counter.textContent = `${fmt.int(editor.value.length)} characters`;
+    status.replaceChildren(
+      h('span', { class: `pill ${saved.is_custom ? 'warn' : 'neutral'}` }, saved.is_custom ? 'Custom prompt' : 'Built-in prompt'),
+      dirty ? h('span', { class: 'pill bad' }, 'Unsaved changes') : h('span', { class: 'muted' }, `Saved ${fmt.relative(saved.updated_at)}`));
+    saveButton.disabled = !dirty || !editor.value.trim();
+    discardButton.disabled = !dirty;
+  };
+  editor.addEventListener('input', () => {
+    state.draftPrompt = editor.value === saved.system_prompt ? null : editor.value;
+    refreshStatus();
+  });
+
+  const saveButton = h('button', {
+    class: 'button primary',
+    onclick: () => openModal({
+      title: 'Save the new prompt?',
+      text: 'SNAIC Bot uses it for every visitor straight away. It stays in place across restarts until you reset it. Test it in the Playground first if you have not.',
+      confirmLabel: 'Save prompt',
+      onConfirm: async () => {
+        Object.assign(saved, await api.saveSystemPrompt(editor.value));
+        state.draftPrompt = null;
+        refreshStatus();
+        toast('Prompt saved. SNAIC Bot is using it now.');
+      },
+    }),
+  }, 'Save');
+  const discardButton = h('button', { class: 'button', onclick: () => { editor.value = saved.system_prompt; state.draftPrompt = null; refreshStatus(); } }, 'Discard changes');
+  const tryButton = h('button', {
+    class: 'button',
+    onclick: () => { state.draftPrompt = editor.value; location.hash = '#/playground?draft=1'; },
+  }, icon('spark'), 'Try in Playground');
+  const resetButton = h('button', {
+    class: 'button ghost',
+    onclick: () => openModal({
+      title: 'Go back to the built-in prompt?',
+      text: 'Replaces the current prompt with the one that ships with the backend. Future built-in improvements then apply automatically.',
+      confirmLabel: 'Reset', danger: true,
+      onConfirm: async () => {
+        Object.assign(saved, await api.resetSystemPrompt());
+        state.draftPrompt = null;
+        editor.value = saved.system_prompt;
+        refreshStatus();
+        toast('Built-in prompt restored');
+      },
+    }),
+  }, 'Reset to built-in');
+
+  content.replaceChildren(
+    pageHead('Prompt', 'The instructions SNAIC Bot follows for every answer.', tryButton, saveButton),
+    h('div', { class: 'grid two' },
+      h('section', { class: 'card' },
+        h('div', { class: 'card-head' }, status, counter),
+        editor,
+        h('div', { class: 'toolbar prompt-actions' }, discardButton, resetButton)),
+      card('Tips', '', h('div', { class: 'insights' },
+        [['bulb', 'Test before saving', 'Try in Playground answers with your draft without changing the live bot. Compare two models with the same draft.'],
+          ['check', 'Saved prompts stay', 'A saved prompt is kept across restarts and deploys until you reset it.'],
+          ['refresh', 'Built-in updates', 'While the built-in prompt is in use, improvements shipped with the backend apply automatically.'],
+          ['alert', 'Keep the guard rails', 'Keep the rules that limit answers to SNAIC information and forbid made-up facts or links.']]
+          .map(([name, title, text]) => h('div', { class: 'insight' }, h('div', { class: 'icon' }, icon(name)), h('div', {}, h('strong', {}, title), h('span', {}, text))))))),
+  );
+  refreshStatus();
+}
+
 // ---------- Models & health ----------
 async function renderModels(content) {
-  const [selection, catalog, health, modelHealth] = await Promise.all([
-    api.modelSelection(), api.modelCatalog(), api.health(), api.modelHealth().catch((exc) => ({ status: 'error', error: exc.message })),
+  const [{ options, selection, catalog, health }, modelHealth] = await Promise.all([
+    loadModelOptions(), api.modelHealth().catch((exc) => ({ status: 'error', error: exc.message })),
   ]);
 
-  const modelCard = (title, probe, fallbackModel, extra) => {
+  const modelCard = (title, probe, liveModel, extra) => {
+    // Right after a model switch the last health check still describes the old model.
+    const stale = Boolean(probe && liveModel && probe.model !== liveModel);
     const ok = probe?.ok;
+    const pill = !probe ? h('span', { class: 'pill neutral' }, 'Off')
+      : stale ? h('span', { class: 'pill neutral' }, 'Checking…')
+        : h('span', { class: `pill ${ok ? 'good' : 'bad'}` }, ok ? 'Responding' : 'Not responding');
     return h('section', { class: 'card' },
-      h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, title), h('p', {}, probe?.provider ? `Provider: ${probe.provider.toUpperCase()}` : '')),
-        probe ? h('span', { class: `pill ${ok ? 'good' : 'bad'}` }, ok ? 'Responding' : 'Not responding') : h('span', { class: 'pill neutral' }, 'Off')),
+      h('div', { class: 'card-head' }, h('div', {}, h('h2', {}, title), h('p', {}, probe?.provider ? `Provider: ${probe.provider.toUpperCase()}` : '')), pill),
       h('dl', { class: 'kv' },
-        h('dt', {}, 'Model'), h('dd', {}, probe?.model || fallbackModel || '-'),
-        h('dt', {}, 'Latency'), h('dd', {}, fmt.ms(probe?.latency_ms)),
-        h('dt', {}, 'Status'), h('dd', {}, probe?.detail || '-'),
+        h('dt', {}, 'Model'), h('dd', {}, liveModel || probe?.model || '-'),
+        h('dt', {}, 'Latency'), h('dd', {}, stale ? '-' : fmt.ms(probe?.latency_ms)),
+        h('dt', {}, 'Status'), h('dd', {}, stale ? 'Checking the new model; reload in a minute' : probe?.detail || '-'),
         extra || ''));
   };
 
@@ -679,36 +904,60 @@ async function renderModels(content) {
     h('div', { class: 'what' }, h('strong', {}, name), h('span', {}, text || item?.detail || '')),
     h('span', { class: `pill ${item?.ok ? 'good' : 'bad'}` }, item?.ok ? 'Healthy' : 'Unhealthy'));
 
-  const providers = Object.entries(health.providers || {}).filter(([, item]) => item.in_use);
-  const inUse = new Set([selection.generation_profile, selection.embedding_profile]);
-  const catalogRows = [
-    ...catalog.generation_profiles.map((item) => ({ ...item, kind: 'Generation' })),
-    ...catalog.embedding_profiles.map((item) => ({ ...item, kind: 'Embedding' })),
-  ];
+  const switchTo = (item) => openModal({
+    title: `Answer with ${item.model.split('/').pop()}?`,
+    text: 'SNAIC Bot switches for every visitor straight away. Try it in the Playground first to compare answers. You can switch back at any time.',
+    confirmLabel: 'Switch model',
+    onConfirm: async () => {
+      await api.setModelSelection(item.profile_name, selection.embedding_profile);
+      state.models = null;
+      toast(`SNAIC Bot now answers with ${item.model}`);
+      route();
+    },
+  });
+
+  const answerRows = options.map((item) => ({ ...item }));
+  const embeddingRows = catalog.embedding_profiles.map((item) => ({ ...item, live: item.profile_name === selection.embedding_profile, ready: Boolean(health.providers?.[item.provider]?.ok) }));
 
   content.replaceChildren(
     pageHead('Models & health', modelHealth.checked_at ? `Last model check ${fmt.relative(modelHealth.checked_at)}. Models are checked once a day, and again after an error.` : 'Live status of the AI models and services.',
-      h('button', { class: 'button', onclick: () => route() }, icon('refresh'), 'Check again')),
+      h('a', { class: 'button', href: '#/playground' }, icon('spark'), 'Open Playground'),
+      h('button', { class: 'button', onclick: () => { state.models = null; route(); } }, icon('refresh'), 'Check again')),
     h('div', { class: 'grid thirds stagger' },
       modelCard('Answer generation', modelHealth.generation, selection.generation_model, [h('dt', {}, 'Profile'), h('dd', {}, selection.generation_profile)]),
       modelCard('Embeddings (search)', modelHealth.embedding, selection.embedding_model, [h('dt', {}, 'Dimensions'), h('dd', {}, String(selection.embedding_dimension))]),
       modelCard('Reranker', modelHealth.rerank, null)),
+    h('section', { class: 'card flush stagger' },
+      h('div', { class: 'card-head pad' }, h('div', {}, h('h2', {}, 'Answer models'), h('p', {}, 'Try any model in the Playground, then switch the live bot with one click.'))),
+      dataTable({
+        columns: [
+          { key: 'model', label: 'Model', render: (row) => h('span', {}, h('strong', {}, row.model.split('/').pop()), h('span', { class: 'muted' }, `  ${row.model.includes('/') ? row.model.split('/')[0] : ''}`)) },
+          { key: 'provider', label: 'Provider', render: (row) => row.provider.toUpperCase() },
+          { key: 'ready', label: 'Status', sortValue: (row) => Number(row.live) * 2 + Number(row.ready), render: (row) => (row.live ? h('span', { class: 'pill good' }, 'Live') : row.ready ? h('span', { class: 'pill neutral' }, 'Available') : h('span', { class: 'pill neutral', title: 'This provider has no API key on the server' }, 'No API key')) },
+          { key: 'actions', label: '', sortable: false, render: (row) => h('div', { class: 'toolbar' },
+            h('a', { class: `button ghost${row.ready ? '' : ' disabled'}`, href: row.ready ? `#/playground?model=${encodeURIComponent(row.profile_name)}` : null, 'aria-disabled': row.ready ? null : 'true' }, 'Try'),
+            row.live ? '' : h('button', { class: 'button', disabled: !row.ready, onclick: () => switchTo(row) }, 'Use for answers')) },
+        ],
+        rows: answerRows,
+        sort: { key: 'ready', dir: 'desc' },
+        pageSize: 10,
+      })),
     h('div', { class: 'grid halves stagger' },
       card('Services', health.status === 'ok' ? 'All services are healthy' : 'Some services need attention', h('div', { class: 'status-list' },
         dependency('PostgreSQL', health.postgres, 'Conversations, users, feedback and documents'),
         dependency('Redis', health.redis, 'Sessions, caching and rate limits'),
         dependency('Qdrant', health.qdrant, 'Search index of the knowledge base'),
-        providers.map(([name, item]) => dependency(`${name.toUpperCase()} API`, item, 'Model provider in use')))),
+        Object.entries(health.providers || {}).filter(([, item]) => item.in_use).map(([name, item]) => dependency(`${name.toUpperCase()} API`, item, 'Model provider in use')))),
       h('section', { class: 'card flush' },
-        h('div', { class: 'card-head pad' }, h('div', {}, h('h2', {}, 'Available model profiles'), h('p', {}, 'Profiles the backend can switch to'))),
+        h('div', { class: 'card-head pad' }, h('div', {}, h('h2', {}, 'Search (embedding) models'), h('p', {}, 'Switching these means re-indexing all content, so it is done by a developer.'))),
         dataTable({
           columns: [
-            { key: 'profile_name', label: 'Profile', render: (row) => h('span', {}, row.profile_name, inUse.has(row.profile_name) ? h('span', { class: 'pill good' }, 'In use') : '') },
-            { key: 'kind', label: 'Type' },
             { key: 'model', label: 'Model', clip: true },
+            { key: 'dimension', label: 'Dimensions', align: 'right' },
+            { key: 'live', label: 'Status', render: (row) => (row.live ? h('span', { class: 'pill good' }, 'Live') : h('span', { class: 'pill neutral' }, row.ready ? 'Available' : 'No API key')) },
           ],
-          rows: catalogRows,
-          sort: { key: 'kind', dir: 'desc' },
+          rows: embeddingRows,
+          sort: { key: 'live', dir: 'desc' },
           pageSize: 8,
         }))),
   );
@@ -722,18 +971,21 @@ async function renderKnowledge(content) {
   const sources = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   const holder = h('section', { class: 'card flush' });
   const columns = [
-    { key: 'title', label: 'Title', clip: true, render: (row) => (row.url ? h('a', { href: row.url, target: '_blank', rel: 'noopener noreferrer' }, row.title) : row.title) },
+    { key: 'title', label: 'Title', clip: true },
     { key: 'source_type', label: 'Source', render: (row) => h('span', { class: 'pill neutral' }, sourceLabel(row.source_type)) },
     { key: 'updated_at', label: 'Updated', render: (row) => fmt.date(row.updated_at) },
     { key: 'created_by', label: 'Added by' },
   ];
   const draw = () => {
     const rows = filters.source === 'all' ? documents : documents.filter((doc) => doc.source_type === filters.source);
-    holder.replaceChildren(dataTable({ columns, rows, search: filters.q, searchKeys: ['title', 'url'], sort: { key: 'updated_at', dir: 'desc' }, pageSize: state.settings.pageSize, emptyTitle: 'No documents' }));
+    holder.replaceChildren(dataTable({
+      columns, rows, search: filters.q, searchKeys: ['title', 'url'], sort: { key: 'updated_at', dir: 'desc' },
+      pageSize: state.settings.pageSize, emptyTitle: 'No documents', onRowClick: showDocument,
+    }));
   };
 
   const refreshButton = h('button', {
-    class: 'button primary',
+    class: 'button',
     onclick: () => openModal({
       title: 'Refresh website content?',
       text: 'Re-reads projects, news and team members from Contentful and replaces the indexed copies. Takes about a minute; the chatbot keeps working meanwhile.',
@@ -754,7 +1006,8 @@ async function renderKnowledge(content) {
   });
 
   content.replaceChildren(
-    pageHead('Knowledge base', 'What SNAIC Bot knows: website content and uploaded documents.', refreshButton),
+    pageHead('Knowledge base', 'What SNAIC Bot knows: website content and documents you add.', refreshButton,
+      h('button', { class: 'button primary', onclick: addContent }, icon('plus'), 'Add content')),
     h('div', { class: 'grid two stagger' },
       h('div', { class: 'grid kpis' },
         kpi('Documents', 'book', documents.length),
@@ -767,6 +1020,101 @@ async function renderKnowledge(content) {
     holder,
   );
   draw();
+}
+
+function addContent() {
+  let mode = 'text';
+  const panes = {
+    text: h('div', { class: 'grid' },
+      h('div', { class: 'field' }, h('label', { for: 'kb-title' }, 'Title'), h('input', { class: 'input', id: 'kb-title', name: 'title', maxlength: '300' })),
+      h('div', { class: 'field' }, h('label', { for: 'kb-content' }, 'Content'), h('textarea', { class: 'input', id: 'kb-content', name: 'content', rows: '8' }),
+        h('span', { class: 'hint' }, 'Paste facts SNAIC Bot should know, for example an FAQ or a programme description.'))),
+    files: h('div', { class: 'grid', hidden: true },
+      h('div', { class: 'field' }, h('label', { for: 'kb-files' }, 'Files'), h('input', { class: 'input', id: 'kb-files', name: 'files', type: 'file', multiple: true, accept: '.txt,.md,.docx,.csv,.xlsx' }),
+        h('span', { class: 'hint' }, 'Word, text, Markdown, CSV or Excel, up to 25 MB each. PDF is not supported yet.'))),
+    web: h('div', { class: 'grid', hidden: true },
+      h('div', { class: 'field' }, h('label', { for: 'kb-urls' }, 'Web pages'), h('textarea', { class: 'input', id: 'kb-urls', name: 'urls', rows: '5', placeholder: 'https://www.singaporetech.edu.sg/…' }),
+        h('span', { class: 'hint' }, 'One address per line, up to 50. Pages built with JavaScript (like snaic.net) may come out empty; use Refresh website content for snaic.net.')),
+      h('label', { class: 'check-row' }, 'Replace pages added before', h('span', { class: 'switch' }, h('input', { type: 'checkbox', name: 'force' }), h('span', {})))),
+  };
+  const tabs = segmented([{ value: 'text', label: 'Text' }, { value: 'files', label: 'Files' }, { value: 'web', label: 'Web pages' }], mode, (value) => {
+    mode = value;
+    for (const [name, pane] of Object.entries(panes)) pane.hidden = name !== value;
+  }, 'Content type');
+
+  openModal({
+    title: 'Add content',
+    text: 'New content is searchable by SNAIC Bot as soon as it is added.',
+    confirmLabel: 'Add',
+    wide: true,
+    body: [tabs, ...Object.values(panes)],
+    onConfirm: async (form) => {
+      let result;
+      if (mode === 'text') {
+        const title = String(form.get('title') || '').trim();
+        const text = String(form.get('content') || '').trim();
+        if (!title || !text) throw new Error('Add a title and some content.');
+        result = await api.ingestText(title, text);
+      } else if (mode === 'files') {
+        const files = form.getAll('files').filter((file) => file && file.size);
+        if (!files.length) throw new Error('Choose at least one file.');
+        result = await api.ingestFiles(files);
+      } else {
+        const urls = String(form.get('urls') || '').split(/\s+/).map((url) => url.trim()).filter(Boolean);
+        if (!urls.length) throw new Error('Add at least one web address.');
+        result = await api.ingestWebsites(urls, form.get('force') === 'on');
+      }
+      const failures = (result.results || []).filter((item) => !item.success);
+      const duplicates = (result.results || []).filter((item) => item.success && item.deduplicated);
+      const added = (result.results || []).length - failures.length - duplicates.length;
+      if (failures.length && !added && !duplicates.length) throw new Error(failures.map((item) => `${item.filename}: ${item.error}`).join('\n'));
+      toast(`Added ${added}${duplicates.length ? `, ${duplicates.length} already known` : ''}${failures.length ? `, ${failures.length} failed` : ''}`, failures.length ? 'bad' : '');
+      route();
+    },
+  });
+}
+
+async function showDocument(row) {
+  const close = openDrawer(row.title, [h('div', { class: 'skeleton-lines' }, h('div', { class: 'skeleton' }), h('div', { class: 'skeleton' }))]);
+  let details;
+  try {
+    details = await api.document(row.id);
+  } catch (exc) {
+    close();
+    toast(exc.message, 'bad');
+    return;
+  }
+  const doc = details.document;
+  close();
+  let closeDetails = () => {};
+  const actions = h('div', { class: 'toolbar' },
+    doc.source_type === 'website' ? h('button', {
+      class: 'button',
+      onclick: async (event) => {
+        event.currentTarget.disabled = true;
+        try { await api.refetchDocument(doc.id); toast('Page fetched again'); route(); } catch (exc) { toast(exc.message, 'bad'); }
+      },
+    }, icon('refresh'), 'Fetch again') : '',
+    h('button', {
+      class: 'button danger',
+      onclick: () => openModal({
+        title: `Delete "${doc.title}"?`,
+        text: doc.source_type === 'cms' ? 'This is website content: it comes back the next time website content is refreshed.' : 'SNAIC Bot stops using it straight away. This cannot be undone.',
+        confirmLabel: 'Delete', danger: true,
+        onConfirm: async () => { await api.deleteDocument(doc.id); closeDetails(); toast('Deleted'); route(); },
+      }),
+    }, icon('trash'), 'Delete'));
+  closeDetails = openDrawer(doc.title, [
+    h('div', { class: 'toolbar' }, h('span', { class: 'pill neutral' }, sourceLabel(doc.source_type)), h('span', { class: 'muted' }, `Updated ${fmt.dateTime(doc.updated_at)}`)),
+    h('dl', { class: 'kv' },
+      doc.url ? [h('dt', {}, 'Address'), h('dd', {}, h('a', { href: doc.url, target: '_blank', rel: 'noopener noreferrer' }, doc.url))] : '',
+      h('dt', {}, 'Search chunks'), h('dd', {}, fmt.int(details.chunk_count)),
+      h('dt', {}, 'Added by'), h('dd', {}, doc.created_by),
+      h('dt', {}, 'Embedding model'), h('dd', {}, doc.embedding_model)),
+    actions,
+    h('h3', {}, 'What SNAIC Bot reads'),
+    h('div', { class: 'bubble bot doc-text' }, details.full_text),
+  ]);
 }
 
 function sourceLabel(type) {

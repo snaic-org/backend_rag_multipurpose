@@ -614,6 +614,7 @@ Response style:
 class SystemPromptResponse(BaseModel):
     system_prompt: str
     updated_at: datetime
+    is_custom: bool = False
 
 
 class ModelCatalogGenerationProfile(BaseModel):
@@ -692,6 +693,7 @@ class SystemPromptRecord(BaseModel):
     id: int
     system_prompt: str
     updated_at: datetime
+    is_custom: bool = False
 
 
 class UserRecord(BaseModel):
@@ -774,3 +776,26 @@ class AnalyticsResponse(BaseModel):
     average_answer_chars: int = 0
     feedback: AnalyticsFeedback = Field(default_factory=AnalyticsFeedback)
     truncated: bool = False
+
+
+class PlaygroundRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message: str = Field(min_length=1, max_length=2000)
+    generation_profile: str | None = Field(default=None, description="Model profile to answer with; defaults to the live one.")
+    system_prompt: str | None = Field(default=None, max_length=40000, description="Draft system prompt to try instead of the saved one.")
+
+
+class PlaygroundSource(BaseModel):
+    title: str
+    url: str | None = None
+
+
+class PlaygroundResponse(BaseModel):
+    answer: str
+    generation_profile: str
+    provider: ProviderName
+    model: str
+    latency_ms: int
+    used_fallback: bool = False
+    sources: list[PlaygroundSource] = Field(default_factory=list)

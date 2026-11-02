@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS system_prompt_settings (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- TRUE once an admin saves their own prompt: startup then keeps it instead of
+-- rolling out the built-in default.
+ALTER TABLE system_prompt_settings ADD COLUMN IF NOT EXISTS is_custom BOOLEAN NOT NULL DEFAULT FALSE;
+
 CREATE TABLE IF NOT EXISTS model_selection_settings (
     id SMALLINT PRIMARY KEY CHECK (id = 1),
     generation_profile TEXT NOT NULL,

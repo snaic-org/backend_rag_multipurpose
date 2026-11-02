@@ -50,6 +50,10 @@ const ICON_PATHS = {
   table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
   download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',
+  spark: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><path d="m6.3 6.3 2.1 2.1M15.6 15.6l2.1 2.1M6.3 17.7l2.1-2.1M15.6 8.4l2.1-2.1"/>',
+  edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  upload: '<path d="M12 21V9M7 14l5-5 5 5"/><path d="M5 3h14"/>',
 };
 
 export function icon(name, extraClass = '') {
@@ -144,14 +148,14 @@ export function openDrawer(title, body) {
   return close;
 }
 
-export function openModal({ title, text, body, confirmLabel = 'Save', danger = false, onConfirm }) {
+export function openModal({ title, text, body, confirmLabel = 'Save', danger = false, wide = false, onConfirm }) {
   const previous = document.activeElement;
   const overlay = h('div', { class: 'overlay' });
   const error = h('div', { class: 'error-text', role: 'alert' });
   const confirm = h('button', { class: `button ${danger ? 'danger' : 'primary'}`, type: 'submit' }, confirmLabel);
   const cancel = h('button', { class: 'button', type: 'button' }, 'Cancel');
   const form = h('form', {}, body || '', error, h('div', { class: 'actions' }, cancel, confirm));
-  const modal = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
+  const modal = h('div', { class: `modal${wide ? ' wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('h2', {}, title), text ? h('p', {}, text) : '', form);
   let release;
   const close = () => { release(); overlay.remove(); modal.remove(); previous?.focus?.(); };
@@ -316,4 +320,70 @@ export function download(filename, text) {
   document.body.append(link);
   link.click();
   setTimeout(() => { URL.revokeObjectURL(link.href); link.remove(); }, 0);
+}
+
+// ---------- Markdown (model answers) ----------
+// A small renderer for the Markdown SNAIC Bot writes: headings, lists, tables,
+// bold, italics, code and links. It builds DOM nodes, so answer text can never
+// become HTML, and only http(s) and mailto links are kept.
+export function markdown(source) {
+  const root = h('div', { class: 'md' });
+  const lines = String(source || '').replace(/\r\n/g, '\n').split('\n');
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    if (!line.trim()) { index += 1; continue; }
+    const heading = line.match(/^(#{1,4})\s+(.*)$/);
+    if (heading) {
+      root.append(h(`h${Math.min(6, heading[1].length + 2)}`, {}, inline(heading[2])));
+      index += 1;
+      continue;
+    }
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      const rows = [];
+      while (index < lines.length && /^\s*\|.*\|\s*$/.test(lines[index])) rows.push(lines[index++]);
+      const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
+      const body = rows.filter((row) => !/^\s*\|?\s*:?-{2,}/.test(row));
+      const [head, ...rest] = body;
+      root.append(h('div', { class: 'md-table' }, h('table', { class: 'table' },
+        h('thead', {}, h('tr', {}, cells(head).map((cell) => h('th', {}, inline(cell))))),
+        h('tbody', {}, rest.map((row) => h('tr', {}, cells(row).map((cell) => h('td', {}, inline(cell)))))))));
+      continue;
+    }
+    const listMatch = line.match(/^\s*([-*•]|\d+[.)])\s+/);
+    if (listMatch) {
+      const ordered = /\d/.test(listMatch[1]);
+      const list = h(ordered ? 'ol' : 'ul', {});
+      while (index < lines.length && /^\s*([-*•]|\d+[.)])\s+/.test(lines[index])) {
+        list.append(h('li', {}, inline(lines[index].replace(/^\s*([-*•]|\d+[.)])\s+/, ''))));
+        index += 1;
+      }
+      root.append(list);
+      continue;
+    }
+    const paragraph = [];
+    while (index < lines.length && lines[index].trim() && !/^(#{1,4})\s|^\s*([-*•]|\d+[.)])\s+|^\s*\|/.test(lines[index])) {
+      paragraph.push(lines[index++]);
+    }
+    root.append(h('p', {}, inline(paragraph.join(' '))));
+  }
+  return root;
+}
+
+function inline(text) {
+  const nodes = [];
+  const pattern = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`/g;
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    if (match[1] !== undefined) {
+      const safe = /^(https?:|mailto:)/i.test(match[2]);
+      nodes.push(safe ? h('a', { href: match[2], target: '_blank', rel: 'noopener noreferrer' }, match[1]) : match[1]);
+    } else if (match[3] !== undefined) nodes.push(h('strong', {}, match[3]));
+    else if (match[4] !== undefined) nodes.push(h('em', {}, match[4]));
+    else nodes.push(h('code', {}, match[5]));
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
 }

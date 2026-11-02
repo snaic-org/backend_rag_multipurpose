@@ -83,6 +83,12 @@ class ModelHealthService:
             return
         self._cached_at = float("-inf")
 
+    def invalidate(self) -> None:
+        """Expire the cached result now, e.g. after the active models changed,
+        so the next check probes the new models instead of reporting the old ones."""
+        if self._cached is not None:
+            self._cached_at = float("-inf")
+
     async def aclose(self) -> None:
         """Cancel a background refresh still running at shutdown."""
         if self._refresh_task is not None and not self._refresh_task.done():

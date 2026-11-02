@@ -13,7 +13,8 @@ class SystemPromptRepository:
             SELECT
                 id,
                 system_prompt,
-                updated_at
+                updated_at,
+                is_custom
             FROM system_prompt_settings
             WHERE id = 1
         """
@@ -28,28 +29,32 @@ class SystemPromptRepository:
 
         return SystemPromptRecord.model_validate(row)
 
-    async def update_system_prompt(self, system_prompt: str) -> SystemPromptRecord:
+    async def update_system_prompt(self, system_prompt: str, *, is_custom: bool = False) -> SystemPromptRecord:
         query = """
             INSERT INTO system_prompt_settings (
                 id,
-                system_prompt
+                system_prompt,
+                is_custom
             )
             VALUES (
                 1,
-                %(system_prompt)s
+                %(system_prompt)s,
+                %(is_custom)s
             )
             ON CONFLICT (id) DO UPDATE
                 SET system_prompt = EXCLUDED.system_prompt,
+                    is_custom = EXCLUDED.is_custom,
                     updated_at = NOW()
             RETURNING
                 id,
                 system_prompt,
-                updated_at
+                updated_at,
+                is_custom
         """
 
         async with self._pool.connection() as connection:
             async with connection.cursor(row_factory=dict_row) as cursor:
-                await cursor.execute(query, {"system_prompt": system_prompt})
+                await cursor.execute(query, {"system_prompt": system_prompt, "is_custom": is_custom})
                 row = await cursor.fetchone()
             await connection.commit()
 

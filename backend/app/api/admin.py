@@ -1,9 +1,12 @@
+import time as clock
 from datetime import datetime, time, timezone
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.errors import raise_value_error
+from app.core.logging import get_logger
 from app.core.security import require_admin_user
 from app.models.schemas import (
     AnalyticsResponse,
@@ -15,6 +18,9 @@ from app.models.schemas import (
     ModelCatalogResponse,
     ModelSelectionResponse,
     ModelSelectionUpdateRequest,
+    PlaygroundRequest,
+    PlaygroundResponse,
+    PlaygroundSource,
     IngestedDocumentDetails,
     IngestedDocumentSummary,
     ResetResponse,
@@ -32,6 +38,7 @@ from app.services.chat_feedback_service import ChatFeedbackService
 from app.services.document_inspection_service import DocumentInspectionService
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 def _parse_activity_datetime(value: str | None, *, end_of_day: bool) -> datetime | None:
@@ -126,13 +133,25 @@ async def update_model_selection(
     payload: ModelSelectionUpdateRequest,
     _: AuthenticatedUser = Depends(require_admin_user),
 ) -> ModelSelectionResponse:
+    settings = request.app.state.settings
+    for profiles, name in (
+        (settings.generation_profiles, payload.generation_profile),
+        (settings.embedding_profiles, payload.embedding_profile),
+    ):
+        if name in profiles:
+            await _require_provider_ready(request, profiles[name].provider)
     try:
-        return await _build_model_selection_service(request).update_model_selection(
+        updated = await _build_model_selection_service(request).update_model_selection(
             payload.generation_profile,
             payload.embedding_profile,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    # /health/models would otherwise keep reporting the previous models for up to a day.
+    health = getattr(request.app.state, "model_health_service", None)
+    if health is not None:
+        health.invalidate()
+    return updated
 
 
 @router.get("/documents", response_model=list[IngestedDocumentSummary])
@@ -313,6 +332,76 @@ async def create_user(
         return await _build_auth_service(request).create_user(payload)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+async def _require_provider_ready(request: Request, provider: str) -> None:
+    """Refuse a model whose provider has no API key or cannot be reached, so a
+    switch cannot leave the live chatbot unable to answer."""
+    health = await request.app.state.providers.get(provider).healthcheck()
+    if not health.ok:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"The {provider} provider is not ready ({health.detail}). Configure it before switching to its models.",
+        )
+
+
+@router.post("/playground", response_model=PlaygroundResponse)
+async def playground(
+    request: Request,
+    payload: PlaygroundRequest,
+    current_user: AuthenticatedUser = Depends(require_admin_user),
+) -> PlaygroundResponse:
+    """Try a question against the knowledge base with any configured model and,
+    optionally, a draft system prompt. Not logged as a visitor chat; changes
+    nothing."""
+    settings = request.app.state.settings
+    profile = payload.generation_profile or (await _build_model_selection_service(request).get_model_selection()).generation_profile
+    spec = settings.generation_profiles.get(profile)
+    if spec is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown model profile '{profile}'.")
+    await _require_provider_ready(request, spec.provider)
+
+    started = clock.monotonic()
+    try:
+        result = await request.app.state.chat_service.preview_answer(
+            message=payload.message,
+            provider=spec.provider,
+            model=spec.model,
+            rate_limit_key=f"playground:{current_user.id}",
+            system_prompt=payload.system_prompt,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.warning("playground_failed profile=%s error=%r", profile, exc)
+        reason = f"HTTP {exc.response.status_code}" if isinstance(exc, httpx.HTTPStatusError) else type(exc).__name__
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"{spec.model} did not answer ({reason}).",
+        ) from exc
+
+    sources: list[PlaygroundSource] = []
+    for citation in result.citations:
+        if all(source.title != citation.title for source in sources):
+            sources.append(PlaygroundSource(title=citation.title, url=citation.url))
+    return PlaygroundResponse(
+        answer=result.answer,
+        generation_profile=profile,
+        provider=spec.provider,
+        model=spec.model,
+        latency_ms=int((clock.monotonic() - started) * 1000),
+        used_fallback=result.used_fallback,
+        sources=sources,
+    )
+
+
+@router.post("/system-prompt/reset", response_model=SystemPromptResponse)
+async def reset_system_prompt(
+    request: Request,
+    _: AuthenticatedUser = Depends(require_admin_user),
+) -> SystemPromptResponse:
+    """Go back to the built-in prompt; future built-in updates then apply again."""
+    return await _build_prompt_service(request).reset_system_prompt()
 
 
 @router.get("/system-prompt", response_model=SystemPromptResponse)
