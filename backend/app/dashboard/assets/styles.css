@@ -106,6 +106,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body { margin: 0; height: 100%; }
 
@@ -523,3 +524,63 @@ table.table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .topbar .spacer { display: none; }
   .topbar .search { max-width: none; }
 }
+
+/* Models in use strip (Overview, Usage & cost) */
+.model-strip { display: flex; align-items: center; gap: 20px; flex-wrap: nowrap; padding: 14px 20px; margin-bottom: 16px; }
+.model-strip .lead { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+.model-strip .badge { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.model-strip .badge svg { width: 18px; height: 18px; }
+.model-strip .divider { width: 1px; align-self: stretch; background: var(--hairline); }
+.model-strip .lead { flex-shrink: 0; }
+.model-strip .item { flex: 1 1 0; min-width: 0; display: grid; gap: 2px; }
+.model-strip .role { font-size: 12px; color: var(--text-3); }
+.model-strip .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; min-width: 0; }
+.model-strip .model { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-strip .meta { font-size: 12px; color: var(--text-3); }
+.model-strip .details { margin-left: auto; flex-shrink: 0; text-decoration: none; }
+@media (max-width: 1100px) {
+  .model-strip { flex-wrap: wrap; gap: 12px; }
+  .model-strip .divider { display: none; }
+  .model-strip .item { flex: 1 1 100%; }
+  .model-strip .details { margin-left: 0; }
+}
+
+/* Playground */
+.playground-controls { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.playground-controls .field { min-width: 240px; flex: 1 1 240px; }
+.playground-controls .draft-toggle { flex: 1 1 260px; }
+.playground { display: grid; gap: 14px; }
+.playground-thread { display: grid; gap: 14px; min-height: 240px; max-height: 62vh; overflow-y: auto; padding: 4px; align-content: start; }
+.playground-answers { display: grid; gap: 14px; }
+.playground-answers.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 900px) { .playground-answers.cols-2 { grid-template-columns: 1fr; } }
+.answer-card { background: var(--surface-2); box-shadow: none; border: 1px solid var(--hairline); animation: fade-up 0.35s var(--ease) both; }
+.answer-card h3 { font: 600 15px/1.3 var(--font-display); margin: 0; }
+.sources { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; font-size: 12px; }
+.sources .tag { font-size: 12px; text-decoration: none; }
+.samples .tag { cursor: pointer; }
+.composer { display: flex; gap: 10px; align-items: flex-end; }
+.composer textarea { resize: none; border-radius: 16px; }
+.skeleton-lines { display: grid; gap: 8px; }
+.skeleton-lines .skeleton { height: 12px; }
+.skeleton-lines .skeleton.short { width: 60%; }
+
+/* Rendered Markdown answers */
+.md { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.md p { margin: 0 0 8px; }
+.md ul, .md ol { margin: 0 0 8px; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md h3, .md h4, .md h5, .md h6 { font: 600 14px/1.3 var(--font-display); margin: 10px 0 6px; }
+.md code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.md-table { overflow-x: auto; margin: 6px 0 10px; border: 1px solid var(--hairline); border-radius: 10px; }
+.md-table .table th, .md-table .table td { padding: 7px 10px; font-size: 13px; }
+
+/* Prompt editor */
+.prompt-editor { min-height: 58vh; font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; letter-spacing: 0; }
+.prompt-actions { margin-top: 12px; justify-content: space-between; }
+
+/* Misc */
+.modal.wide { width: min(600px, calc(100vw - 32px)); }
+.modal .segmented { margin-bottom: 4px; }
+.button.disabled { opacity: 0.45; pointer-events: none; }
+.doc-text { max-height: 50vh; overflow-y: auto; font-size: 13px; }

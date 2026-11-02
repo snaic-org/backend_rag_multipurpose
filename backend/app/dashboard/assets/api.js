@@ -33,11 +33,12 @@ export const session = {
 
 async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = { Accept: 'application/json' };
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = body instanceof FormData; // file uploads: the browser sets the multipart header
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
   if (auth && session.token) headers.Authorization = `Bearer ${session.token}`;
   let response;
   try {
-    response = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    response = await fetch(path, { method, headers, body: body === undefined ? undefined : isForm ? body : JSON.stringify(body) });
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection.', 0);
   }
@@ -73,12 +74,26 @@ export const api = {
     return request(`/admin/chat-feedback?${params}`);
   },
   modelSelection: () => request('/admin/model-selection'),
+  setModelSelection: (generationProfile, embeddingProfile) => request('/admin/model-selection', { method: 'PUT', body: { generation_profile: generationProfile, embedding_profile: embeddingProfile } }),
+  playground: ({ message, generationProfile, systemPrompt }) => request('/admin/playground', { method: 'POST', body: { message, generation_profile: generationProfile || null, system_prompt: systemPrompt ?? null } }),
   modelCatalog: () => request('/admin/model-catalog'),
   health: () => request('/health', { auth: false }),
   modelHealth: () => request('/health/models', { auth: false }),
   documents: () => request('/admin/documents?limit=2000'),
+  document: (id) => request(`/admin/documents/${encodeURIComponent(id)}`),
+  deleteDocument: (id) => request(`/admin/documents/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  refetchDocument: (id) => request(`/admin/documents/${encodeURIComponent(id)}/reingest`, { method: 'POST' }),
+  ingestText: (title, content) => request('/ingest/text', { method: 'POST', body: { items: [{ title, content }] } }),
+  ingestFiles: (files) => {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+    return request('/ingest/files', { method: 'POST', body: form });
+  },
+  ingestWebsites: (urls, forceReingest) => request('/ingest/websites', { method: 'POST', body: { urls, force_reingest: forceReingest } }),
   refreshCms: () => request('/ingest/cms', { method: 'POST', body: { content_types: [], force_reingest: true } }),
   systemPrompt: () => request('/admin/system-prompt'),
+  saveSystemPrompt: (text) => request('/admin/system-prompt', { method: 'PUT', body: { system_prompt: text } }),
+  resetSystemPrompt: () => request('/admin/system-prompt/reset', { method: 'POST' }),
   users: () => request('/admin/users'),
   createUser: (user) => request('/admin/users', { method: 'POST', body: user }),
   updateUser: (id, changes) => request(`/admin/users/${encodeURIComponent(id)}`, { method: 'PATCH', body: changes }),

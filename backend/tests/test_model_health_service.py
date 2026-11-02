@@ -253,3 +253,19 @@ def test_model_health_aclose_cancels_background_refresh() -> None:
     task = asyncio.run(run())
 
     assert task.cancelled()
+
+
+def test_invalidate_forces_the_next_check_to_reprobe() -> None:
+    from types import SimpleNamespace
+
+    from app.services.model_health_service import ModelHealthService
+
+    service = ModelHealthService.__new__(ModelHealthService)
+    service._cached = None
+    service._cached_at = 123.0
+    service.invalidate()
+    assert service._cached_at == 123.0  # nothing cached yet: nothing to expire
+
+    service._cached = SimpleNamespace()
+    service.invalidate()
+    assert service._cached_at == float("-inf")

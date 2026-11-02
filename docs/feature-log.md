@@ -578,6 +578,23 @@ Result:
 - prompt improvements are now reflected in the actual backend system after restart, not only in eval-specific paths
 - existing environments migrate safely to the improved built-in SNAIC prompt without clobbering intentional custom prompts
 
+## v0.8.1 - 2026-11-02
+
+Console: test chat, model switching, prompt editing and adding content.
+
+Added:
+
+- Playground page and `POST /admin/playground` (admin): answer a question through the normal retrieval pipeline with any configured model and, optionally, a draft system prompt; compare two models side by side. Not logged as a visitor chat and changes nothing
+- Prompt page: edit the system prompt, try the draft in the Playground, save, or reset with `POST /admin/system-prompt/reset`
+- Models page: try any answer model and switch the live one ("Use for answers"); embedding models stay read-only because switching needs a re-index
+- Knowledge base page: add pasted text, files (.txt, .md, .docx, .csv, .xlsx) and web pages through the existing `/ingest` endpoints; open a document to read its indexed text, fetch a web page again, or delete it
+- "Models in use" strip on Overview and Usage & cost
+
+Changed:
+
+- a prompt saved through `PUT /admin/system-prompt` is marked custom (`system_prompt_settings.is_custom`, returned as `is_custom`) and kept across restarts; startup only rolls out the built-in prompt while no custom prompt is saved. Prompts stored before this release count as built-in
+- `PUT /admin/model-selection` refuses a model whose provider is not ready (no API key or unreachable) and expires the cached `/health/models` result, so health reflects the new model straight away
+
 ## v0.8.0 - 2026-11-02
 
 SNAIC Console: an admin dashboard served by the API at `/dashboard/`.
